@@ -13,11 +13,14 @@ import { skyDir, fmtTime, REF } from './sun.js';
 import { setupSkyClock } from './skyclock.js';
 import { buildArcadeTree, createArcade } from './arcade.js';
 import { createArcadePlayer } from './arcadeplayer.js';
+import { createPostcardMaker } from './postcard.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA canvas px -> world units
 const world = await fetch('data/world.json').then(r => { if (!r.ok) throw new Error('world.json ' + r.status); return r.json(); });
 // Nova's Arcade (data/arcade.json): optional, the world still loads without it
 const arcadeData = await fetch('data/arcade.json').then(r => (r.ok ? r.json() : null)).catch(() => null);
+// Exoplanet postcards (data/postcards.json, real NASA Exoplanet Archive values): optional too
+const postcardData = await fetch('data/postcards.json').then(r => (r.ok ? r.json() : null)).catch(() => null);
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
@@ -130,7 +133,7 @@ sunDisk.renderOrder = moonHalo.renderOrder = sunHalo.renderOrder = sunHalo2.rend
 // ---------- islands ----------
 const loadSTL = makeSTLLoader();
 const islands = []; const pickables = []; const updaters = [];
-const ctx = { world, loadSTL, home: HOME.pos };
+const ctx = { world, loadSTL, home: HOME.pos, postcards: postcardData };
 world.islands.forEach((isl, idx) => {
   const r = Math.max(6.5, isl.radius * SCALE * 1.15);
   const g = islandBase(isl, r, 100 + idx * 13);
@@ -248,7 +251,7 @@ function visit(id, { open = true } = {}) {
   follow = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : id === 'pixelStudio' && studio ? studio.viewPoint(innerWidth < innerHeight) : islandView(isl); flyTo(v.pos, v.target); novaAt = isl; novaBrainT.goTo(isl, t);
   if (open) {
     if (isl.data.arcade) renderArcadePanel(arcadeData, { onEnter: () => enterArcade(), onPlay: gm => enterArcade(undefined, { game: gm.id }), onWing: w => enterArcade(w) });
-    else { renderPanel(isl.data, world, { onView: viewPrint }); if (id === 'pixelStudio' && studio) renderStudioBox(world, { radio, onPainting: i => openPainting(i) }); }
+    else { renderPanel(isl.data, world, { onView: viewPrint }); if (id === 'pixelStudio' && studio) renderStudioBox(world, { radio, onPainting: i => openPainting(i) }); if (id === 'starDock') postcardButton(); }
     openSheet('panel');
   }
   setChip(id);
@@ -291,6 +294,7 @@ canvas.addEventListener('pointerup', e => {
   if (hit?.object.userData.lorenz) return meetLorenz();
   if (hit?.object.userData.house) return enterHouse();
   if (hit?.object.userData.arcadeDoor) return enterArcade();
+  if (hit?.object.userData.postcards) return openPostcards();
   if (hit) visit(hit.object.userData.islandId);
 });
 canvas.addEventListener('pointermove', e => {
@@ -399,6 +403,15 @@ async function exitArcade() {
   if (arcadeExt) { camera.position.copy(arcadeExt.doorFront(1.6)); controls.target.copy(arcadeExt.doorWorld()); const far = innerWidth < innerHeight ? 22 : 13; flyTo(arcadeExt.doorFront(far).add(new THREE.Vector3(0, far * 0.45, 0)), arcadeExt.doorWorld().add(new THREE.Vector3(0, 2.5, 0)), 1.8); }
   fade(false); busy = false; setChip('arcade');
 }
+// ---------- Exoplanet Postcard Maker: a kiosk on Star Dock (js/postcard.js) ----------
+const postcards = postcardData ? createPostcardMaker(postcardData, { onOpen: () => { leaveStudio('opened the postcards'); closeSheets(); }, onClose: () => resumeLoop() }) : null;
+function postcardButton() {
+  if (!postcards) return; const body = document.querySelector('#panel .sheet-body'); if (!body || body.querySelector('.pc-open-btn')) return;
+  const box = document.createElement('div'); box.className = 'studio-box pc-open-btn';
+  box.innerHTML = `<button class="pill gold">🪐 Open the Postcard Maker</button><p style="margin:6px 0 0;color:var(--muted);font-size:13px">${postcardData.planets.length} real exoplanets, painted from NASA Exoplanet Archive numbers. Or tap the postcard rack.</p>`;
+  box.querySelector('button').onclick = () => openPostcards(); const h = body.querySelector('h2'); h ? h.after(box) : body.prepend(box);
+}
+function openPostcards(id) { if (!postcards || inside || inArcade) return false; postcards.open(id); return true; }
 function resumeLoop() { if (loopStopped) { loopStopped = false; last = performance.now(); requestAnimationFrame(frame); } }
 if (arcade) {
   const wc = document.getElementById('wing-chips');
@@ -442,6 +455,7 @@ addEventListener('resize', () => {
 addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (lightboxState().open) return;   // the viewer handles its own Esc
+  if (postcards?.isOpen) return;    // so does the postcard maker
   const open = document.querySelector('.sheet.open') || !document.getElementById('viewer').hidden;
   closeSheets(); closeViewer();
   if (!open && inside) exitHouse();
@@ -515,7 +529,7 @@ skyTick(performance.now(), true);
 let last = performance.now(), t = 0;
 function frame() {
   const now = performance.now(); const dt = Math.min((now - last) / 1000, 0.05); last = now; t += dt;
-  if (player.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game is open
+  if (player.isOpen || postcards?.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game or the postcard maker is open
   skyTick(now); skyU.uTime.value = t;
   if (inArcade) {
     arcade.update(dt, t);
@@ -555,7 +569,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, ready: true };
 // test helper: look from near the Hearth toward a point in the sky (azimuth, elevation in degrees)
 window.__lookSky = (az, el = 8) => { follow = null; const d = skyDir(el, az); const from = new THREE.Vector3(-d[0] * 30, 14, -d[2] * 30); flyTo(from, from.clone().add(new THREE.Vector3(d[0] * 60, d[1] * 60 - 8, d[2] * 60)), 0.01); };
 // test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)
@@ -568,12 +582,15 @@ window.__cottageScreen = () => { if (!cottage) return null; const v = cottage.gr
 const toScreen = v => { if (!v) return null; v.project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, front: v.z < 1 }; };
 window.__studioView = (dur = 0.01) => { if (!studio) return; follow = null; const v = studio.viewPoint(innerWidth < innerHeight); flyTo(v.pos, v.target, dur); };
 window.__radioScreen = () => studio ? toScreen(studio.radioWorld()) : null;
+window.__kioskScreen = () => { const isl = byId('starDock'); let k = null; isl?.group.traverse(o => { if (!k && o.isGroup && o.userData.postcards) k = o; }); return k ? toScreen(k.localToWorld(new THREE.Vector3(0, 1.4, 0))) : null; };
+window.__kioskView = (dur = 0.01) => { const isl = byId('starDock'); let k = null; isl?.group.traverse(o => { if (!k && o.isGroup && o.userData.postcards) k = o; }); if (!k) return; follow = null; const c = k.localToWorld(new THREE.Vector3(0, 1.5, 0)); flyTo(k.localToWorld(new THREE.Vector3(0, 3.2, 7.5)), c, dur); };
 window.__paintingScreen = id => studio ? toScreen(studio.paintingWorld(id)) : null;
 const q = new URLSearchParams(location.search);
 if (q.get('island')) visit(q.get('island'));
 if (q.has('lorenz')) meetLorenz();
 if (q.has('studio')) visit('pixelStudio');
 if (q.get('painting')) openPainting(q.get('painting'));
+if (q.has('postcard') || q.get('planet')) { visit('starDock', { open: false }); openPostcards(q.get('planet') || undefined); }
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });
 if (q.has('arcade') || q.get('game')) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: q.get('game') || undefined }); }

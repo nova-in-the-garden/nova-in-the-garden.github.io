@@ -256,6 +256,35 @@ Only Nova's own music goes on the radio (no copyrighted songs).
    Optional: `"pixel": true` for pixel art (upscaled crisp, never blurred), `credit` and `link` for found art.
 3. `python3 build_data.py` (makes `assets/studio/<id>.jpg|png` for the viewer and `<id>_sm` for the 3D texture). Commit and push.
 
+## Exoplanet Postcard Maker (2026-11-16)
+
+There's a postcard rack on **Star Dock**. Tap it, or use the button in the Star Dock panel, and a full-screen maker opens. Pick one of 38 real exoplanets and Nova paints the view from there. Flip the card to read the true facts on the back, add a "To" line and a message (these are stored only in `localStorage`), then download the front or back as an 1800×1200 PNG, or share it. Share falls back to copying a link. The 3D world pauses while the maker is open.
+
+- **Deep links:** `?postcard=1` opens the maker; `?planet=trappist-1-e` opens a specific card.
+- **Data:** `data/postcards.json` is written by `fetch_postcards.py` from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/) Planetary Systems Composite Parameters table (`pscomppars`, TAP). The query time is stored in `queried`.
+  - No values are ever typed in by hand.
+  - A missing value says "unknown" on the card.
+  - Values the archive *calculated* rather than measured (its `*_reflink` says "Calculated") carry a `*_calc` flag and get a `*` on the card.
+- **Refresh or add a planet:** edit `FEATURED` in `fetch_postcards.py` (`pl_name` as the archive spells it, e.g. Kepler-90 h is "KOI-351 h", plus Nova's one-line `why`), then run `python3 fetch_postcards.py && python3 build_data.py`. `build_data.py` checks the file is well formed.
+- **Painting** (`js/postcard.js`, `paintFront` / `paintBack`):
+  - **Derived from the data:**
+    - the star's colour, from its temperature (blackbody);
+    - the sun's apparent size, `2·atan(R★/a)`, drawn at a 64° field of view;
+    - how many suns (`sy_snum`, and `cb_flag` for planets that orbit both stars);
+    - sister planets at their angular size at closest approach;
+    - rocky, lava, icy, ocean or gas-giant look, from radius and equilibrium temperature;
+    - sky brightness, from insolation;
+    - a sun parked on the horizon for planets that are probably tidally locked (period under 10 days, or a cool star and under 40 days, with a near-circular orbit).
+  - **Artistic license:**
+    - rock, sea and cloud colours;
+    - terrain shapes;
+    - whether a sub-Neptune has a sea;
+    - the pond and the flag;
+    - the second sun in binaries, and the size and colour of companion stars (not in the planet table);
+    - the pulsar's beams;
+    - the starfield.
+- **Kiosk:** `postcardKiosk()` in `js/islands.js` builds a turning wire rack whose cards are real `paintFront` renders.
+
 ## Testing
 
 `../site_tools/shoot.mjs` (Playwright) loads the page in headless Chromium using SwiftShader WebGL. It records console errors, failed requests and pages, and saves screenshots to `screenshots/`. Run it with:
@@ -268,6 +297,7 @@ cd /workspace/nova/site_tools && node time.mjs       # time of day: every phase,
 cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up, golden hour with Lorenz, curled up at night, house, bio panel, mobile, island trip
 cd /workspace/nova/site_tools && node studio.mjs     # Pixel Studio: radio click on/off + audio actually playing (AudioContext running, analyser level), next/prev/list/volume, stops on leaving / game open, painting clicks -> hi-res lightbox, arrows, zoom/pan, Esc/×, deep link, phone tap/swipe/pinch
 cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
+cd /workspace/nova/site_tools && node postcard.mjs   # Postcard Maker: rack click, all 38 planets paint, flip, PNG downloads (1800x1200), search, message, copy link/share, keys, Esc, deep links, iPhone layout; `postcard.mjs samples` exports sample cards
 cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```
 

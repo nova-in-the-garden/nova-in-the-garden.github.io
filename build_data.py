@@ -515,6 +515,34 @@ def build_radio() -> tuple[dict | None, list[str]]:
     return {"station": r.get("station", "Nova FM"), "tracks": out}, problems
 
 
+def check_postcards() -> list[str]:
+    """data/postcards.json is written by fetch_postcards.py (real NASA Exoplanet Archive values).
+    Here we only check it is well formed; we never edit the numbers."""
+    f = SITE / "data" / "postcards.json"
+    if not f.exists():
+        return []
+    probs = []
+    try:
+        d = json.loads(f.read_text(encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001
+        return [f"postcards.json: not valid JSON ({e})"]
+    for k in ("source", "citation", "queried", "planets"):
+        if not d.get(k):
+            probs.append(f"postcards.json: missing '{k}'")
+    ids = set()
+    for p in d.get("planets", []):
+        for k in ("id", "name", "hostname"):
+            if not p.get(k):
+                probs.append(f"postcards.json: a planet is missing '{k}'")
+        if p.get("id") in ids:
+            probs.append(f"postcards.json: duplicate id {p.get('id')}")
+        ids.add(p.get("id"))
+    for m in probs:
+        log("  ! " + m)
+    log(f"postcards: {len(d.get('planets', []))} planets, queried {d.get('queried')}")
+    return probs
+
+
 def main():
     IMG_DIR.mkdir(parents=True, exist_ok=True)
     wd = load_world_data()
@@ -587,6 +615,8 @@ def main():
         sys.exit("data/arcade.json has problems (see above); fix them before publishing")
     if sp or rp:
         sys.exit("data/studio.json / data/radio.json have problems (see above); fix them before publishing")
+    if check_postcards():
+        sys.exit("data/postcards.json has problems (see above); re-run fetch_postcards.py")
 
 
 if __name__ == "__main__":

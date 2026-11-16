@@ -4,6 +4,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { rng, rule90, mat, glow, mesh, jitter, glowSprite, textSprite, canvasTexture } from './util.js';
 import { buildCottage } from './house.js';
 import { buildStudio } from './studio.js';
+import { paintFront, CARD_W, CARD_H } from './postcard.js';
 
 const GRASS = { hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
 
@@ -164,7 +165,7 @@ const DECOR = {
       geo.attributes.position.needsUpdate = true;
     };
   },
-  starDock(g) {
+  starDock(g, isl, ctx) {
     const dock = mesh(new THREE.CylinderGeometry(2.4, 2.6, 0.4, 16), mat(0x4a4f6e), 0, 0.2, 0, g);
     const dome = mesh(new THREE.SphereGeometry(2.0, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xc9ccd8, { metalness: .3, roughness: .4 }), -3.5, 0, -2, g);
     mesh(new THREE.BoxGeometry(0.6, 2.2, 0.1), mat(0x101422), -3.5, 1.2, -0.05, g).rotation.x = -0.6;
@@ -176,7 +177,8 @@ const DECOR = {
     const ring = mesh(new THREE.TorusGeometry(1.1, 0.06, 4, 32), glow(0xe8c15a, 0.7), 0, 0, 0, planet); ring.rotation.x = 1.2;
     const sun = mesh(new THREE.IcosahedronGeometry(0.5, 1), glow(0xffe8a0, 2), 0, 0, 0, orbit); const sg = glowSprite(3, 0xffe0a0, .8); orbit.add(sg);
     const path = mesh(new THREE.TorusGeometry(3.2, 0.015, 3, 64), glow(0x8fa8ff, 0.6), 0, 0, 0, orbit); path.rotation.x = Math.PI / 2;
-    return t => { orbit.rotation.y = t * 0.4; planet.rotation.y = t; };
+    const kiosk = ctx?.postcards?.planets?.length ? postcardKiosk(g, ctx.postcards) : null;
+    return t => { orbit.rotation.y = t * 0.4; planet.rotation.y = t; if (kiosk) kiosk(t); };
   },
   pixelStudio(g, isl, ctx) {
     // interactive studio (gallery wall, easels, radio) when data/studio.json or data/radio.json exist
@@ -298,6 +300,40 @@ const DECOR = {
 let gst;
 function glowSpriteTex() {
   if (gst) return gst; gst = canvasTexture(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,220,1)'); r.addColorStop(1, 'rgba(255,240,150,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }); return gst;
+}
+
+// The postcard kiosk on Star Dock: a slowly turning wire rack of real-planet postcards
+// (painted by js/postcard.js) under a glowing sign. Click any part to open the Postcard Maker.
+function postcardKiosk(g, data) {
+  const k = new THREE.Group(); k.position.set(3.4, 0.4, 2.2); k.rotation.y = 0.55; k.userData.postcards = true; g.add(k);
+  const wire = mat(0xc9a94a, { metalness: .7, roughness: .35 });
+  mesh(new THREE.CylinderGeometry(0.75, 0.85, 0.16, 16), mat(0x2b3150), 0, 0.08, 0, k);
+  mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.9, 8), wire, 0, 1.55, 0, k);
+  const rack = new THREE.Group(); rack.position.y = 0.3; k.add(rack);
+  const big = document.createElement('canvas'); big.width = CARD_W; big.height = CARD_H; const bctx = big.getContext('2d');
+  const pick = ['trappist-1-e', 'kepler-16-b', '55-cnc-e', 'kelt-9-b', 'proxima-cen-b', 'k2-18-b', 'hd-189733-b', 'psr-b1257-12-c'];
+  const ps = pick.map(id => data.planets.find(p => p.id === id)).filter(Boolean);
+  while (ps.length < 8) ps.push(data.planets[ps.length % data.planets.length]);
+  const texs = ps.map(p => { try { paintFront(bctx, p); } catch { bctx.fillStyle = '#123'; bctx.fillRect(0, 0, CARD_W, CARD_H); }
+    return canvasTexture(300, 200, c => c.drawImage(big, 0, 0, 300, 200)); });
+  for (let side = 0; side < 4; side++) {
+    const face = new THREE.Group(); face.rotation.y = side * Math.PI / 2; rack.add(face);
+    for (let row = 0; row < 2; row++) {
+      const m = new THREE.MeshBasicMaterial({ map: texs[side * 2 + row], side: THREE.DoubleSide }); m.userData.keepGlow = true;
+      const card = mesh(new THREE.PlaneGeometry(0.78, 0.52), m, 0, 0.75 + row * 0.75, 0.42, face); card.rotation.x = -0.12;
+      mesh(new THREE.BoxGeometry(0.84, 0.04, 0.1), wire, 0, 0.47 + row * 0.75, 0.44, face);
+    }
+  }
+  const signTex = canvasTexture(512, 128, (c, w, h) => {
+    c.fillStyle = '#0d1430'; c.fillRect(0, 0, w, h); c.strokeStyle = '#e8c15a'; c.lineWidth = 8; c.strokeRect(6, 6, w - 12, h - 12);
+    c.font = 'bold 62px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#f6dc8c'; c.fillText('POSTCARDS', w / 2, h / 2 + 3);
+  });
+  const sm = new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide }); sm.userData.keepGlow = true;
+  const sign = new THREE.Group(); sign.position.y = 3.25; k.add(sign);
+  mesh(new THREE.PlaneGeometry(1.7, 0.42), sm, 0, 0, 0, sign);
+  const halo = glowSprite(2.6, 0xffd98a, 0.35); halo.position.y = 3.25; halo.raycast = () => {}; k.add(halo);
+  k.traverse(o => { o.userData.postcards = true; });
+  return t => { rack.rotation.y = t * 0.25; sign.rotation.y = Math.sin(t * 0.4) * 0.5; };
 }
 
 export function decorate(g, isl, ctx) {
