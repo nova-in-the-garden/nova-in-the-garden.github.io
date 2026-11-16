@@ -4,7 +4,9 @@ import { rng, rule90, mesh, glow, glowSprite, textSprite, ease } from './util.js
 import { islandBase, decorate, makeSTLLoader } from './islands.js';
 import { makeLorenz, lorenzBrain } from './lorenz.js';
 import { makeNova, novaBrain } from './novabody.js';
-import { renderPanel, renderUpTo, renderDecor, renderNova, renderArcadePanel, openSheet, closeSheets, setupUI } from './ui.js';
+import { renderPanel, renderUpTo, renderDecor, renderNova, renderArcadePanel, renderStudioBox, openSheet, closeSheets, setupUI } from './ui.js';
+import { createRadio } from './radio.js';
+import { openLightbox, lightboxState } from './lightbox.js';
 import { createHouse } from './house.js';
 import { makeClock, skyState, collectGlows, DAY } from './daylight.js';
 import { skyDir, fmtTime, REF } from './sun.js';
@@ -128,7 +130,7 @@ sunDisk.renderOrder = moonHalo.renderOrder = sunHalo.renderOrder = sunHalo2.rend
 // ---------- islands ----------
 const loadSTL = makeSTLLoader();
 const islands = []; const pickables = []; const updaters = [];
-const ctx = { world, loadSTL };
+const ctx = { world, loadSTL, home: HOME.pos };
 world.islands.forEach((isl, idx) => {
   const r = Math.max(6.5, isl.radius * SCALE * 1.15);
   const g = islandBase(isl, r, 100 + idx * 13);
@@ -144,6 +146,15 @@ world.islands.forEach((isl, idx) => {
   islands.push({ data: isl, group: g, r, baseY, phase: idx * 1.7, label });
 });
 const byId = id => islands.find(i => i.data.id === id);
+
+// ---------- Pixel Studio: radio + clickable paintings (js/studio.js, js/radio.js, js/lightbox.js) ----------
+const studio = ctx.studio || null;
+const radio = createRadio(world.radio, { onChange: st => studio?.setRadio(st) });
+ctx.radioLevel = () => radio.level();
+const paintings = world.studio?.paintings || [];
+function openPainting(id) { const i = typeof id === 'number' ? id : paintings.findIndex(p => p.id === id); if (i >= 0) openLightbox(paintings, i); return i >= 0; }
+// the radio stops when you leave the studio, go inside, or open a game
+function leaveStudio(reason) { if (radio.state.on) radio.off(reason); }
 
 // ---------- Nova's Arcade: a giant hollow tree on its own island (js/arcade.js) ----------
 let arcadeExt = null;
@@ -233,10 +244,11 @@ function islandView(isl) {
 }
 function visit(id, { open = true } = {}) {
   const isl = byId(id); if (!isl) return;
-  follow = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : islandView(isl); flyTo(v.pos, v.target); novaAt = isl; novaBrainT.goTo(isl, t);
+  if (id !== 'pixelStudio') leaveStudio('left the studio');
+  follow = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : id === 'pixelStudio' && studio ? studio.viewPoint(innerWidth < innerHeight) : islandView(isl); flyTo(v.pos, v.target); novaAt = isl; novaBrainT.goTo(isl, t);
   if (open) {
     if (isl.data.arcade) renderArcadePanel(arcadeData, { onEnter: () => enterArcade(), onPlay: gm => enterArcade(undefined, { game: gm.id }), onWing: w => enterArcade(w) });
-    else renderPanel(isl.data, world, { onView: viewPrint });
+    else { renderPanel(isl.data, world, { onView: viewPrint }); if (id === 'pixelStudio' && studio) renderStudioBox(world, { radio, onPainting: i => openPainting(i) }); }
     openSheet('panel');
   }
   setChip(id);
@@ -246,9 +258,9 @@ function arcadeView() {
   if (innerWidth < innerHeight) { v.pos.lerp(v.target, -0.6); v.target.y -= 9; }
   return v;
 }
-function home() { follow = null; flyTo(HOME.pos, HOME.target, 1.8); novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('overview'); }
+function home() { leaveStudio('left the studio'); follow = null; flyTo(HOME.pos, HOME.target, 1.8); novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('overview'); }
 function meetLorenz() {
-  follow = 'lorenz'; novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('lorenz');
+  leaveStudio('left the studio'); follow = 'lorenz'; novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('lorenz');
   const p = lorenz.getWorldPosition(new THREE.Vector3());
   const fwd = new THREE.Vector3(Math.sin(lorenz.rotation.y), 0, Math.cos(lorenz.rotation.y));
   const side = new THREE.Vector3(fwd.z, 0, -fwd.x);
@@ -273,6 +285,8 @@ canvas.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7) return; down = null;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(pickables, false)[0];
+  if (hit?.object.userData.painting) return openPainting(hit.object.userData.painting);
+  if (hit?.object.userData.radio) { radio.toggle(); if (!radio.state.on) radio.show(); return; }
   if (hit?.object.userData.novaPick) return meetNova();
   if (hit?.object.userData.lorenz) return meetLorenz();
   if (hit?.object.userData.house) return enterHouse();
@@ -316,7 +330,7 @@ const fade = on => fadeEl.classList.toggle('on', on);
 async function enterHouse(room, { instant = false } = {}) {
   if (busy) return;
   if (inside) { closeSheets(); if (room) { busy = true; fade(true); await wait(220); house.goto(room); fade(false); busy = false; } return; }
-  busy = true; closeSheets(); follow = null; setChip('house'); novaAt = hearth;
+  busy = true; leaveStudio('went inside'); closeSheets(); follow = null; setChip('house'); novaAt = hearth;
   if (!instant && cottage) {
     flyTo(cottage.doorFront(3.4), cottage.doorWorld(), 1.4); cottage.setDoor(true);
     await wait(1250); fade(true); await wait(420);
@@ -348,7 +362,7 @@ function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTi
 let inArcade = false, loopStopped = false;
 const arcadeScores = {};
 const player = createArcadePlayer({
-  onOpen: () => { closeSheets(); },
+  onOpen: () => { leaveStudio('game opened'); closeSheets(); },
   onClose: () => { resumeLoop(); },
   onScore: (g, s) => { arcadeScores[g.id] = s; },
 });
@@ -369,7 +383,7 @@ async function enterArcade(wing, { instant = false, game } = {}) {
   if (!arcade || busy) return;
   if (inArcade) { closeSheets(); if (wing) arcade.goto(wing); if (game) openGame(game); return; }
   if (inside) { await exitHouse(); await wait(50); }
-  busy = true; closeSheets(); follow = null; setChip('arcade');
+  busy = true; leaveStudio('went to the arcade'); closeSheets(); follow = null; setChip('arcade');
   const isl = byId('arcade'); if (isl) novaAt = isl;
   if (!instant && arcadeExt) { flyTo(arcadeExt.doorFront(3.2), arcadeExt.doorWorld(), 1.5); await wait(1350); fade(true); await wait(420); }
   inArcade = true; controls.enabled = false; document.body.classList.add('in-arcade');
@@ -427,8 +441,9 @@ addEventListener('resize', () => {
 });
 addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  const open = document.querySelector('.sheet.open') || !document.getElementById('viewer').hidden || !document.getElementById('lightbox').hidden;
-  closeSheets(); closeViewer(); document.getElementById('lightbox').hidden = true;
+  if (lightboxState().open) return;   // the viewer handles its own Esc
+  const open = document.querySelector('.sheet.open') || !document.getElementById('viewer').hidden;
+  closeSheets(); closeViewer();
   if (!open && inside) exitHouse();
   if (!open && inArcade) exitArcade();
 });
@@ -540,7 +555,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, ready: true };
 // test helper: look from near the Hearth toward a point in the sky (azimuth, elevation in degrees)
 window.__lookSky = (az, el = 8) => { follow = null; const d = skyDir(el, az); const from = new THREE.Vector3(-d[0] * 30, 14, -d[2] * 30); flyTo(from, from.clone().add(new THREE.Vector3(d[0] * 60, d[1] * 60 - 8, d[2] * 60)), 0.01); };
 // test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)
@@ -550,9 +565,15 @@ window.__pick = (x, y) => { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) *
 window.__arcadeView = (dur = 0.01) => { if (!arcadeExt) return; follow = null; const v = arcadeView(); flyTo(v.pos, v.target, dur); };
 window.__arcadeDoorScreen = () => { if (!arcadeExt) return null; const v = arcadeExt.doorWorld().project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
 window.__cottageScreen = () => { if (!cottage) return null; const v = cottage.group.localToWorld(new THREE.Vector3(0.9, 1.0, 1.6)).project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
+const toScreen = v => { if (!v) return null; v.project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, front: v.z < 1 }; };
+window.__studioView = (dur = 0.01) => { if (!studio) return; follow = null; const v = studio.viewPoint(innerWidth < innerHeight); flyTo(v.pos, v.target, dur); };
+window.__radioScreen = () => studio ? toScreen(studio.radioWorld()) : null;
+window.__paintingScreen = id => studio ? toScreen(studio.paintingWorld(id)) : null;
 const q = new URLSearchParams(location.search);
 if (q.get('island')) visit(q.get('island'));
 if (q.has('lorenz')) meetLorenz();
+if (q.has('studio')) visit('pixelStudio');
+if (q.get('painting')) openPainting(q.get('painting'));
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });
 if (q.has('arcade') || q.get('game')) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: q.get('game') || undefined }); }

@@ -35,6 +35,12 @@ OUT = SITE / "data" / "world.json"
 EXTRA = SITE / "data" / "extra.json"
 HOUSE = SITE / "data" / "house.json"
 ARCADE = SITE / "data" / "arcade.json"
+STUDIO = SITE / "data" / "studio.json"
+RADIO = SITE / "data" / "radio.json"
+STUDIO_DIR = SITE / "assets" / "studio"
+RADIO_DIR = SITE / "assets" / "audio" / "radio"
+MAX_HI = 2400           # px, longest side of lightbox images
+MAX_TEX = 768           # px, in-world painting textures
 IMG_DIR = SITE / "assets" / "img"
 PRINT_DIR = SITE / "assets" / "prints"
 AUDIO_DIR = SITE / "assets" / "audio"
@@ -411,6 +417,104 @@ def check_arcade() -> list[str]:
     return problems
 
 
+def _fresh(dst: Path, src: Path) -> bool:
+    return dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime
+
+
+def build_studio() -> tuple[dict | None, list[str]]:
+    """data/studio.json -> high-res lightbox images + in-world textures in assets/studio/."""
+    if not STUDIO.exists():
+        return None, []
+    try:
+        st = json.loads(STUDIO.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return None, [f"studio.json is not valid JSON: {e}"]
+    STUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    problems, out, ids = [], [], set()
+    for p in st.get("paintings", []):
+        pid = p.get("id")
+        if not pid or pid in ids or not re.fullmatch(r"[a-z0-9-]+", pid):
+            problems.append(f"painting {pid!r}: id must be unique, lowercase letters, digits and dashes"); continue
+        ids.add(pid)
+        if p.get("place") not in ("easel", "wall"):
+            problems.append(f"painting {pid!r}: place must be 'easel' or 'wall'")
+        for k in ("title", "source"):
+            if not p.get(k):
+                problems.append(f"painting {pid!r}: missing {k}")
+        src = NOVA / p.get("source", "")
+        if not p.get("source") or not src.is_file():
+            problems.append(f"painting {pid!r}: source not found: {p.get('source')}"); continue
+        im = Image.open(src); im.load()
+        pixel = bool(p.get("pixel"))
+        if pixel:  # crisp pixel art: whole-number nearest-neighbour upscale, PNG
+            k = max(1, MAX_HI // max(im.size))
+            hi = STUDIO_DIR / f"{pid}.png"; tex = STUDIO_DIR / f"{pid}_sm.png"
+            if not _fresh(hi, src):
+                im.convert("RGB").resize((im.width * k, im.height * k), Image.NEAREST).save(hi, optimize=True)
+            if not _fresh(tex, src):
+                t = im.convert("RGB")
+                if max(t.size) > MAX_TEX: t = t.resize((t.width // 2, t.height // 2), Image.NEAREST)
+                t.save(tex, optimize=True)
+            size = (im.width * k, im.height * k)
+        else:
+            hi = STUDIO_DIR / f"{pid}.jpg"; tex = STUDIO_DIR / f"{pid}_sm.jpg"
+            rgb = im.convert("RGB")
+            if not _fresh(hi, src):
+                h = rgb.copy(); h.thumbnail((MAX_HI, MAX_HI), Image.LANCZOS); h.save(hi, quality=86, optimize=True, progressive=True)
+            if not _fresh(tex, src):
+                t = rgb.copy(); t.thumbnail((MAX_TEX, MAX_TEX), Image.LANCZOS); t.save(tex, quality=82, optimize=True, progressive=True)
+            size = Image.open(hi).size
+        q = {k: v for k, v in p.items() if k != "source"}
+        q.update(src=f"assets/studio/{hi.name}", texture=f"assets/studio/{tex.name}", w=size[0], h=size[1])
+        out.append(q)
+    n_e = sum(1 for p in out if p.get("place") == "easel")
+    log(f"studio: {len(out)} paintings ({n_e} on easels, {len(out) - n_e} on the gallery wall)")
+    for pr in problems:
+        log("  STUDIO:", pr)
+    return {"paintings": out}, problems
+
+
+def build_radio() -> tuple[dict | None, list[str]]:
+    """data/radio.json -> assets/audio/radio/<id>.mp3 (+ measured length)."""
+    if not RADIO.exists():
+        return None, []
+    try:
+        r = json.loads(RADIO.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return None, [f"radio.json is not valid JSON: {e}"]
+    RADIO_DIR.mkdir(parents=True, exist_ok=True)
+    problems, out, ids = [], [], set()
+    for t in r.get("tracks", []):
+        tid = t.get("id")
+        if not tid or tid in ids or not re.fullmatch(r"[a-z0-9-]+", tid):
+            problems.append(f"track {tid!r}: id must be unique, lowercase letters, digits and dashes"); continue
+        ids.add(tid)
+        src = NOVA / t.get("source", "")
+        if not t.get("title"):
+            problems.append(f"track {tid!r}: missing title")
+        if not t.get("source") or not src.is_file():
+            problems.append(f"track {tid!r}: source not found: {t.get('source')}"); continue
+        ext = src.suffix.lower()
+        if ext not in (".mp3", ".ogg", ".m4a", ".wav"):
+            problems.append(f"track {tid!r}: use mp3 (or ogg/m4a/wav)"); continue
+        dst = RADIO_DIR / f"{tid}{ext}"
+        if not _fresh(dst, src):
+            shutil.copy2(src, dst)
+        secs = None
+        try:
+            secs = round(float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(dst)],
+                                              capture_output=True, text=True, check=True).stdout.strip()), 1)
+        except Exception:
+            pass
+        q = {k: v for k, v in t.items() if k != "source"}
+        q.update(file=f"assets/audio/radio/{dst.name}", seconds=secs)
+        out.append(q)
+    log(f"radio: {len(out)} tracks, {sum(t['seconds'] or 0 for t in out) / 60:.1f} min")
+    for pr in problems:
+        log("  RADIO:", pr)
+    return {"station": r.get("station", "Nova FM"), "tracks": out}, problems
+
+
 def main():
     IMG_DIR.mkdir(parents=True, exist_ok=True)
     wd = load_world_data()
@@ -470,6 +574,9 @@ def main():
         "prints": prints,
         "house": build_house(),
     }
+    studio, sp = build_studio(); radio, rp = build_radio()
+    if studio: world["studio"] = studio
+    if radio: world["radio"] = radio
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(world, indent=1, ensure_ascii=False), encoding="utf-8")
     n_art = sum(len(i["artifacts"]) for i in islands)
@@ -478,6 +585,8 @@ def main():
         f"{len((world['house'] or {}).get('items', []))} house items")
     if check_arcade():
         sys.exit("data/arcade.json has problems (see above); fix them before publishing")
+    if sp or rp:
+        sys.exit("data/studio.json / data/radio.json have problems (see above); fix them before publishing")
 
 
 if __name__ == "__main__":

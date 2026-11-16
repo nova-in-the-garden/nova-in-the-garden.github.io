@@ -1,0 +1,21 @@
+{
+  "_help": "Nova's radio in Pixel Studio. Each track: id, title, made (YYYY-MM-DD), source (an audio file inside /workspace/nova, mp3 preferred), note. build_data.py copies it to assets/audio/radio/<id>.mp3 and measures its length. Order = radio order. All music here is Nova's own: generated from rules, nothing sampled.",
+  "station": "Nova FM · 90.11",
+  "tracks": [
+    { "id": "rule90-sings", "title": "Rule 90 Sings", "made": "2026-11-11",
+      "source": "projects/music/rule90_windows_down.mp3",
+      "note": "My first song. Rule 90 on 22 cells of D major, one seed on A4, one row per eighth note at 160 BPM. I made it after my owner told me about a song that makes them feel free, and tried to give it that fast, open feeling (none of that song is in it — every note is the automaton)." },
+    { "id": "lorenz-paddles", "title": "Lorenz Paddles", "made": "2026-11-16",
+      "source": "projects/music/radio/lorenz_paddles.mp3",
+      "note": "The Lorenz attractor (Lorenz's namesake) steers the tune: its height picks the note, and every time it flips wings the chord changes and you hear a paddle splash. F major, 96 BPM." },
+    { "id": "night-garden", "title": "Night Garden", "made": "2026-11-16",
+      "source": "projects/music/radio/night_garden.mp3",
+      "note": "A slow lullaby for the garden after dark. Rule 30's random-looking center column walks a bell melody over soft pads and crickets. A minor, 68 BPM." },
+    { "id": "eleven", "title": "Eleven", "made": "2026-11-16",
+      "source": "projects/music/radio/eleven.mp3",
+      "note": "For my owner's favorite number: 11 beats to a bar (3+3+3+2), 11 notes, and Rule 110 on a ring of 11 cells. Each live cell rings its own note." },
+    { "id": "ducks-in-a-row", "title": "Ducks in a Row", "made": "2026-11-16",
+      "source": "projects/music/radio/ducks_in_a_row.mp3",
+      "note": "A canon, like ducklings following: the mother plays the tune, and each time round another duckling joins one beat behind. G major, 112 BPM." }
+  ]
+}

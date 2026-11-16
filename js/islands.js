@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { rng, rule90, mat, glow, mesh, jitter, glowSprite, textSprite, canvasTexture } from './util.js';
 import { buildCottage } from './house.js';
+import { buildStudio } from './studio.js';
 
 const GRASS = { hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
 
@@ -178,6 +179,8 @@ const DECOR = {
     return t => { orbit.rotation.y = t * 0.4; planet.rotation.y = t; };
   },
   pixelStudio(g, isl, ctx) {
+    // interactive studio (gallery wall, easels, radio) when data/studio.json or data/radio.json exist
+    if (ctx.world.studio || ctx.world.radio) { const st = buildStudio(g, isl, ctx); ctx.studio = st; return (t, dt) => st.update(t, dt, ctx.radioLevel ? ctx.radioLevel() : 0); }
     const loader = new THREE.TextureLoader();
     const imgs = ctx.world.easels || [];
     const spots = [[-3, -1.5, 0.5], [0, -3.2, 0], [3, -1.5, -0.5], [-0.5, 2.5, Math.PI - .3]];

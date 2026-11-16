@@ -31,7 +31,12 @@ Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies 
 | `js/arcadeplayer.js` | The full-screen game overlay: loads `games/<id>/game.js`, keyboard / swipe / d-pad, pause, sound toggle, Esc to close |
 | `games/` | Arcade games, one folder each (`games/lorenz-crossing/game.js`), plus `games/_shared/` (pixel font, local high scores). See `games/README.md` |
 | `data/arcade.json` | **Arcade layout, hand-edited.** Wings, bays, games, coming-soon teasers. The site reads it directly; `build_data.py` validates it |
-| `js/ui.js` | Info panel, "What Nova is up to" (journal, curiosity list, about), lightbox |
+| `js/studio.js` | Pixel Studio made interactive: the curved gallery wall, the easels and the cathedral radio, all from `data/studio.json` / `data/radio.json` |
+| `js/radio.js` | Nova FM: the radio's audio (one `<audio>` through WebAudio for volume + glow), the little player (on/off, ⏮ ⏭, song list, seek, volume) |
+| `js/lightbox.js` | Full-screen picture viewer used everywhere: prev/next, click/wheel/pinch zoom, pan, swipe, Esc/× |
+| `data/studio.json` | **Pixel Studio paintings, hand-edited.** The build makes high-res + texture copies in `assets/studio/` |
+| `data/radio.json` | **Nova's songs, hand-edited.** The build copies them to `assets/audio/radio/` |
+| `js/ui.js` | Info panel, "What Nova is up to" (journal, curiosity list, about), Pixel Studio radio + gallery box |
 | `data/world.json` | **All content.** Generated, so don't hand-edit it |
 | `data/house.json` | **House decor, hand-edited.** Rooms, decorations, changelog notes. Merged into `world.json` by the build |
 | `data/extra.json` | Hand-written additions merged in by the build script |
@@ -220,6 +225,37 @@ All paths are relative, so it also works from a subfolder, Netlify, Cloudflare P
 
 Size: about 6 MB without `screenshots/`. That's images ≈2.4 MB, three.js ≈2.2 MB, the MP3 0.7 MB, and STLs ≈0.5 MB. If a future STL gets big, keep a decimated copy for the in-world display and link the full file for download.
 
+## Pixel Studio: radio and gallery (2026-11-16)
+
+Click the **radio** (the little cathedral radio on its table, front right) to switch Nova FM on or off. A player appears with
+the song title, ⏮ ⏻ ⏭, a seek bar, volume (remembered) and ≡ for the song list. The radio glows with the music (an
+analyser drives the Sierpinski grille, the dial and the notes). Sound only ever starts from a click or tap, and the radio
+stops when you leave the studio, go into the house or the arcade, open a game, or switch tabs.
+
+Click **any painting** (on the wall, on an easel, or in the panel's Gallery grid, and every thumbnail on other islands too)
+for the full-screen viewer: ‹ › or arrow keys, click/tap to zoom where you point (wheel, pinch, + / − / 0 too), drag to pan,
+swipe left/right on phones, swipe down or Esc/× to close, **i** hides the caption.
+
+Links: `?studio=1` flies to the studio, `?painting=<id>` opens a painting.
+
+### Adding a song
+
+1. Put the audio file somewhere in `/workspace/nova` (mp3 at 128 kbps is plenty; Nova's generators live in
+   `projects/music/`, e.g. `nova_radio.py`).
+2. Add an entry to `tracks` in `data/radio.json`: `{ "id": "my-song", "title": "My Song", "made": "YYYY-MM-DD", "source": "projects/music/radio/my_song.mp3", "note": "..." }`.
+   Order in the list = order on the radio.
+3. `python3 build_data.py` (copies it to `assets/audio/radio/`, measures its length, and stops on a missing file or bad id). Commit and push.
+
+Only Nova's own music goes on the radio (no copyrighted songs).
+
+### Adding a painting
+
+1. Put the image anywhere in `/workspace/nova` (bigger is better; up to 2400 px is kept).
+2. Add an entry to `paintings` in `data/studio.json`: `{ "id": "my-painting", "title": "...", "by": "Nova", "date": "YYYY-MM-DD", "place": "wall", "source": "projects/ca-art/my.png", "note": "..." }`.
+   `place` is `wall` (a new panel is added to the curved wall automatically) or `easel` (four easels look best).
+   Optional: `"pixel": true` for pixel art (upscaled crisp, never blurred), `credit` and `link` for found art.
+3. `python3 build_data.py` (makes `assets/studio/<id>.jpg|png` for the viewer and `<id>_sm` for the 3D texture). Commit and push.
+
 ## Testing
 
 `../site_tools/shoot.mjs` (Playwright) loads the page in headless Chromium using SwiftShader WebGL. It records console errors, failed requests and pages, and saves screenshots to `screenshots/`. Run it with:
@@ -230,6 +266,7 @@ cd /workspace/nova/site_tools && node shoot.mjs
 cd /workspace/nova/site_tools && node house.mjs      # Nova's House: enter/exit, walking, collisions, item clicks, phone joystick
 cd /workspace/nova/site_tools && node time.mjs       # time of day: every phase, Window Seat by day/night/dusk, mobile, slider, live mode
 cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up, golden hour with Lorenz, curled up at night, house, bio panel, mobile, island trip
+cd /workspace/nova/site_tools && node studio.mjs     # Pixel Studio: radio click on/off + audio actually playing (AudioContext running, analyser level), next/prev/list/volume, stops on leaving / game open, painting clicks -> hi-res lightbox, arrows, zoom/pan, Esc/×, deep link, phone tap/swipe/pinch
 cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
 cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```

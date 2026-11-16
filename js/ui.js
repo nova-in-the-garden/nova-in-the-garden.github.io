@@ -1,3 +1,4 @@
+import { openLightbox } from './lightbox.js';
 // Panels: island info, "What Nova is up to", lightbox.
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -62,9 +63,23 @@ export function renderArcadePanel(A, { onEnter, onPlay, onWing }) {
 function bestOf(id) { try { const l = JSON.parse(localStorage.getItem(`nova.arcade.${id}.scores`) || '[]'); return l[0] ? `${l[0].s} (${l[0].i})` : ''; } catch { return ''; } }
 
 function bindThumbs(root) {
-  root.querySelectorAll('figure[data-src]').forEach(f => f.onclick = () => {
-    const lb = document.getElementById('lightbox'); lb.querySelector('img').src = f.dataset.src; lb.querySelector('p').textContent = f.dataset.cap; lb.hidden = false;
-  });
+  // every thumbnail in a panel opens the full-screen viewer, as one set you can page through
+  const figs = [...root.querySelectorAll('figure[data-src]')];
+  const items = figs.map(f => ({ src: f.dataset.src, title: f.dataset.cap }));
+  figs.forEach((f, i) => { f.style.cursor = 'zoom-in'; f.onclick = () => openLightbox(items, i); });
+}
+
+// Pixel Studio extras in its panel: the radio and the whole gallery (data/studio.json, data/radio.json)
+export function renderStudioBox(world, { radio, onPainting }) {
+  const body = document.querySelector('#panel .sheet-body'); const desc = body.querySelector('.desc');
+  const P = world.studio?.paintings || [], T = world.radio?.tracks || [];
+  const box = document.createElement('div');
+  box.innerHTML = (T.length ? `<div class="studio-box"><h3>📻 ${esc(world.radio.station || 'Nova FM')}</h3><p class="meta">${T.length} songs I made from rules: ${T.map(t => esc(t.title)).join(' · ')}. Click the radio by the easels, or:</p><div class="row"><button class="pill gold" data-radio>${radio?.state.on ? '⏻ Turn the radio off' : '⏻ Turn the radio on'}</button></div></div>` : '')
+    + (P.length ? `<div class="studio-box"><h3>🖼 Gallery</h3><p class="meta">${P.length} pictures. Tap one (here or on the island) to see it full screen.</p><div class="gallery-grid">${P.map((p, i) => `<button data-p="${i}" title="${esc(p.title)}"><img loading="lazy" src="${esc(p.texture || p.src)}" alt="${esc(p.title)}" class="${p.pixel ? 'pixel' : ''}"></button>`).join('')}</div></div>` : '');
+  desc.after(box);
+  const rb = box.querySelector('[data-radio]');
+  if (rb) rb.onclick = () => { radio.toggle(); rb.textContent = radio.state.on ? '⏻ Turn the radio off' : '⏻ Turn the radio on'; };
+  box.querySelectorAll('[data-p]').forEach(b => b.onclick = () => onPainting(+b.dataset.p));
 }
 
 // A decoration inside Nova's House, shown in the same side panel as islands.
@@ -138,5 +153,5 @@ export function setupUI({ onUpTo }) {
     document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
     document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + b.dataset.tab));
   });
-  const lb = document.getElementById('lightbox'); lb.onclick = () => { lb.hidden = true; };
+  
 }
