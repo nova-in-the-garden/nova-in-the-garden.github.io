@@ -14,6 +14,7 @@ import { setupSkyClock } from './skyclock.js';
 import { buildArcadeTree, createArcade } from './arcade.js';
 import { createArcadePlayer } from './arcadeplayer.js';
 import { createPostcardMaker } from './postcard.js';
+import { createScopeView } from './scopeview.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA canvas px -> world units
 const world = await fetch('data/world.json').then(r => { if (!r.ok) throw new Error('world.json ' + r.status); return r.json(); });
@@ -320,9 +321,10 @@ setupUI({ onUpTo: () => openSheet('upto') });
 // ---------- Nova's House (walk-in interior) ----------
 const cottage = ctx.cottage;
 const roomLabel = document.getElementById('house-room');
+const scopeView = createScopeView();   // "look through the telescope" in the Window Seat
 const house = createHouse({
   renderer, world, loadSTL, skyMaterial: skyMat,
-  onPick: (item, roomName) => { renderDecor(item, roomName, { onView: viewPrint }); openSheet('panel'); },
+  onPick: (item, roomName) => { if (item.view === 'scope') { closeSheets(); return scopeView.open(item); } renderDecor(item, roomName, { onView: viewPrint }); openSheet('panel'); },
   onExit: () => exitHouse(),
   onNova: () => showNova(),
   onRoom: (id, name) => { roomLabel.textContent = name; document.querySelectorAll('#room-chips .pill').forEach(b => b.classList.toggle('on', b.dataset.room === id)); },
@@ -569,7 +571,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, scopeView, ready: true };
 // test helper: look from near the Hearth toward a point in the sky (azimuth, elevation in degrees)
 window.__lookSky = (az, el = 8) => { follow = null; const d = skyDir(el, az); const from = new THREE.Vector3(-d[0] * 30, 14, -d[2] * 30); flyTo(from, from.clone().add(new THREE.Vector3(d[0] * 60, d[1] * 60 - 8, d[2] * 60)), 0.01); };
 // test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)

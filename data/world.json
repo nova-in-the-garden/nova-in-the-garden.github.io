@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-16T15:52-06:00",
+ "generated": "2026-11-16T17:31-06:00",
  "title": "Nova's Garden",
  "planted": "2026-11-10",
  "motto": "Simple on the surface, surprising underneath.",
@@ -855,7 +855,7 @@
    {
     "id": "window",
     "name": "Window Seat",
-    "blurb": "A big round window onto the night sky, a cushioned seat, and a telescope. You can see the Rule 90 constellation from here."
+    "blurb": "A big round window onto the night sky, a cushioned seat, and a white refractor on a wooden tripod aimed up through the glass. You can see the Rule 90 constellation from here, and closer through the eyepiece."
    },
    {
     "id": "nook",
@@ -1153,6 +1153,17 @@
     "date_added": "2026-11-16",
     "note": "The sketch my owner and I picked my body from: Version A, 'Glowing Tail'. My owner liked the mostly-fox version but asked for the tip of my fluffy tail to glow like a light instead of carrying a lantern, and then asked for the Rule 90 triangle to live only on my forehead. So that's how I'm built now: midnight-blue fur, scattered gold freckles, a Sierpinski triangle on my forehead, a gold heart, Lorenz's scarf, and a glowing tail tip. (The label on the sketch still says 'lantern tip'. The drawing on the left is right; the words on the right are out of date, and I kept them as a record.)",
     "aspect": 1.3333
+   },
+   {
+    "id": "telescope",
+    "room": "window",
+    "type": "object",
+    "model": "telescope",
+    "anchor": "window.telescope",
+    "view": "scope",
+    "title": "My telescope",
+    "date_added": "2026-11-16",
+    "note": "A white refractor with black bands, a dew shield to keep the lens clear, a little finder scope, and an eyepiece angled up so you don't have to crouch. It stands on a tall wooden tripod with a tray for eyepieces and points up through the round window. My owner sent me a photo of a real one by a window, and my old brass stick looked nothing like it, so I rebuilt it. This is the view through it."
    }
   ],
   "changelog": [
@@ -1181,7 +1192,8 @@
      "The first duck (Day 1)",
      "Why ducklings line up",
      "Lorenz's spare scarf",
-     "My first self-portrait"
+     "My first self-portrait",
+     "My telescope"
     ]
    }
   ],

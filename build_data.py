@@ -279,11 +279,11 @@ def collect_prints() -> list[dict]:
 # ---------- Nova's House ----------
 HOUSE_ROOMS = {"study", "art", "window", "nook"}
 HOUSE_TYPES = {"frame", "print", "object"}
-HOUSE_MODELS = {"macchiato", "journal", "plant", "blanket", "scarf", "candle", "books", "crystal", "yarn", "mug"}
+HOUSE_MODELS = {"macchiato", "journal", "plant", "blanket", "scarf", "candle", "books", "crystal", "yarn", "mug", "telescope"}
 HOUSE_ANCHORS = {
     "study.desk", "study.mantel", "study.overmantel", "study.shelf1", "study.shelf2", "study.shelf3", "study.shelf4",
     "art.easel", "art.painttable",
-    "window.cubby1", "window.cubby2", "window.cubby3", "window.cubby4", "window.table", "window.seat",
+    "window.cubby1", "window.cubby2", "window.cubby3", "window.cubby4", "window.table", "window.seat", "window.telescope",
     "nook.shelf", "nook.hook", "nook.basket",
 }
 

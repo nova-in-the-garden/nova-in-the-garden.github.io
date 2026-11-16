@@ -285,7 +285,10 @@ There's a postcard rack on **Star Dock**. Tap it, or use the button in the Star 
     - the starfield.
 - **Kiosk:** `postcardKiosk()` in `js/islands.js` builds a turning wire rack whose cards are real `paintFront` renders.
 
-## Testing
+## The Window Seat telescope (2026-11-16)
+
+The telescope is a regular decor item (`telescope` in `data/house.json`, model `MODELS.telescope` in `js/house.js`, anchor `window.telescope`). It's a white refractor with black bands, a dew shield, a focuser, a star diagonal and an eyepiece, and a finder scope, on an alt-az head. It stands on a wooden tripod with splayed two-section legs, black clamps and feet, and a spreader tray. Its spot and aim are set by `TSCOPE`: the tube points at the upper part of the round window, about 30° up. The item has `"view": "scope"`, so clicking it opens `js/scopeview.js`, a round eyepiece view of the Rule 90 constellation plus an invented banded planet with four moons.
+
 
 `../site_tools/shoot.mjs` (Playwright) loads the page in headless Chromium using SwiftShader WebGL. It records console errors, failed requests and pages, and saves screenshots to `screenshots/`. Run it with:
 
@@ -298,6 +301,7 @@ cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up
 cd /workspace/nova/site_tools && node studio.mjs     # Pixel Studio: radio click on/off + audio actually playing (AudioContext running, analyser level), next/prev/list/volume, stops on leaving / game open, painting clicks -> hi-res lightbox, arrows, zoom/pan, Esc/×, deep link, phone tap/swipe/pinch
 cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
 cd /workspace/nova/site_tools && node postcard.mjs   # Postcard Maker: rack click, all 38 planets paint, flip, PNG downloads (1800x1200), search, message, copy link/share, keys, Esc, deep links, iPhone layout; `postcard.mjs samples` exports sample cards
+cd /workspace/nova/site_tools && node telescope.mjs  # Window Seat telescope: screenshots (entrance, doorway, close-up, side, eyepiece), click -> eyepiece view, collider, no errors
 cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```
 

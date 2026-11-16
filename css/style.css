@@ -296,3 +296,15 @@ body.pc-open #hud-title,body.pc-open #btn-upto,body.pc-open #hint,body.pc-open #
   .pc-sub{display:none}
   .pc-actions .pill{padding:8px 11px;font-size:13px}
 }
+
+/* ---------- telescope eyepiece view (js/scopeview.js) ---------- */
+#scopeview{position:fixed;inset:0;z-index:35;background:radial-gradient(ellipse at 50% 45%,rgba(8,12,30,.94),rgba(2,3,8,.98));display:grid;place-items:center;padding:16px;overflow:auto}
+#scopeview[hidden]{display:none}
+.sv-wrap{display:flex;align-items:center;gap:28px;max-width:1100px}
+.sv-eye{width:min(62vh,58vw);height:auto;aspect-ratio:1;flex:none;filter:drop-shadow(0 0 30px rgba(120,150,255,.12))}
+.sv-text{max-width:360px;color:var(--ink)}
+.sv-text h2{margin:0 0 8px;color:var(--gold);font-size:22px}
+.sv-cap{margin:0 0 10px;color:var(--gold2);font-size:14px;font-style:italic}
+.sv-note{margin:0;color:var(--muted);font-size:14px}
+.sv-x{position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-size:24px;line-height:1;cursor:pointer}
+@media (max-width:760px),(orientation:portrait){.sv-wrap{flex-direction:column;gap:14px}.sv-eye{width:min(88vw,60vh)}.sv-text{max-width:92vw;text-align:center}}

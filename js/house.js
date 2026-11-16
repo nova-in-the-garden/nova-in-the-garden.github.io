@@ -172,6 +172,9 @@ export function buildCottage(parent, x, z, rot = 0) {
 // +z south (toward the front door), y up. Inner wall faces are at +-2.65.
 // =====================================================================
 const HALF = 2.75, IN = 2.65, WALL_H = 3.0, EYE = 1.55;
+// Window Seat telescope spot (room-local) and aim: the tube points at the upper part of the round window (n wall, centre y 1.85, r 1.2)
+const TSCOPE = (() => { const x = 0.95, z = -1.3, head = 1.27, tx = -0.05, ty = 2.25, tz = -IN; const dx = tx - x, dz = tz - z;
+  return { x, z, head, ry: Math.atan2(dx, dz) / (Math.PI / 180), elev: Math.atan2(ty - head, Math.hypot(dx, dz)) }; })();
 const ROOMS = {
   study: { name: 'Study', c: [-2.75, 2.75], walls: { n: [{ u: 1.45, w: 1.3, h: 2.35 }], s: [{ u: 0, w: 1.1, h: 2.25, front: true }], e: [{ u: -1.45, w: 1.3, h: 2.35 }], w: [] } },
   art: { name: 'Art Corner', c: [2.75, 2.75], walls: { n: [{ u: -1.45, w: 1.3, h: 2.35 }], w: [{ u: -1.45, w: 1.3, h: 2.35 }], s: [{ u: 1.0, w: 1.3, y0: 0.95, h: 1.3 }], e: [] } },
@@ -492,11 +495,10 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
         collide(rg, s * 2.05 - 0.6, s * 2.05 + 0.6, -HALF, -IN + 0.62);
       }
       books(rg, -2.45, -1.75, 0.95, -IN + 0.36, 21, 0.3); books(rg, 1.65, 2.1, 1.55, -IN + 0.36, 22, 0.3);
-      // brass telescope on a tripod, aimed at the window
-      const ts = new THREE.Group(); ts.position.set(1.45, 0, -1.0); rg.add(ts);
-      for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; const l = mesh(new THREE.CylinderGeometry(0.015, 0.02, 1.25, 5), M.darkWood, Math.cos(a) * 0.18, 0.6, Math.sin(a) * 0.18, ts); l.rotation.set(Math.sin(a) * 0.28, 0, -Math.cos(a) * 0.28); }
-      const tube = mesh(new THREE.CylinderGeometry(0.05, 0.075, 0.95, 12), M.gold, 0, 1.36, -0.12, ts); tube.rotation.set(-1.05, 0, 0.45);
-      collide(rg, 1.2, 1.7, -1.25, -0.75);
+      // a refractor on a wooden tripod, aimed up and out through the round window
+      // (the model is MODELS.telescope, placed by the "telescope" item in data/house.json; +z points at the window)
+      anchor('window.telescope', rg, TSCOPE.x, 0, TSCOPE.z, TSCOPE.ry);
+      collide(rg, TSCOPE.x - 0.42, TSCOPE.x + 0.42, TSCOPE.z - 0.42, TSCOPE.z + 0.42);
       // round side table and a pouf
       const st = new THREE.Group(); st.position.set(-1.95, 0, 0.55); rg.add(st);
       mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 16), M.wood, 0, 0.58, 0, st); mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.56, 6), M.wood, 0, 0.29, 0, st); mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.03, 12), M.wood, 0, 0.015, 0, st);
@@ -565,6 +567,67 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   // decor models (meters, origin at the base center, front faces +z)
   // =====================================================================
   const MODELS = {
+    // A white refractor with black bands on a tall wooden tripod (after the owner's reference photo).
+    // Origin on the floor at the tripod centre; the tube points along +z, tilted up by TSCOPE.elev.
+    telescope() {
+      const g = new THREE.Group();
+      const smooth = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0, ...o });
+      const white = smooth(0xf1efe8, { roughness: 0.35 }), black = smooth(0x151517, { roughness: 0.5, metalness: 0.2 }), chrome = smooth(0xb8bcc4, { metalness: 0.8, roughness: 0.3 });
+      const woodA = mat(0xb07a45, { roughness: 0.7 }), woodB = mat(0xc89260, { roughness: 0.7 }), glass = smooth(0x0a1630, { roughness: 0.05, metalness: 0.6 });
+      const HUB = TSCOPE.head - 0.13, FOOT = 0.5, TOP = 0.075;
+      // ---- tripod: three splayed two-section wooden legs, black clamps and feet; one leg toward the room, two toward the window
+      const along = (s) => [TOP + (FOOT - TOP) * (1 - s), HUB * s];       // s = 0 foot .. 1 top, in the leg's own plane (radius, y)
+      const tilt = Math.atan2(FOOT - TOP, HUB), legLen = Math.hypot(FOOT - TOP, HUB);
+      for (const a of [Math.PI, Math.PI / 3, -Math.PI / 3]) {
+        const lg = new THREE.Group(); lg.rotation.y = a - Math.PI / 2; g.add(lg);   // leg plane: local +x points out along azimuth a (a = 0 is +z)
+        const seg = (s0, s1, w, d, m, dz = 0) => { const [r0, y0] = along(s0), [r1, y1] = along(s1); const b = mesh(new THREE.BoxGeometry(d, Math.hypot(r1 - r0, y1 - y0), w), m, (r0 + r1) / 2, (y0 + y1) / 2, dz, lg); b.rotation.z = tilt; return b; };
+        seg(0.42, 0.97, 0.016, 0.03, woodA, 0.017); seg(0.42, 0.97, 0.016, 0.03, woodA, -0.017);   // upper section: twin rails
+        seg(0.03, 0.5, 0.024, 0.026, woodB);                                                       // lower sliding section
+        seg(0.4, 0.46, 0.058, 0.042, black); seg(0.03, 0.0, 0.03, 0.034, black);                  // clamp, rubber foot
+        const [rk, yk] = along(0.47); const knob = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), black, rk + 0.03, yk, 0, lg); knob.rotation.z = Math.PI / 2;
+        // spreader arm from the centre post to the tray
+        const [rs, ys] = along(0.42); const arm = mesh(new THREE.BoxGeometry(rs - 0.05, 0.012, 0.012), black, (rs + 0.05) / 2, ys, 0, lg);
+      }
+      void legLen;
+      mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 3), black, 0, HUB + 0.01, 0, g).rotation.y = Math.PI / 6;   // triangular leg head
+      const [, yTray] = along(0.42);
+      mesh(new THREE.CylinderGeometry(0.012, 0.012, HUB - yTray, 6), chrome, 0, (HUB + yTray) / 2, 0, g);      // centre post
+      mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.012, 18), chrome, 0, yTray + 0.008, 0, g);               // accessory tray
+      for (let i = 0; i < 5; i++) { const aa = i / 5 * Math.PI * 2; mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.004, 10), black, Math.cos(aa) * 0.085, yTray + 0.016, Math.sin(aa) * 0.085, g); }
+      // ---- alt-az head: turns toward the window, tube on top
+      const head = new THREE.Group(); head.position.y = HUB + 0.035; g.add(head);
+      mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.05, 14), black, 0, 0.025, 0, head);
+      mesh(new THREE.BoxGeometry(0.035, 0.11, 0.08), black, 0.045, 0.085, 0, head);                         // side arm
+      const handle = mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.3, 6), black, 0.06, 0.02, -0.14, head); handle.rotation.x = 1.15;  // slow-motion handle
+      const ota = new THREE.Group(); ota.position.y = TSCOPE.head - HUB - 0.035; ota.rotation.x = -TSCOPE.elev; head.add(ota);
+      const tube = (r0, r1, z0, z1, m, seg = 22) => { const c = mesh(new THREE.CylinderGeometry(r1, r0, z1 - z0, seg), m, 0, 0, (z0 + z1) / 2, ota); c.rotation.x = Math.PI / 2; return c; };
+      const R = 0.048;
+      tube(R, R, -0.42, 0.42, white);                                    // main tube
+      tube(R + 0.008, R + 0.008, -0.43, -0.39, black);                   // rear cell
+      for (const z of [-0.12, 0.1]) tube(R + 0.007, R + 0.007, z - 0.02, z + 0.02, black);   // tube rings
+      tube(R + 0.006, R + 0.006, 0.3, 0.33, black);                      // band
+      tube(R + 0.014, R + 0.014, 0.42, 0.46, black);                     // dew shield collar
+      tube(R + 0.012, R + 0.012, 0.46, 0.68, white);                     // dew shield
+      tube(R + 0.016, R + 0.016, 0.66, 0.69, black);                     // front lip
+      const lens = mesh(new THREE.CircleGeometry(R + 0.008, 22), glass, 0, 0, 0.6, ota);  // objective, set back inside the shield
+      mesh(new THREE.BoxGeometry(0.03, 0.022, 0.32), black, 0, -R - 0.012, -0.01, ota);   // dovetail on the mount
+      // focuser, star diagonal and eyepiece at the back (eyepiece angled up for a comfortable look)
+      tube(0.03, 0.03, -0.53, -0.43, black); tube(0.022, 0.022, -0.6, -0.53, chrome, 14);
+      for (const sx of [-1, 1]) { const k = mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 12), black, sx * 0.045, -0.03, -0.48, ota); k.rotation.z = Math.PI / 2; }
+      mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), black, 0, 0, -0.63, ota);
+      const ep = new THREE.Group(); ep.position.set(0, 0.02, -0.63); ep.rotation.x = -0.5; ota.add(ep);
+      mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 14), chrome, 0, 0.05, 0, ep);
+      mesh(new THREE.CylinderGeometry(0.024, 0.022, 0.07, 14), black, 0, 0.11, 0, ep);
+      mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.02, 14), black, 0, 0.155, 0, ep);
+      // finder scope on a little bracket, up and to the right
+      const fd = new THREE.Group(); fd.position.set(0.035, R + 0.04, -0.24); ota.add(fd);
+      for (const z of [-0.06, 0.05]) mesh(new THREE.BoxGeometry(0.014, 0.04, 0.014), black, 0, -0.022, z, fd);
+      const ftube = (r0, r1, z0, z1, m) => { const c = mesh(new THREE.CylinderGeometry(r1, r0, z1 - z0, 12), m, 0, 0, (z0 + z1) / 2, fd); c.rotation.x = Math.PI / 2; };
+      ftube(0.014, 0.014, -0.1, 0.08, white); ftube(0.019, 0.019, 0.07, 0.12, black); ftube(0.01, 0.01, -0.15, -0.1, black);
+      mergeStatic(g);
+      void lens;
+      return g;
+    },
     macchiato() {
       const g = new THREE.Group();
       mesh(new THREE.CylinderGeometry(0.043, 0.036, 0.03, 14), mat(0xc98b3a, { roughness: .4 }), 0, 0.015, 0, g);
