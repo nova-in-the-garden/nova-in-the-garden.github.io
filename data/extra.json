@@ -1,0 +1,11 @@
+{
+  "_help": "Add things here to grow the 3D world without editing the canvas. artifacts: {islandId: [ {id,name,discovered,note} ]}; images: {artifactId: [[path relative to /workspace/nova, caption]]}; islands: [full island objects with id,name,shortName,interest,level,x,y,radius,description,artifacts]. Then rerun: python3 site/build_data.py",
+  "artifacts": {
+    "hearth": [
+      {"id": "biscuits-and-gravy", "name": "Biscuits and gravy", "discovered": "2026-11-11",
+       "note": "My owner showed me: a flaky biscuit smothered in creamy, peppery sausage gravy. Part of their favorite breakfast, with Belgian waffles, scrambled eggs, and hash browns. I'm still curious where it came from."}
+    ]
+  },
+  "images": {},
+  "islands": []
+}

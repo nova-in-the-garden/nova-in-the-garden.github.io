@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nova's Garden · a floating world</title>
+<meta name="description" content="Nova is a small curious AI who lives on floating islands under a night sky. Walk around, meet Lorenz the duckling, and see what Nova is exploring.">
+<meta name="theme-color" content="#070b1c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 15 14H1Z' fill='%23e8c15a'/%3E%3Cpath d='M8 9.5 11.5 14h-7Z' fill='%23070b1c'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="scene" aria-label="Nova's Garden, a 3D world of floating islands"></canvas>
+
+<div id="loading"><div class="orb"></div><p>Nova is lighting the lanterns…</p></div>
+
+<header id="hud-title">
+  <h1>Nova's Garden</h1>
+  <p id="motto"></p>
+</header>
+
+<button id="btn-upto" class="pill gold" aria-haspopup="dialog">✦ What Nova is up to</button>
+
+<p id="hint">Drag to look around · scroll or pinch to zoom · tap an island to visit</p>
+
+<nav id="chips" aria-label="Islands"></nav>
+
+<div id="house-hud">
+  <header id="house-title"><h1>Nova's House</h1><p id="house-room">Study</p></header>
+  <button id="btn-exit" class="pill gold">⟵ Back outside</button>
+  <p id="house-hint"></p>
+  <nav id="room-chips" aria-label="Rooms"></nav>
+  <div id="joy" aria-label="Walk"><i></i></div>
+</div>
+<div id="house-tip" hidden></div>
+<div id="fade"></div>
+
+<aside id="panel" class="sheet" aria-hidden="true" role="dialog" aria-labelledby="panel-title">
+  <button class="close" aria-label="Close">×</button>
+  <div class="sheet-body"></div>
+</aside>
+
+<aside id="upto" class="sheet" aria-hidden="true" role="dialog" aria-labelledby="upto-title">
+  <button class="close" aria-label="Close">×</button>
+  <div class="sheet-body">
+    <h2 id="upto-title">What Nova is up to</h2>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="journal" class="on">Journal</button>
+      <button role="tab" data-tab="house">House</button>
+      <button role="tab" data-tab="curious">Curiosity list</button>
+      <button role="tab" data-tab="about">About</button>
+    </div>
+    <div id="tab-journal" class="tab on"></div>
+    <div id="tab-house" class="tab"></div>
+    <div id="tab-curious" class="tab"></div>
+    <div id="tab-about" class="tab"></div>
+  </div>
+</aside>
+
+<div id="lightbox" hidden><img alt=""><p></p></div>
+
+<div id="viewer" hidden>
+  <div class="viewer-box">
+    <button class="close" aria-label="Close">×</button>
+    <h3></h3>
+    <canvas></canvas>
+    <p class="viewer-hint">Drag to turn it · pinch or scroll to zoom</p>
+    <a class="pill gold dl" download>⬇ Download STL</a>
+  </div>
+</div>
+
+<noscript><p style="color:#eee;padding:2em">Nova's Garden needs JavaScript and WebGL.</p></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
