@@ -72,16 +72,25 @@ export function makeLorenz() {
     mesh(new THREE.BoxGeometry(0.24, 0.07, 0.07), new THREE.MeshStandardMaterial({ color: 0xe8c15a, emissive: 0x6b4f12, roughness: .6 }), i * 0.14 + Math.sin(a) * 0.37, -0.74, 0, ends);
   }
 
+  // little gold "z"s for when he sleeps
+  const zs = [];
+  for (let i = 0; i < 3; i++) {
+    const tex = canvasTexture(64, 64, (g, w, h) => { g.font = 'italic 700 46px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#f6dc8c'; g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 6; g.fillText('z', w / 2, h / 2); });
+    const z = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
+    z.visible = false; root.add(z); zs.push(z);
+  }
   root.scale.setScalar(0.42);
-  root.userData = { body, head, feet, ends };
+  root.userData = { body, head, feet, ends, zs, headHome: head.position.clone() };
   return root;
 }
 
 // Lorenz wanders around a home area, swims (bobbing) in the pond and waddles on land.
-export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = [] }) {
+// Time of day: at night (sleepy() true) he paddles to the pond's edge, sits
+// down, tucks his bill into his back and sleeps; by day he swims more.
+export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = [], sleepy = () => false, swimChance = () => 0.45 }) {
   const R = rng(77); const pos = lorenz.position; let target = new THREE.Vector3(); let pause = 0; let heading = 0;
   const pick = () => {
-    const toPond = R() < 0.45;
+    const toPond = R() < swimChance();
     for (let k = 0; k < 30; k++) {
       const a = R() * Math.PI * 2, r = toPond ? Math.sqrt(R()) * pondRadius * 0.75 : Math.sqrt(R()) * radius;
       const c = toPond ? pond : center;
@@ -92,13 +101,27 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
     target.set(pond.x, 0, pond.z);
   };
   pos.set(pond.x + 0.5, 0, pond.z); pick();
+  // bed: on the grass at the pond's edge, on the side facing the island's middle
+  const ba = Math.atan2(center.z - pond.z, center.x - pond.x) + 0.5;
+  const bed = new THREE.Vector3(pond.x + Math.cos(ba) * (pondRadius + 0.45), 0, pond.z + Math.sin(ba) * (pondRadius + 0.45));
+  let sleep = 0, wasSleepy = false; // 0 awake .. 1 fully tucked in
   return (t, dt, baseY) => {
-    const { body, head, feet, ends } = lorenz.userData;
+    const { body, head, feet, ends, zs, headHome } = lorenz.userData;
+    const wantSleep = sleepy();
+    if (wantSleep && !wasSleepy) { target.copy(bed); pause = 0; }
+    if (!wantSleep && wasSleepy) { pause = 0.5; pick(); }
+    wasSleepy = wantSleep;
+    if (wantSleep) {
+      const atBed = Math.hypot(bed.x - pos.x, bed.z - pos.z) < 0.2;
+      if (!atBed) { target.copy(bed); pause = 0; }
+      else pause = 1;
+      sleep = Math.min(1, Math.max(0, sleep + (atBed ? dt * 0.6 : -dt)));
+    } else sleep = Math.max(0, sleep - dt * 0.8);
     const inPond = Math.hypot(pos.x - pond.x, pos.z - pond.z) < pondRadius * 0.9;
     const dx = target.x - pos.x, dz = target.z - pos.z, d = Math.hypot(dx, dz);
     let moving = false;
     if (pause > 0) pause -= dt;
-    else if (d < 0.15) { pause = 1.5 + R() * 3.5; pick(); }
+    else if (d < 0.15) { if (!wantSleep) { pause = 1.5 + R() * 3.5; pick(); } }
     else {
       moving = true; const want = Math.atan2(dx, dz);
       let diff = want - heading; diff = Math.atan2(Math.sin(diff), Math.cos(diff)); heading += diff * Math.min(1, dt * 3);
@@ -113,6 +136,15 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
     head.rotation.y = Math.sin(t * 0.7) * 0.35;
     feet.forEach((f, i) => { f.rotation.x = moving ? Math.sin(t * 11 + i * Math.PI) * (inPond ? 0.6 : 0.4) : 0; f.visible = true; });
     ends.rotation.x = moving ? 0.25 + Math.sin(t * 6) * 0.08 : Math.sin(t * 1.5) * 0.05;
-    return { inPond, moving };
+    if (sleep > 0) { // settle down, turn the head back and tuck the bill in, breathe slowly
+      const k = sleep * sleep * (3 - 2 * sleep);
+      body.position.y = -0.3 * k; body.rotation.z *= 1 - k; body.rotation.x = 0;
+      head.position.lerpVectors(headHome, new THREE.Vector3(0.12, 1.72, 0.35), k);
+      head.rotation.set(head.rotation.x * (1 - k) + 0.35 * k, head.rotation.y * (1 - k) + 2.5 * k, 0.25 * k);
+      body.scale.set(1, 1 + Math.sin(t * 1.4) * 0.025 * k, 1);
+      feet.forEach(f => { f.visible = k < 0.6; });
+      zs.forEach((z, i) => { const p = (t * 0.22 + i / 3) % 1; z.visible = k > 0.8; z.position.set(0.5 + p * 0.9, 2.4 + p * 2.2, -0.2 + Math.sin(p * 6 + i) * 0.2); z.scale.setScalar(0.35 + p * 0.5); z.material.opacity = Math.sin(p * Math.PI) * (k - 0.8) * 5; });
+    } else { body.position.y = 0; head.position.copy(headHome); body.scale.set(1, 1, 1); zs.forEach(z => { z.visible = false; }); }
+    return { inPond, moving, asleep: sleep > 0.99 };
   };
 }

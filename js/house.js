@@ -3,8 +3,10 @@
 // (data/house.json -> build_data.py -> world.json); see README "Decorating Nova's House".
 import * as THREE from 'three';
 import { rng, rule90, mat, glow, mesh, jitter, glowSprite, glowTexture, canvasTexture, mergeStatic } from './util.js';
+import { DAY, collectGlows } from './daylight.js';
 
 const DEG = Math.PI / 180;
+const GLASS_DAY = new THREE.Color(0x46577a);
 
 // =====================================================================
 // Exterior cottage (world units; Lorenz is about 1 unit tall)
@@ -147,9 +149,11 @@ export function buildCottage(parent, x, z, rot = 0) {
     doorOpen += (doorTarget - doorOpen) * Math.min(1, dt * 4);
     hinge.rotation.y = -doorOpen * 1.75;
     const f = 0.9 + 0.1 * Math.sin(t * 7.3) * Math.sin(t * 3.1 + 1);
-    lglass.material.emissiveIntensity = 2.4 * f; lhalo.material.opacity = 0.85 * f; porchLight.intensity = 6 * f;
-    glows.forEach((m, i) => { m.material.emissiveIntensity = 1.5 + 0.18 * Math.sin(t * (1.7 + i * 0.3) + i * 2); });
-    transom.material.emissiveIntensity = 1.5 + 0.2 * Math.sin(t * 2.3);
+    // time of day: lamps and windows glow brightest at night (DAY is set by main.js)
+    const w = DAY.window, dayGlass = DAY.day * 0.75;
+    lglass.material.emissiveIntensity = 2.4 * f * DAY.glow; lhalo.material.opacity = 0.85 * f * DAY.halo; porchLight.intensity = 6 * f * w;
+    glows.forEach((m, i) => { m.material.emissiveIntensity = (1.5 + 0.18 * Math.sin(t * (1.7 + i * 0.3) + i * 2)) * w; m.material.color.setHex(0xffbf66).lerp(GLASS_DAY, dayGlass); });
+    transom.material.emissiveIntensity = (1.5 + 0.2 * Math.sin(t * 2.3)) * w;
     smoke.forEach((s, i) => {
       const p = ((t * 0.16) + i / smoke.length) % 1;
       s.position.set(0.1 + p * 0.9 + Math.sin(t * 0.7 + i) * 0.12, 4.6 + p * 2.6, Math.sin(t * 0.5 + i * 2) * 0.15);
@@ -241,7 +245,7 @@ const WALL_FRAME = {
 };
 
 // =====================================================================
-export function createHouse({ renderer, world, loadSTL, onPick, onExit, onRoom, onViewPrint }) {
+export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onExit, onRoom, onViewPrint }) {
   const data = world.house || { items: [], rooms: [] };
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x050816);
@@ -252,24 +256,30 @@ export function createHouse({ renderer, world, loadSTL, onPick, onExit, onRoom, 
   const itemGroups = new Map();
 
   // ---------- sky outside the windows ----------
+  let starsMat, constMat, moonIn, moonHaloIn, sunIn, sunHaloIn;
   {
     const R = rng(1611); const n = 700, pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { const u = R() * 2 - 1, th = R() * Math.PI * 2, y = Math.abs(u) * 0.9 + 0.05, r = Math.sqrt(1 - y * y); pos.set([Math.cos(th) * r * 120, y * 120 - 10, Math.sin(th) * r * 120], i * 3); }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.9, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })));
+    if (skyMaterial) scene.add(new THREE.Mesh(new THREE.SphereGeometry(150, 32, 16), skyMaterial)); // the same sky as outside
+    starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.9, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }); starsMat.userData.anim = true;
+    scene.add(new THREE.Points(geo, starsMat));
     // the gold Rule 90 constellation, framed by the round window (north)
     const rows = rule90(16), cp = [];
     rows.forEach((row, ri) => row.forEach((v, ci) => v && cp.push((ci - 15) * 1.05 - 2.75, 13.5 - ri * 0.92, -46)));
     const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
-    scene.add(new THREE.Points(cg, new THREE.PointsMaterial({ color: 0xffd36a, size: 1.5, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
-    const moon = mesh(new THREE.SphereGeometry(2.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff2cf }), 9, 7, -48, scene);
-    const mh = glowSprite(14, 0xffe9b0, 0.5); mh.position.copy(moon.position); scene.add(mh);
+    constMat = new THREE.PointsMaterial({ color: 0xffd36a, size: 1.5, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }); constMat.userData.anim = true;
+    scene.add(new THREE.Points(cg, constMat));
+    moonIn = mesh(new THREE.SphereGeometry(2.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff2cf, transparent: true }), 9, 7, -48, scene);
+    moonHaloIn = glowSprite(14, 0xffe9b0, 0.5); moonHaloIn.material.userData.anim = true; moonHaloIn.position.copy(moonIn.position); scene.add(moonHaloIn);
+    sunIn = mesh(new THREE.SphereGeometry(5.5, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff2d0, transparent: true }), 0, -60, 0, scene);
+    sunHaloIn = glowSprite(50, 0xffd890, 0.7); sunHaloIn.material.userData.anim = true; scene.add(sunHaloIn);
     // a few of the Hearth's paper lanterns drifting outside
     for (let i = 0; i < 11; i++) { const a = i / 11 * Math.PI * 2; const s = glowSprite(2.2, 0xffc070, 0.7); s.position.set(Math.cos(a) * 22, 1 + (i % 4) * 1.5, Math.sin(a) * 22); scene.add(s); const l = mesh(new THREE.CylinderGeometry(0.35, 0.28, 0.6, 8), glow(0xffc96a, 1.6), 0, 0, 0, s.parent); l.position.copy(s.position); }
   }
 
   // ---------- light ----------
-  scene.add(new THREE.HemisphereLight(0xffe0b8, 0x2a1e18, 0.55));
+  const hemiIn = new THREE.HemisphereLight(0xffe0b8, 0x2a1e18, 0.55); scene.add(hemiIn);
   const roomLights = {};
   for (const [id, r] of Object.entries(ROOMS)) {
     const L = new THREE.PointLight(id === 'window' ? 0xffcf96 : 0xffc684, id === 'window' ? 7 : 10, 0, 2);
@@ -778,7 +788,27 @@ export function createHouse({ renderer, world, loadSTL, onPick, onExit, onRoom, 
     const d = c.clone().sub(new THREE.Vector3(pos.x, state.eye, pos.z)); state.yaw = Math.atan2(-d.x, -d.z); state.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z));
     applyCam(); checkRoom();
   }
+  // ---------- time of day (called by main.js) ----------
+  // Lamps are stronger at night; by day light pours in through the windows
+  // (the window-seat light turns from moonlight blue to warm daylight).
+  let applyGlowIn = null; const roomBase = {}; for (const k in roomLights) roomBase[k] = roomLights[k].intensity;
+  const cDay = new THREE.Color(), cTmp = new THREE.Color();
+  function daylight(st, sunDir, moonDir) {
+    const p = st.pal;
+    if (!applyGlowIn) applyGlowIn = collectGlows(scene);
+    starsMat.opacity = p.stars; constMat.opacity = p.stars;
+    const sunUp = THREE.MathUtils.smoothstep(st.sun.elevation, -2.5, 1.5), moonUp = THREE.MathUtils.smoothstep(st.moon.elevation, -2, 2);
+    sunIn.position.set(sunDir[0] * 130, sunDir[1] * 130, sunDir[2] * 130); sunHaloIn.position.copy(sunIn.position);
+    sunIn.material.opacity = sunUp; sunIn.visible = sunUp > 0.001; sunHaloIn.material.opacity = 0.7 * sunUp * (1 - 0.6 * THREE.MathUtils.clamp(st.sun.elevation / 12, 0, 1));
+    sunIn.material.color.setHex(0xff9a52).lerp(cTmp.setHex(0xfff6e2), THREE.MathUtils.clamp(st.sun.elevation / 12, 0, 1));
+    moonIn.position.set(moonDir[0] * 48, moonDir[1] * 48, moonDir[2] * 48); moonHaloIn.position.copy(moonIn.position);
+    moonIn.material.opacity = moonUp * (0.4 + 0.6 * p.night); moonIn.visible = moonUp > 0.001; moonHaloIn.material.opacity = 0.5 * moonUp * p.night;
+    for (const k in roomLights) roomLights[k].intensity = roomBase[k] * (0.5 + 0.5 * p.night);
+    hemiIn.color.setHex(0xffe0b8).lerp(cDay.setHex(0xfff2e4), p.day); hemiIn.intensity = 0.55 + 0.65 * p.day;
+    moonLight.color.setHex(0x9fb2ff).lerp(cDay.setHex(0xffe8c8), p.day); moonLight.intensity = 3.5 + 6 * p.day;
+    applyGlowIn(1 - 0.45 * p.day, 1 - 0.55 * p.day);
+  }
   function resize() { camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 78 : 70; camera.updateProjectionMatrix(); }
   resize();
-  return { scene, camera, update, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders };
+  return { scene, camera, update, daylight, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders };
 }

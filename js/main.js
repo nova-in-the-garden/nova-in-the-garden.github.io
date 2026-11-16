@@ -5,6 +5,9 @@ import { islandBase, decorate, makeSTLLoader } from './islands.js';
 import { makeLorenz, lorenzBrain } from './lorenz.js';
 import { renderPanel, renderUpTo, renderDecor, openSheet, closeSheets, setupUI } from './ui.js';
 import { createHouse } from './house.js';
+import { makeClock, skyState, collectGlows, DAY } from './daylight.js';
+import { skyDir, fmtTime, REF } from './sun.js';
+import { setupSkyClock } from './skyclock.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA canvas px -> world units
 const world = await fetch('data/world.json').then(r => { if (!r.ok) throw new Error('world.json ' + r.status); return r.json(); });
@@ -31,29 +34,55 @@ controls.screenSpacePanning = true; controls.zoomToCursor = true;
 controls.update();
 
 // ---------- light ----------
-scene.add(new THREE.HemisphereLight(0x8ea4ff, 0x1a1430, 1.1));
+const hemi = new THREE.HemisphereLight(0x8ea4ff, 0x1a1430, 1.1); scene.add(hemi);
 const moon = new THREE.DirectionalLight(0xc8d4ff, 1.4); moon.position.set(-60, 80, 40); scene.add(moon);
 const warm = new THREE.DirectionalLight(0xffd59a, 0.8); warm.position.set(50, 30, -30); scene.add(warm);
+const sunLight = new THREE.DirectionalLight(0xfff2dc, 0); sunLight.position.set(0, 80, -60); scene.add(sunLight);
 
 // ---------- sky ----------
-const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), new THREE.ShaderMaterial({
-  side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: {},
+// The sky is one shader driven by the time of day (js/daylight.js). With the
+// night uniforms it is exactly the original Night and Gold sky.
+const v3 = a => new THREE.Vector3(...a);
+const skyU = {
+  uTop: { value: v3([0.012, 0.02, 0.07]) }, uDeep: { value: v3([0.10, 0.07, 0.16]) }, uMid: { value: v3([0.04, 0.06, 0.17]) }, uLow: { value: v3([0.10, 0.07, 0.16]) }, uBand: { value: v3([0.0875, 0.063, 0.0175]) },
+  uSunDir: { value: new THREE.Vector3(0, -1, 0) }, uSunCol: { value: v3([1, 0.8, 0.5]) }, uSunGlow: { value: 0 }, uTwi: { value: 0 },
+  uCloud: { value: 0 }, uCloudCol: { value: v3([1, 1, 1]) }, uTime: { value: 0 },
+};
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
   vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader: `varying vec3 vP; void main(){ float h = vP.y; vec3 top = vec3(0.012,0.02,0.07); vec3 mid = vec3(0.04,0.06,0.17); vec3 low = vec3(0.10,0.07,0.16);
-    vec3 c = mix(mid, top, smoothstep(0.0, 0.7, h)); c = mix(c, low, smoothstep(0.05, -0.35, h));
-    c += vec3(0.25,0.18,0.05) * pow(max(0., 1. - abs(h + 0.02) * 6.), 3.) * 0.35; gl_FragColor = vec4(c, 1.); }`,
-}));
+  fragmentShader: `uniform vec3 uTop, uMid, uLow, uDeep, uBand, uSunDir, uSunCol, uCloudCol; uniform float uSunGlow, uTwi, uCloud, uTime; varying vec3 vP;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f); return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
+    float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 4; i++){ v += a*noise(p); p = p*2.03 + vec2(1.7, 9.2); a *= .5; } return v; }
+    void main(){ vec3 d = normalize(vP); float h = d.y;
+    vec3 c = mix(uMid, uTop, smoothstep(0.0, 0.7, h)); c = mix(c, uLow, smoothstep(0.05, -0.35, h)); c = mix(c, uDeep, smoothstep(-0.25, -0.75, h));
+    c += uBand * pow(max(0., 1. - abs(h + 0.02) * 6.), 3.);
+    float sd = max(0., dot(d, uSunDir));
+    vec2 hz = normalize(d.xz + 1e-5), sz = normalize(uSunDir.xz + 1e-5);
+    float toward = max(0., dot(hz, sz));
+    c += uBand * 2.2 * pow(toward, 3.) * pow(max(0., 1. - abs(h - 0.03) * 3.), 2.) * uTwi;
+    c += uSunCol * (pow(sd, 6.) * 0.22 + pow(sd, 60.) * 0.7) * uSunGlow;
+    if (uCloud > 0.01 && h > 0.0) {
+      vec2 uv = d.xz / (h + 0.14) * 1.3 + vec2(uTime * 0.006, uTime * 0.002);
+      float n = fbm(uv);
+      float a = smoothstep(0.46, 0.74, n) * uCloud * smoothstep(0.0, 0.16, h);
+      vec3 cc = uCloudCol * (0.8 + 0.28 * fbm(uv * 2.1 + 3.)) + uSunCol * pow(sd, 5.) * 0.35 * uSunGlow;
+      c = mix(c, cc, a);
+    }
+    gl_FragColor = vec4(c, 1.); }`,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), skyMat);
 scene.add(sky);
 
 const starMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
-  uniforms: { uTime: { value: 0 }, uPR: { value: renderer.getPixelRatio() } },
+  uniforms: { uTime: { value: 0 }, uPR: { value: renderer.getPixelRatio() }, uFade: { value: 1 } },
   vertexShader: `attribute float aSize; attribute float aPhase; attribute vec3 aColor; uniform float uTime; uniform float uPR; varying vec3 vC; varying float vA;
     void main(){ vec4 mv = modelViewMatrix*vec4(position,1.); gl_Position = projectionMatrix*mv; float tw = 0.65 + 0.35*sin(uTime*(1.2+aPhase*0.7) + aPhase*20.);
     vA = tw; vC = aColor; gl_PointSize = aSize * uPR * (0.75 + 0.25*tw); }`,
-  fragmentShader: `varying vec3 vC; varying float vA; void main(){ vec2 p = gl_PointCoord-0.5; float d = length(p); float a = smoothstep(0.5,0.0,d); a = a*a; float cross = max(0., 1.-abs(p.x)*14.) * max(0.,1.-abs(p.y)*2.) + max(0., 1.-abs(p.y)*14.) * max(0.,1.-abs(p.x)*2.);
-    gl_FragColor = vec4(vC, (a + cross*0.35*step(0.9,vA)) * vA); }`,
+  fragmentShader: `uniform float uFade; varying vec3 vC; varying float vA; void main(){ vec2 p = gl_PointCoord-0.5; float d = length(p); float a = smoothstep(0.5,0.0,d); a = a*a; float cross = max(0., 1.-abs(p.x)*14.) * max(0.,1.-abs(p.y)*2.) + max(0., 1.-abs(p.y)*14.) * max(0.,1.-abs(p.x)*2.);
+    gl_FragColor = vec4(vC, (a + cross*0.35*step(0.9,vA)) * vA * uFade); }`,
 });
 function addStars(points) {
   const g = new THREE.BufferGeometry(); const n = points.length;
@@ -76,11 +105,20 @@ function addStars(points) {
   rows.forEach((row, ri) => row.forEach((v, ci) => { if (v) cpts.push({ p: [(ci - 31) * 3.8, 84 - ri * 3.8 * 0.87, -600], s: 6 + (ri % 8 === 0 ? 3 : 0), ph: (ri * 7 + ci) % 11 / 11, c: [1, .82, .42] }); }));
   addStars(cpts);
 }
-// moon
-{
-  const m = mesh(new THREE.SphereGeometry(16, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2cf, fog: false }), -260, 230, -520, scene);
-  const h = glowSprite(120, 0xffe9b0, 0.55); h.material.fog = false; h.position.copy(m.position); scene.add(h);
-}
+// moon (lit by the real sun direction, so its phase is right) and the sun
+const moonU = { uSunDir: skyU.uSunDir, uAlpha: { value: 1 } };
+const moonMesh = mesh(new THREE.SphereGeometry(16, 24, 16), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, fog: false, uniforms: moonU,
+  vertexShader: 'varying vec3 vN; void main(){ vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+  fragmentShader: `uniform vec3 uSunDir; uniform float uAlpha; varying vec3 vN; void main(){ float l = smoothstep(-0.06, 0.12, dot(normalize(vN), uSunDir));
+    vec3 c = mix(vec3(0.10, 0.12, 0.22), vec3(1.0, 0.95, 0.81), l); gl_FragColor = vec4(c, uAlpha * mix(0.35, 1., l)); }`,
+}), -260, 230, -520, scene);
+moonMesh.renderOrder = -1;
+const moonHalo = glowSprite(120, 0xffe9b0, 0.55); moonHalo.material.fog = false; moonHalo.material.userData.anim = true; moonHalo.position.copy(moonMesh.position); scene.add(moonHalo);
+const sunDisk = mesh(new THREE.SphereGeometry(22, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2d0, fog: false, transparent: true, depthWrite: false }), 0, -800, 0, scene);
+const sunHalo = glowSprite(260, 0xffd890, 0.7); sunHalo.material.fog = false; sunHalo.material.userData.anim = true; scene.add(sunHalo);
+const sunHalo2 = glowSprite(90, 0xfff4dc, 0.9); sunHalo2.material.fog = false; sunHalo2.material.userData.anim = true; scene.add(sunHalo2);
+sunDisk.renderOrder = moonHalo.renderOrder = sunHalo.renderOrder = sunHalo2.renderOrder = -1;
 
 // ---------- islands ----------
 const loadSTL = makeSTLLoader();
@@ -127,15 +165,16 @@ for (let i = 0; i < 11; i++) {
 const lorenz = makeLorenz();
 hearth.group.add(lorenz);
 const pondInfo = ctx.pond || { x: 0, z: 0, r: 2 };
-const lorenzTick = lorenzBrain(lorenz, { center: new THREE.Vector3(-1, 0, 0.5), radius: hearth.r * 0.72, pond: new THREE.Vector3(pondInfo.x, 0, pondInfo.z), pondRadius: pondInfo.r, avoid: ctx.avoid || [] });
+const lorenzTick = lorenzBrain(lorenz, { center: new THREE.Vector3(-1, 0, 0.5), radius: hearth.r * 0.72, pond: new THREE.Vector3(pondInfo.x, 0, pondInfo.z), pondRadius: pondInfo.r, avoid: ctx.avoid || [], sleepy: () => DAY.night > 0.6, swimChance: () => 0.3 + 0.35 * DAY.day });
 lorenz.traverse(o => { if (o.isMesh) { o.userData.islandId = 'hearth'; o.userData.lorenz = true; pickables.push(o); } });
 
 // ---------- Nova ----------
 const nova = new THREE.Group(); scene.add(nova);
 const core = mesh(new THREE.IcosahedronGeometry(0.42, 2), new THREE.MeshStandardMaterial({ color: 0xfff6d8, emissive: 0xffe39a, emissiveIntensity: 2.4 }), 0, 0, 0, nova);
 nova.add(glowSprite(4.2, 0xffe6a0, 0.95));
+nova.traverse(o => { if (o.material) o.material.userData.keepGlow = true; });
 const novaLight = new THREE.PointLight(0xffd88a, 18, 16, 1.6); nova.add(novaLight);
-const sparks = []; for (let i = 0; i < 5; i++) { const s = glowSprite(0.5, 0xfff0c0, 0.9); nova.add(s); sparks.push(s); }
+const sparks = []; for (let i = 0; i < 5; i++) { const s = glowSprite(0.5, 0xfff0c0, 0.9); s.material.userData.keepGlow = true; nova.add(s); sparks.push(s); }
 const novaTag = textSprite('Nova', { size: 0.55 }); novaTag.position.y = 1.4; nova.add(novaTag);
 const novaHome = new THREE.Vector3(); let novaAt = hearth;
 nova.position.copy(hearth.group.position).add(new THREE.Vector3(1.5, 3.5, 1.5));
@@ -203,7 +242,7 @@ setupUI({ onUpTo: () => openSheet('upto') });
 const cottage = ctx.cottage;
 const roomLabel = document.getElementById('house-room');
 const house = createHouse({
-  renderer, world, loadSTL,
+  renderer, world, loadSTL, skyMaterial: skyMat,
   onPick: (item, roomName) => { renderDecor(item, roomName, { onView: viewPrint }); openSheet('panel'); },
   onExit: () => exitHouse(),
   onRoom: (id, name) => { roomLabel.textContent = name; document.querySelectorAll('#room-chips .pill').forEach(b => b.classList.toggle('on', b.dataset.room === id)); },
@@ -277,10 +316,73 @@ addEventListener('keydown', e => {
   if (!open && inside) exitHouse();
 });
 
+// ---------- time of day ----------
+// The world follows the real sun at the reference point (REF in js/sun.js),
+// in Central time. ?time=HH:MM or ?phase=dawn|day|golden|dusk|night previews.
+const clock = makeClock();
+const applyGlow = collectGlows(scene, o => o === nova || o.parent === nova);
+const _d = [0, 0, 0], _m = [0, 0, 0];
+const fogC = new THREE.Color(), tmpC = new THREE.Color();
+let sky0 = null;
+// the sky dome, sun and moon ride along with the camera so they never show parallax
+function placeSkyBodies() {
+  const c = camera.position; sky.position.copy(c);
+  sunDisk.position.set(c.x + _d[0] * 780, c.y + _d[1] * 780, c.z + _d[2] * 780); sunHalo.position.copy(sunDisk.position); sunHalo2.position.copy(sunDisk.position);
+  moonMesh.position.set(c.x + _m[0] * 600, c.y + _m[1] * 600, c.z + _m[2] * 600); moonHalo.position.copy(moonMesh.position);
+}
+function applySky(date) {
+  const st = skyState(date), p = st.pal; sky0 = st;
+  skyU.uTop.value.set(...p.top); skyU.uMid.value.set(...p.mid); skyU.uLow.value.set(...p.low); skyU.uDeep.value.set(...p.deep); skyU.uBand.value.set(...p.band);
+  skyU.uCloud.value = p.cloud; skyU.uCloudCol.value.set(...p.cloudCol);
+  const el = st.sun.elevation;
+  skyDir(el, st.sun.azimuth, _d); skyU.uSunDir.value.set(..._d);
+  tmpC.setHex(p.sunCol); skyU.uSunCol.value.set(tmpC.r ** 0.4545, tmpC.g ** 0.4545, tmpC.b ** 0.4545);
+  skyU.uSunGlow.value = THREE.MathUtils.smoothstep(el, -9, 3) * (1 - 0.45 * THREE.MathUtils.clamp(el / 12, 0, 1));
+  skyU.uTwi.value = Math.max(0, 1 - Math.abs(el + 3) / 9);
+  starMat.uniforms.uFade.value = p.stars;
+  // sun disk + halos
+  const sunUp = THREE.MathUtils.smoothstep(el, -2.5, 1.5);
+  placeSkyBodies();
+  const low = THREE.MathUtils.clamp(el / 12, 0, 1);
+  sunDisk.material.color.setHex(0xff9a52).lerp(tmpC.setHex(0xfff1cc), low); sunDisk.material.opacity = sunUp; sunDisk.visible = sunUp > 0.001;
+  sunHalo.material.color.setHex(0xff9858).lerp(tmpC.setHex(0xffe6b0), low); sunHalo.material.opacity = (0.75 - 0.64 * low) * sunUp; sunHalo2.material.opacity = (0.9 - 0.72 * low) * sunUp; sunHalo2.scale.setScalar(90 - 35 * low);
+  // moon: real position and phase; fainter by day
+  skyDir(st.moon.elevation, st.moon.azimuth, _m);
+  placeSkyBodies();
+  const moonUp = THREE.MathUtils.smoothstep(st.moon.elevation, -2, 2);
+  moonU.uAlpha.value = moonUp * (0.45 + 0.55 * p.night); moonMesh.visible = moonUp > 0.001;
+  moonHalo.material.opacity = 0.55 * moonUp * p.night * (0.25 + 0.75 * st.moon.illum);
+  // lights and fog
+  hemi.color.setHex(p.hemi); hemi.groundColor.setHex(p.ground); hemi.intensity = p.hemiI;
+  moon.intensity = p.moonI; warm.intensity = p.warmI;
+  sunLight.color.setHex(p.sunCol); sunLight.intensity = p.sunI * THREE.MathUtils.smoothstep(el, -1, 4); sunLight.position.set(_d[0] * 100, Math.max(_d[1], 0.05) * 100, _d[2] * 100);
+  scene.fog.color.setHex(p.fog); scene.fog.density = p.fogD; renderer.toneMappingExposure = p.exposure;
+  DAY.glow = p.glow; DAY.halo = p.halo; DAY.night = p.night; DAY.day = p.day; DAY.window = 0.3 + 0.7 * Math.max(p.night, 1 - p.day * 0.85);
+  applyGlow(p.glow, p.halo);
+  house.daylight?.(st, _d, _m);
+  document.body.dataset.sky = st.phase.id;
+  skyClock.update(st, clock);
+  return st;
+}
+const skyClock = setupSkyClock({ clock, onChange: () => { skyDirty = true; } });
+let shownMin = null, lastSky = 0, skyDirty = false, lastTick = performance.now();
+function skyTick(now, force = false) {
+  const target = clock.minutes;
+  const sdt = Math.min(1, (now - lastTick) / 1000); lastTick = now;
+  if (shownMin === null) shownMin = target;
+  let diff = target - shownMin; if (diff > 720) diff -= 1440; if (diff < -720) diff += 1440;
+  const tweening = Math.abs(diff) > 0.4;
+  if (tweening) shownMin = ((shownMin + (Math.abs(diff) < 2 ? diff : diff * Math.min(1, sdt * 4))) + 1440) % 1440;
+  else shownMin = target;
+  if (tweening || force || skyDirty || now - lastSky > 20000) { lastSky = now; skyDirty = false; applySky(clock.live && !tweening ? new Date() : clock.at(shownMin)); }
+}
+skyTick(performance.now(), true);
+
 // ---------- loop ----------
 let last = performance.now(), t = 0;
 function frame() {
   const now = performance.now(); const dt = Math.min((now - last) / 1000, 0.05); last = now; t += dt;
+  skyTick(now); skyU.uTime.value = t;
   if (inside) {
     house.update(dt, t);
     renderer.render(house.scene, house.camera);
@@ -307,7 +409,7 @@ function frame() {
     const p = lorenz.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.5, 0));
     const d = p.clone().sub(controls.target); controls.target.add(d.multiplyScalar(Math.min(1, dt * 2))); camera.position.add(d);
   }
-  controls.update();
+  controls.update(); placeSkyBodies();
   renderer.render(scene, camera);
   if (viewer?.open) { viewer.oc.update(); viewer.r.render(viewer.s, viewer.cam); }
   requestAnimationFrame(frame);
@@ -318,7 +420,9 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, enterHouse, exitHouse, house, world, get inside() { return inside; }, get busy() { return busy; }, ready: true };
+window.nova = { visit, home, meetLorenz, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, ready: true };
+// test helper: look from near the Hearth toward a point in the sky (azimuth, elevation in degrees)
+window.__lookSky = (az, el = 8) => { follow = null; const d = skyDir(el, az); const from = new THREE.Vector3(-d[0] * 30, 14, -d[2] * 30); flyTo(from, from.clone().add(new THREE.Vector3(d[0] * 60, d[1] * 60 - 8, d[2] * 60)), 0.01); };
 window.__houseView = () => { if (!cottage) return; follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
 window.__cottageScreen = () => { if (!cottage) return null; const v = cottage.group.localToWorld(new THREE.Vector3(0.9, 1.0, 1.6)).project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
 const q = new URLSearchParams(location.search);

@@ -106,3 +106,32 @@ ul.rooms{list-style:none;padding:0;margin:0}ul.rooms li{display:flex;gap:10px;al
   #house-hint{font-size:11px;bottom:calc(58px + env(safe-area-inset-bottom))}
   #joy{bottom:calc(84px + env(safe-area-inset-bottom))}
 }
+
+/* ---------- sky clock (time of day) ---------- */
+#sky-clock{position:fixed;top:calc(max(16px,env(safe-area-inset-top)) + 46px);right:16px;z-index:6;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:calc(100vw - 32px)}
+#sky-clock .sky-main{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(15,23,51,.78);color:var(--ink);border-radius:999px;padding:5px 12px 5px 8px;font:inherit;font-size:13px;cursor:pointer;backdrop-filter:blur(6px)}
+#sky-clock .sky-main:hover{border-color:var(--gold)}
+#sky-clock .ico{font-size:17px;line-height:1}
+#sky-clock .tm{color:var(--gold2);font-weight:600;font-variant-numeric:tabular-nums}
+#sky-clock .ph{color:var(--ink)}
+#sky-clock .rs{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+#sky-clock.preview .sky-main{border-color:var(--gold)}
+#sky-clock.preview .ph{color:var(--gold2);font-style:italic}
+#sky-more{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;width:min(330px,calc(100vw - 32px));backdrop-filter:blur(8px)}
+#sky-more[hidden]{display:none}
+#sky-more .sky-tw{margin:0 0 6px;color:var(--gold2);font-size:12px}
+#sky-more .sky-note{margin:0 0 6px;color:var(--muted);font-size:12px}
+#sky-more input{width:100%;accent-color:var(--gold)}
+.sky-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.sky-row button{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:3px 9px;font:inherit;font-size:12px;cursor:pointer}
+.sky-row button:hover{border-color:var(--gold)}.sky-row button.on{background:var(--gold);color:#1a1404;border-color:var(--gold)}
+.sky-row .live{margin-left:auto}
+body.in-house #sky-clock{top:calc(max(16px,env(safe-area-inset-top)) + 46px)}
+@media (max-width:640px){
+  #sky-clock{top:calc(max(14px,env(safe-area-inset-top)) + 40px);right:12px}
+  #sky-clock .sky-main{font-size:12px;gap:6px;padding:4px 10px 4px 7px}
+  #sky-clock .rs{font-size:11px}
+  #sky-clock .sky-main[aria-expanded="true"] + #sky-more{display:block}
+}
+body:not([data-sky=night]) #hud-title,body:not([data-sky=night]) #house-title,body:not([data-sky=night]) #hint{text-shadow:0 1px 2px rgba(5,8,20,.9),0 0 14px rgba(5,8,20,.55)}
+body[data-sky=day] #hud-title p,body[data-sky=golden] #hud-title p{color:#e9e4d4}

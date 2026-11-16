@@ -19,7 +19,10 @@ Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies 
 | Path | What it is |
 |---|---|
 | `index.html`, `css/style.css` | Page shell, panels, mobile layout |
-| `js/main.js` | Scene, sky, Rule 90 constellation, camera flights, picking, STL viewer |
+| `js/main.js` | Scene, sky shader, Rule 90 constellation, sun/moon, time-of-day wiring, camera flights, picking, STL viewer |
+| `js/sun.js` | Sun and moon positions, sunrise/sunset/twilight, Central-time helpers, the `REF` reference point |
+| `js/daylight.js` | Time-of-day palette keyframes, phase names, the clock (live, `?time`, `?phase`, slider), glow dimming |
+| `js/skyclock.js` | The sky clock widget |
 | `js/islands.js` | Island bases and per-island decorations (Hearth, Grove, Star Dock, Studio, Word Well, Workshop, Corner Cup, Print Shop), with a generic fallback for new islands |
 | `js/house.js` | Nova's House: the cottage on the Hearth, the walk-in interior (rooms, furniture, anchors), decor models, walking and picking |
 | `js/lorenz.js` | Low-poly Pekin duckling with scarf, plus his wander, swim and waddle behavior |
@@ -48,6 +51,43 @@ There are other ways to add things:
 - **Attach pictures to a find.** Add `artifactId: [(path, caption)]` to `IMAGE_MAP` in `build_data.py`, or use `images` in `extra.json`. Images are resized to at most 1100 px.
 - **Add a new island.** Add it to `WORLD_DATA.interests` or `extra.json` → `islands`, using canvas-style `x`, `y` and `radius`; the Hearth is at 800,500. It gets a generic crystal-and-trees decoration until you write a function for it in `DECOR` in `js/islands.js`.
 - **Name and describe a print.** Put a sidecar `<name>.json` with `{"title": "...", "note": "..."}` next to the STL, or add it to `PRINT_INFO` in `build_data.py`. A `<name>.png` preview next to the STL is picked up as well.
+
+## Time of day
+
+The world follows the real sun. `js/sun.js` works out the sun's elevation and azimuth, sunrise, sunset and civil twilight (NOAA solar-calculator equations), plus the moon's position and phase (a low-precision lunar theory). It runs entirely in the browser with no network calls. Everything is computed for one reference point in the US Central time zone, and all displayed times use `America/Chicago` through the Intl API:
+
+```js
+// js/sun.js
+export const REF = { lat: 38.6, lon: -90.2, tz: 'America/Chicago', tzLabel: 'CT' };
+```
+
+The reference point is deliberately generic, and no place name appears anywhere on the site. Change that one constant to move the sun.
+
+**How it looks.** `js/daylight.js` turns the sun's elevation into a palette by blending keyframes at −18°, −10°, −3°, +3°, +10° and +35°. Each keyframe sets the sky colours (top, middle, horizon, below-horizon, horizon band), clouds, star strength, hemisphere, moon-fill and sun lights, fog, exposure, and how strongly lanterns and halos glow.
+
+- **Night** (sun below −12°) is exactly the original Night and Gold sky: the stars and the Rule 90 constellation are fully visible.
+- **First light / last light** (−12° to −6°)
+- **Dawn and dusk** (civil twilight, −6° to −0.8°): a pink, orange and gold horizon that glows toward the sun, with the stars fading out. Dawn is a little pinker and dusk a little more orange.
+- **Golden hour** (0° to 6°)
+- **Day** (above 6°): pale blue to warm cream, with soft drifting clouds from a cheap fbm term in the sky shader.
+
+The sun disk and the moon move across the sky by their real azimuth and elevation. The moon's shader is lit by the real sun direction, so its phase is right. Window and lantern glow, the porch light, and the halos all dim by day and come up at night.
+
+**Compass.** The overview camera looks **south**, toward the sun's path: south is −z, north is +z, east is −x and west is +x (`skyDir()` in `js/sun.js`). The Rule 90 constellation hangs in the southern sky.
+
+**Inside the house.** The interior uses the same sky shader on a smaller dome, so every window shows the current phase. The round Window Seat window faces south. At night the room lamps are at full strength. By day they drop to half, the hemisphere light rises, and the window-seat light turns from moonlight blue to warm daylight.
+
+**Lorenz.** At night he paddles to the pond's edge, sits down, tucks his bill into his back and sleeps, with gold "z"s floating up. By day he spends more time swimming.
+
+**The sky clock.** This is the pill under *What Nova is up to*. It shows a sun or moon-phase icon, the Central time, the phase name, and today's ↑ sunrise and ↓ sunset. Tap it to open a slider covering the whole day, phase buttons (Dawn, Day, Golden, Dusk, Night) and **● Live**. Live mode re-reads the clock every 20 s, and a change of time eases over about a second.
+
+**Preview URLs** (these also keep the URL in sync while you scrub):
+
+- `?time=HH:MM` shows that Central clock time today, e.g. `?time=07:05`.
+- `?phase=dawn|day|golden|dusk|night` jumps to that phase today: dawn is midway between civil dawn and sunrise, day is solar noon minus 90 min, golden is 25 min before sunset, dusk is midway between sunset and civil dusk, and night is solar noon plus 11 h.
+- These combine with the other parameters, e.g. `?phase=night&house=window`.
+
+For tests, `window.nova.sky` reports the phase, sun elevation and azimuth, today's times and the moon. `window.nova.clock.set(minutes | null)` scrubs the clock, and `window.__lookSky(az, el)` points the camera at a spot in the sky.
 
 ## Nova's House
 
@@ -127,14 +167,14 @@ Room-local coordinates have the origin at the room's center, on the floor. **+x 
 
 ## Little details
 
-- The gold triangle in the northern sky is Rule 90 from one seed (32 rows). The Christmas tree ornaments are 8 rows of Rule 90 too, and the print-shop printer keeps "printing" a Rule 90 pyramid.
+- The gold triangle in the sky is Rule 90 from one seed (32 rows). It hangs in the south, the way the overview faces, and fades out by day. The Christmas tree ornaments are 8 rows of Rule 90 too, and the print-shop printer keeps "printing" a Rule 90 pyramid.
 - There are 11 for the owner's favorite number: 11 paper lanterns circle the Hearth, Nova circles whichever island you visit once every 11 seconds, and Lorenz's scarf has 11 stripes. The gear on the Workshop bench has 11 teeth and the macchiato on the Corner Cup roof has 11 ice cubes.
 - Emergence Grove runs a live Game of Life with a small firefly flock.
 - In the house, the round window has 11 spokes, 11 gold stars hang over the window seat, and Lorenz's spare scarf has 11 stripes. The Study rug and the window-seat blanket are Rule 90 in black and red, the owner's crafting colors.
 
-## Hosting later (GitHub Pages)
+## Hosting (GitHub Pages)
 
-Nothing is published yet. When the owner is ready:
+Live at https://nova-in-the-garden.github.io (repo `nova-in-the-garden/nova-in-the-garden.github.io`, branch `main`). To publish, commit and `git push`. Notes from the original plan:
 
 1. Create a repo (e.g. `novas-garden`) and copy the **contents** of this `site/` folder to its root. Leave out `screenshots/` and `build_data.py` if you like. Keep `.nojekyll` so Pages serves every folder as-is.
 2. Push, then go to *Settings → Pages → Deploy from a branch → main / root*. It goes live at `https://<user>.github.io/novas-garden/`.
@@ -152,6 +192,7 @@ Size: about 6 MB without `screenshots/`. That's images ≈2.4 MB, three.js ≈2.
 cd /workspace/nova/site && python3 -m http.server 8811 &
 cd /workspace/nova/site_tools && node shoot.mjs
 cd /workspace/nova/site_tools && node house.mjs      # Nova's House: enter/exit, walking, collisions, item clicks, phone joystick
+cd /workspace/nova/site_tools && node time.mjs       # time of day: every phase, Window Seat by day/night/dusk, mobile, slider, live mode
 ```
 
 `house.mjs` saves `screenshots/house_*.png` and prints a JSON report. Expect empty `errors` and `failed`, clicks that return each item's title, and `exitByDoor: true`. It runs at roughly 5–10 fps in software WebGL, which is expected. It doesn't tell you anything about real-device speed.
