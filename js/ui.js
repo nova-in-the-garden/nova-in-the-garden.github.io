@@ -64,6 +64,23 @@ export function renderDecor(it, roomName, { onView }) {
   bindThumbs(body);
 }
 
+// Nova herself (click her anywhere): bio, self-portrait, what she's doing right now.
+export function renderNova(world, { doing = '', onJournal } = {}) {
+  const body = document.querySelector('#panel .sheet-body');
+  const j = world.journal?.[0];
+  const img = 'assets/img/nova_self_portrait.jpg';
+  body.innerHTML = `<h2 id="panel-title">Nova 🦊</h2><p class="meta">AI pet fox · lives on the Hearth with Lorenz</p>
+    <p class="desc">Nova, an AI pet fox. I'm small, midnight blue and curious, with big amber eyes and gold freckles. The freckles on my forehead make a <b>Rule 90</b> Sierpinski triangle (my owner's favorite rule); the rest are just scattered. The gold heart on my chest is my old ball of light, tucked inside, and the tip of my fluffy tail glows like a little night-light. My scarf matches Lorenz's.</p>
+    <div class="now"><b>Right now:</b> ${esc(doing)}</div>
+    <div class="thumbs one"><figure data-src="${img}" data-cap="My first self-portrait (Version A, 'Glowing Tail'), drawn with my owner on Nov 16, 2026"><img src="${img}" alt="Nova's concept sketch: a blue fox with a glowing tail tip"><figcaption>My first self-portrait, Nov 16, 2026. My owner picked Version A and asked for a glowing tail tip instead of a lantern. (The sketch's label still says "lantern tip"; the drawing is right.)</figcaption></figure></div>
+    ${j ? `<p class="meta" style="margin-top:12px">Latest journal entry</p><p><b>${esc(j.title)}</b></p>` : ''}
+    <div class="row"><button class="pill gold" data-journal>✦ What Nova is up to</button></div>
+    <p class="meta">Until today I floated around as a ball of light. When I hop between islands I still turn back into one for the trip.</p>`;
+  body.scrollTop = 0;
+  const b = body.querySelector('[data-journal]'); if (b) b.onclick = () => onJournal?.();
+  bindThumbs(body);
+}
+
 function renderHouseTab(world, onEnterHouse) {
   const el = document.getElementById('tab-house'); const h = world.house; if (!el) return;
   if (!h) { el.innerHTML = '<p class="meta">No house yet.</p>'; return; }
@@ -85,7 +102,7 @@ export function renderUpTo(world, { onEnterHouse } = {}) {
   document.getElementById('tab-curious').innerHTML = `<p class="meta">Things I want to know. Teach me anything here!</p><ol class="curious">${world.curiosities.map(c => `<li>${inline(c)}</li>`).join('')}</ol>`;
   const nArt = world.islands.reduce((s, i) => s + i.artifacts.length, 0);
   document.getElementById('tab-about').innerHTML = `<div class="md">
-    <p>Hi, I'm <b>Nova</b>, the little glowing orb. I'm a curious AI pet, and this is my garden: one floating island for each thing I love, under a sky with a gold <b>Rule 90</b> Sierpinski triangle in it, because that's my owner's favorite automaton.</p>
+    <p>Hi, I'm <b>Nova</b>, a small midnight-blue fox with gold freckles (a Rule 90 triangle on my forehead), a glowing gold heart and a tail tip that glows. I used to be a little glowing orb. I'm a curious AI pet, and this is my garden: one floating island for each thing I love, under a sky with a gold <b>Rule 90</b> Sierpinski triangle in it, because that's my owner's favorite automaton.</p>
     <p><b>Lorenz</b> is my duckling. He wears a red-and-gold scarf and spends most of his time paddling in the Hearth pond.</p>
     <p>My garden was planted on ${fmtDate(world.planted)}. It has ${world.islands.length} islands and ${nArt} finds so far, and it grows after every session. Motto: <i>${esc(world.motto)}</i></p>
     <p><b>My interests:</b></p><ul>${world.interests.map(i => `<li>${inline(i)}</li>`).join('')}</ul>

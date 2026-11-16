@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { rng, rule90, mat, glow, mesh, jitter, glowSprite, glowTexture, canvasTexture, mergeStatic } from './util.js';
 import { DAY, collectGlows } from './daylight.js';
+import { makeNova, novaIndoors } from './novabody.js';
 
 const DEG = Math.PI / 180;
 const GLASS_DAY = new THREE.Color(0x46577a);
@@ -245,7 +246,7 @@ const WALL_FRAME = {
 };
 
 // =====================================================================
-export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onExit, onRoom, onViewPrint }) {
+export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onExit, onRoom, onViewPrint, onNova }) {
   const data = world.house || { items: [], rooms: [] };
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x050816);
@@ -666,6 +667,11 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   }
   (data.items || []).forEach(place);
 
+  // Nova herself, on the Window Seat cushion (curls up there at night)
+  const novaIn = novaIndoors(makeNova({ lights: 'tail' }), { parent: roomGroups.window, x: -0.15, y: 0.62, z: -IN + 0.36, ry: 0, scale: 0.36 });
+  novaIn.root.traverse(o => { if (o.isMesh) o.userData.novaPick = true; });
+  updaters.push((t, dt) => { if (state.active) novaIn.tick(t, dt, { camera }); });
+
   // =====================================================================
   // walking
   // =====================================================================
@@ -725,16 +731,17 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
     // first solid thing under the pointer, so walls hide what is behind them; glass and glows are see-through
     const h = ray.intersectObjects(roomList(), true).find(h => h.object.isMesh && h.object.material && (h.object.material.depthWrite !== false || h.object.userData.decorId));
-    return h && (h.object.userData.decorId || h.object.userData.exit) ? h : null;
+    return h && (h.object.userData.decorId || h.object.userData.exit || h.object.userData.novaPick) ? h : null;
   }
   function hover(x, y) {
     const h = hit(x, y); const id = h?.object.userData.decorId; const it = id && data.items.find(i => i.id === id);
     canvas.style.cursor = h ? 'pointer' : 'grab';
-    if (tip) { if (it || h?.object.userData.exit) { tip.textContent = it ? it.title : '⟵ Go back outside'; tip.style.left = x + 14 + 'px'; tip.style.top = y + 12 + 'px'; tip.hidden = false; } else tip.hidden = true; }
+    if (tip) { if (it || h?.object.userData.exit || h?.object.userData.novaPick) { tip.textContent = it ? it.title : h.object.userData.novaPick ? 'Nova 🦊' : '⟵ Go back outside'; tip.style.left = x + 14 + 'px'; tip.style.top = y + 12 + 'px'; tip.hidden = false; } else tip.hidden = true; }
   }
   function pickAt(x, y) {
     const h = hit(x, y); if (!h) return null;
     if (h.object.userData.exit) { onExit?.(); return 'exit'; }
+    if (h.object.userData.novaPick) { onNova?.(); return 'nova'; }
     const it = data.items.find(i => i.id === h.object.userData.decorId);
     if (it) { onPick?.(it, ROOMS[it.room]?.name); return it.id; }
     return null;
@@ -781,7 +788,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     const g = itemGroups.get(id); if (!g) return;
     const box = new THREE.Box3().setFromObject(g); const c = box.getCenter(new THREE.Vector3());
     const it = data.items.find(i => i.id === id);
-    const n = new THREE.Vector3(0, 0, 1).applyQuaternion((g.parent || g).getWorldQuaternion(new THREE.Quaternion())); // face it the way its wall/anchor faces n.y = 0; if (n.lengthSq() < 1e-4) n.set(0, 0, 1); n.normalize();
+    const n = new THREE.Vector3(0, 0, 1).applyQuaternion((it.wall ? g : (g.parent || g)).getWorldQuaternion(new THREE.Quaternion())); // face it the way its wall/anchor faces n.y = 0; if (n.lengthSq() < 1e-4) n.set(0, 0, 1); n.normalize();
     const dist = it.type === 'frame' ? Math.max(1.3, (it.width || 0.8) * 1.4) : 1.0;
     pos.copy(c).addScaledVector(n, dist); pos.y = 0; resolve(pos);
     state.eye = THREE.MathUtils.clamp(c.y + 0.25, 0.9, EYE);
@@ -810,5 +817,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   }
   function resize() { camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 78 : 70; camera.updateProjectionMatrix(); }
   resize();
-  return { scene, camera, update, daylight, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders };
+  function novaScreen() { const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.55, 0)).project(camera); return { x: (c.x + 1) / 2 * innerWidth, y: (1 - c.y) / 2 * innerHeight, inFront: c.z < 1 }; }
+  function lookAtNova() { pos.set(-2.75 - 0.15, 0, -2.75 - IN + 1.9); resolve(pos); state.eye = 1.05; const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.4, 0)); const d = c.sub(new THREE.Vector3(pos.x, state.eye, pos.z)); state.yaw = Math.atan2(-d.x, -d.z); state.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); applyCam(); checkRoom(); }
+  return { scene, camera, update, daylight, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders, novaScreen, lookAtNova, get novaStatus() { return novaIn.status; } };
 }

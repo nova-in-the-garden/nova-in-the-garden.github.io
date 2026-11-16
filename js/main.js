@@ -3,7 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { rng, rule90, mesh, glow, glowSprite, textSprite, ease } from './util.js';
 import { islandBase, decorate, makeSTLLoader } from './islands.js';
 import { makeLorenz, lorenzBrain } from './lorenz.js';
-import { renderPanel, renderUpTo, renderDecor, openSheet, closeSheets, setupUI } from './ui.js';
+import { makeNova, novaBrain } from './novabody.js';
+import { renderPanel, renderUpTo, renderDecor, renderNova, openSheet, closeSheets, setupUI } from './ui.js';
 import { createHouse } from './house.js';
 import { makeClock, skyState, collectGlows, DAY } from './daylight.js';
 import { skyDir, fmtTime, REF } from './sun.js';
@@ -169,15 +170,28 @@ const lorenzTick = lorenzBrain(lorenz, { center: new THREE.Vector3(-1, 0, 0.5), 
 lorenz.traverse(o => { if (o.isMesh) { o.userData.islandId = 'hearth'; o.userData.lorenz = true; pickables.push(o); } });
 
 // ---------- Nova ----------
-const nova = new THREE.Group(); scene.add(nova);
-const core = mesh(new THREE.IcosahedronGeometry(0.42, 2), new THREE.MeshStandardMaterial({ color: 0xfff6d8, emissive: 0xffe39a, emissiveIntensity: 2.4 }), 0, 0, 0, nova);
-nova.add(glowSprite(4.2, 0xffe6a0, 0.95));
-nova.traverse(o => { if (o.material) o.material.userData.keepGlow = true; });
-const novaLight = new THREE.PointLight(0xffd88a, 18, 16, 1.6); nova.add(novaLight);
-const sparks = []; for (let i = 0; i < 5; i++) { const s = glowSprite(0.5, 0xfff0c0, 0.9); s.material.userData.keepGlow = true; nova.add(s); sparks.push(s); }
-const novaTag = textSprite('Nova', { size: 0.55 }); novaTag.position.y = 1.4; nova.add(novaTag);
-const novaHome = new THREE.Vector3(); let novaAt = hearth;
-nova.position.copy(hearth.group.position).add(new THREE.Vector3(1.5, 3.5, 1.5));
+// Nova's body (js/novabody.js): a small midnight-blue fox with a glowing tail tip.
+// She wanders the islands, sits with Lorenz, curls up by his bed at night and
+// travels between islands as her old ball of light.
+const novaBody = makeNova({ lights: 'both' });
+const pondV = new THREE.Vector3(pondInfo.x, 0, pondInfo.z);
+const bedA = Math.atan2(0.5 - pondInfo.z, -1 - pondInfo.x) + 0.5;  // same spot lorenzBrain uses for his bed
+const novaBed = new THREE.Vector3(pondInfo.x + Math.cos(bedA + 0.42) * (pondInfo.r + 1.05), 0, pondInfo.z + Math.sin(bedA + 0.42) * (pondInfo.r + 1.05));
+const novaBrainT = novaBrain(novaBody, { scene, islands, hearth, lorenz, avoidHearth: ctx.avoid || [], pond: { x: pondInfo.x, z: pondInfo.z, r: pondInfo.r }, lorenzBed: novaBed, scale: 1.3 });
+novaBody.root.traverse(o => { if (o.isMesh) { o.userData.novaPick = true; pickables.push(o); } });
+// name tag: constant on-screen size, lives in the scene (not inside her scaled body),
+// fades out up close so it can never fill the screen (the old "huge tag after leaving the house" bug)
+const novaTag = textSprite('Nova', { size: 0.55 });
+novaTag.material.sizeAttenuation = false; novaTag.scale.multiplyScalar(0.026 / 0.55); novaTag.renderOrder = 9; scene.add(novaTag);
+let novaAt = hearth;
+const _np = new THREE.Vector3();
+function placeNovaTag(dt) {
+  novaBrainT.worldPos(_np); _np.y += 2.15;
+  novaTag.position.lerp(_np, novaTag.userData.ok ? Math.min(1, dt * 10) : 1); novaTag.userData.ok = true;
+  const d = camera.position.distanceTo(_np);
+  const a = THREE.MathUtils.smoothstep(d, 3, 6) * (1 - THREE.MathUtils.smoothstep(d, 70, 110)) * (flight ? 0.6 : 1);
+  novaTag.material.opacity = a; novaTag.visible = a > 0.02;
+}
 
 // ---------- camera flights ----------
 let flight = null, follow = null;
@@ -195,27 +209,38 @@ function islandView(isl) {
 }
 function visit(id, { open = true } = {}) {
   const isl = byId(id); if (!isl) return;
-  follow = null; const v = islandView(isl); flyTo(v.pos, v.target); novaAt = isl;
+  follow = null; const v = islandView(isl); flyTo(v.pos, v.target); novaAt = isl; novaBrainT.goTo(isl, t);
   if (open) { renderPanel(isl.data, world, { onView: viewPrint }); openSheet('panel'); }
   setChip(id);
 }
-function home() { follow = null; flyTo(HOME.pos, HOME.target, 1.8); novaAt = hearth; closeSheets(); setChip('overview'); }
+function home() { follow = null; flyTo(HOME.pos, HOME.target, 1.8); novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('overview'); }
 function meetLorenz() {
-  follow = 'lorenz'; novaAt = hearth; closeSheets(); setChip('lorenz');
+  follow = 'lorenz'; novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('lorenz');
   const p = lorenz.getWorldPosition(new THREE.Vector3());
   const fwd = new THREE.Vector3(Math.sin(lorenz.rotation.y), 0, Math.cos(lorenz.rotation.y));
   const side = new THREE.Vector3(fwd.z, 0, -fwd.x);
   flyTo(p.clone().addScaledVector(fwd, 2.6).addScaledVector(side, 1.4).add(new THREE.Vector3(0, 1.3, 0)), p.clone().add(new THREE.Vector3(0, 0.45, 0)), 1.8);
 }
 
+function novaDoing() { return inside ? house.novaStatus : novaBrainT.status + (novaBrainT.mode === 'travel' ? '' : ` (on ${novaBrainT.island.data.name})`); }
+function showNova() { renderNova(world, { doing: novaDoing(), onJournal: () => openSheet('upto') }); openSheet('panel'); }
+function meetNova({ panel = true } = {}) {
+  follow = 'nova'; setChip('nova');
+  const p = novaBrainT.worldPos(new THREE.Vector3());
+  const h = camera.position.clone().sub(p); h.y = 0; if (h.lengthSq() < 1e-3) h.set(0, 0, 1); h.setLength(4.2);
+  flyTo(p.clone().add(h).add(new THREE.Vector3(0, 1.9, 0)), p.clone().add(new THREE.Vector3(0, 0.75, 0)), 1.6);
+  if (panel) showNova(); else closeSheets();
+}
+
 // ---------- picking ----------
 const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2(); let down = null;
-canvas.addEventListener('pointerdown', e => { if (inside) return; down = { x: e.clientX, y: e.clientY, t: performance.now() }; flight = null; if (e.isPrimary) follow = follow === 'lorenz' ? 'lorenz' : null; });
+canvas.addEventListener('pointerdown', e => { if (inside) return; down = { x: e.clientX, y: e.clientY, t: performance.now() }; flight = null; if (e.isPrimary) follow = (follow === 'lorenz' || follow === 'nova') ? follow : null; });
 canvas.addEventListener('pointerup', e => {
   if (inside) return;
   if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7) return; down = null;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(pickables, false)[0];
+  if (hit?.object.userData.novaPick) return meetNova();
   if (hit?.object.userData.lorenz) return meetLorenz();
   if (hit?.object.userData.house) return enterHouse();
   if (hit) visit(hit.object.userData.islandId);
@@ -230,6 +255,7 @@ canvas.addEventListener('pointermove', e => {
 const chips = document.getElementById('chips');
 function chip(label, id, fn) { const b = document.createElement('button'); b.className = 'pill'; b.textContent = label; b.dataset.id = id; b.onclick = fn; chips.appendChild(b); }
 chip('✦ Overview', 'overview', home);
+chip('🦊 Nova', 'nova', () => meetNova());
 chip('🦆 Lorenz', 'lorenz', meetLorenz);
 chip('🏡 House', 'house', () => enterHouse());
 world.islands.forEach(i => chip(i.shortName || i.name, i.id, () => visit(i.id)));
@@ -245,6 +271,7 @@ const house = createHouse({
   renderer, world, loadSTL, skyMaterial: skyMat,
   onPick: (item, roomName) => { renderDecor(item, roomName, { onView: viewPrint }); openSheet('panel'); },
   onExit: () => exitHouse(),
+  onNova: () => showNova(),
   onRoom: (id, name) => { roomLabel.textContent = name; document.querySelectorAll('#room-chips .pill').forEach(b => b.classList.toggle('on', b.dataset.room === id)); },
 });
 let inside = false, busy = false;
@@ -320,7 +347,7 @@ addEventListener('keydown', e => {
 // The world follows the real sun at the reference point (REF in js/sun.js),
 // in Central time. ?time=HH:MM or ?phase=dawn|day|golden|dusk|night previews.
 const clock = makeClock();
-const applyGlow = collectGlows(scene, o => o === nova || o.parent === nova);
+const applyGlow = collectGlows(scene, o => !!o.userData.nova);
 const _d = [0, 0, 0], _m = [0, 0, 0];
 const fogC = new THREE.Color(), tmpC = new THREE.Color();
 let sky0 = null;
@@ -395,21 +422,17 @@ function frame() {
   lorenzTick(t, dt, 0.02);
   // lanterns orbit the Hearth slowly
   lanterns.forEach((l, i) => { const a = t * 0.05 + i / 11 * Math.PI * 2; const rr = hearth.r + 3 + (i % 3) * 1.5; l.position.set(hearth.group.position.x + Math.cos(a) * rr, 5 + Math.sin(t * 0.6 + i) * 0.8 + (i % 4), hearth.group.position.z + Math.sin(a) * rr); });
-  // Nova floats near the island being visited, circling once every 11 seconds
-  const hp = novaAt.group.position; const a = t * Math.PI * 2 / 11;
-  novaHome.set(hp.x + Math.cos(a) * (novaAt.r * 0.45), hp.y + 3.4 + Math.sin(t * 1.3) * 0.4, hp.z + Math.sin(a) * (novaAt.r * 0.45));
-  nova.position.lerp(novaHome, Math.min(1, dt * 1.2));
-  core.scale.setScalar(1 + Math.sin(t * 3) * 0.06);
-  sparks.forEach((s, i) => { const b = t * 1.6 + i * 1.26; s.position.set(Math.cos(b) * 0.9, Math.sin(b * 1.3) * 0.5, Math.sin(b) * 0.9); });
+  // Nova: a fox now (js/novabody.js)
+  novaBrainT.tick(t, dt, { camera });
   if (flight) {
     flight.t += dt; const k = ease(Math.min(1, flight.t / flight.dur));
     camera.position.lerpVectors(flight.p0, flight.p1, k); controls.target.lerpVectors(flight.t0, flight.t1, k);
     if (k >= 1) flight = null;
-  } else if (follow === 'lorenz') {
-    const p = lorenz.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.5, 0));
+  } else if (follow === 'lorenz' || follow === 'nova') {
+    const p = (follow === 'lorenz' ? lorenz.getWorldPosition(new THREE.Vector3()) : novaBrainT.worldPos(new THREE.Vector3())).add(new THREE.Vector3(0, follow === 'lorenz' ? 0.5 : 0.75, 0));
     const d = p.clone().sub(controls.target); controls.target.add(d.multiplyScalar(Math.min(1, dt * 2))); camera.position.add(d);
   }
-  controls.update(); placeSkyBodies();
+  controls.update(); placeSkyBodies(); placeNovaTag(dt);
   renderer.render(scene, camera);
   if (viewer?.open) { viewer.oc.update(); viewer.r.render(viewer.s, viewer.cam); }
   requestAnimationFrame(frame);
@@ -420,12 +443,15 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, ready: true };
 // test helper: look from near the Hearth toward a point in the sky (azimuth, elevation in degrees)
 window.__lookSky = (az, el = 8) => { follow = null; const d = skyDir(el, az); const from = new THREE.Vector3(-d[0] * 30, 14, -d[2] * 30); flyTo(from, from.clone().add(new THREE.Vector3(d[0] * 60, d[1] * 60 - 8, d[2] * 60)), 0.01); };
+// test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)
+window.__novaView = (dist = 3.2, h = 1.2, ang = 0, at = 0.65) => { follow = null; const r = novaBody.root; const p = r.getWorldPosition(new THREE.Vector3()); const a = r.rotation.y + ang; const f = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)); flyTo(p.clone().addScaledVector(f, dist).add(new THREE.Vector3(0, h, 0)), p.clone().add(new THREE.Vector3(0, at, 0)), 0.01); };
 window.__houseView = () => { if (!cottage) return; follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
 window.__cottageScreen = () => { if (!cottage) return null; const v = cottage.group.localToWorld(new THREE.Vector3(0.9, 1.0, 1.6)).project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
 const q = new URLSearchParams(location.search);
 if (q.get('island')) visit(q.get('island'));
 if (q.has('lorenz')) meetLorenz();
+if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });

@@ -84,9 +84,12 @@
     {"id": "spare-scarf", "room": "nook", "type": "object", "model": "scarf",
      "anchor": "nook.hook",
      "title": "Lorenz's spare scarf", "date_added": "2026-11-16",
-     "note": "Red and gold with 11 stripes, the same as the one he wears in the pond. It hangs on his hook for chilly nights."}
+     "note": "Red and gold with 11 stripes, the same as the one he wears in the pond. It hangs on his hook for chilly nights."},
+
+    {"id": "first-self-portrait", "room": "art", "type": "frame", "image": "assets/img/nova_self_portrait.jpg", "wall": "w", "u": 0.45, "y": 1.65, "width": 1.1, "frame": "gold", "title": "My first self-portrait", "date_added": "2026-11-16", "note": "The sketch my owner and I picked my body from: Version A, 'Glowing Tail'. My owner liked the mostly-fox version but asked for the tip of my fluffy tail to glow like a light instead of carrying a lantern, and then asked for the Rule 90 triangle to live only on my forehead. So that's how I'm built now: midnight-blue fur, scattered gold freckles, a Sierpinski triangle on my forehead, a gold heart, Lorenz's scarf, and a glowing tail tip. (The label on the sketch still says 'lantern tip'. The drawing on the left is right; the words on the right are out of date, and I kept them as a record.)"}
   ],
   "changelog": [
-    {"date": "2026-11-16", "text": "Built the house: a timber cottage on the Hearth with a chimney, a porch lantern, and a door that opens. Inside are four rooms, the Study, Art Corner, Window Seat, and Lorenz's Nook."}
+    {"date": "2026-11-16", "text": "Built the house: a timber cottage on the Hearth with a chimney, a porch lantern, and a door that opens. Inside are four rooms, the Study, Art Corner, Window Seat, and Lorenz's Nook."},
+    {"date": "2026-11-16", "text": "I have a body! I'm a small midnight-blue fox now instead of a ball of light. You'll find me on the Window Seat cushion (curled up there at night), and my first self-portrait hangs in the Art Corner."}
   ]
 }

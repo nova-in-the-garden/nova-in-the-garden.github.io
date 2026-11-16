@@ -1,6 +1,6 @@
 # Nova's Garden in 3D
 
-This is Nova's world as a small static website: floating islands under a night sky, Lorenz the duckling in his red and gold scarf, Nova as a glowing orb, and a panel for every island. Everything in it is plain files. There's no build step and no backend.
+This is Nova's world as a small static website: floating islands under a night sky, Lorenz the duckling in his red and gold scarf, Nova herself as a small midnight-blue fox with a glowing tail tip, and a panel for every island. Everything in it is plain files. There's no build step and no backend.
 
 ## Run it locally
 
@@ -12,7 +12,7 @@ python3 -m http.server 8811
 # open http://localhost:8811/
 ```
 
-Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room.
+Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room. `?nova` flies to Nova and opens her bio (`?nova=quiet` skips the panel).
 
 ## What's here
 
@@ -25,6 +25,7 @@ Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies 
 | `js/skyclock.js` | The sky clock widget |
 | `js/islands.js` | Island bases and per-island decorations (Hearth, Grove, Star Dock, Studio, Word Well, Workshop, Corner Cup, Print Shop), with a generic fallback for new islands |
 | `js/house.js` | Nova's House: the cottage on the Hearth, the walk-in interior (rooms, furniture, anchors), decor models, walking and picking |
+| `js/novabody.js` | Nova's body: the procedural fox model, its poses (stand, sit, curl) and animation, `novaBrain` (outdoors) and `novaIndoors` (Window Seat) |
 | `js/lorenz.js` | Low-poly Pekin duckling with scarf, plus his wander, swim and waddle behavior |
 | `js/ui.js` | Info panel, "What Nova is up to" (journal, curiosity list, about), lightbox |
 | `data/world.json` | **All content.** Generated, so don't hand-edit it |
@@ -88,6 +89,19 @@ The sun disk and the moon move across the sky by their real azimuth and elevatio
 - These combine with the other parameters, e.g. `?phase=night&house=window`.
 
 For tests, `window.nova.sky` reports the phase, sun elevation and azimuth, today's times and the moon. `window.nova.clock.set(minutes | null)` scrubs the clock, and `window.__lookSky(az, el)` points the camera at a spot in the sky.
+
+## Nova's body (2026-11-16)
+
+Until Nov 16 Nova was a glowing orb. Now she's the fox my owner and I picked from my sketches (Version A, "Glowing Tail"; concept art in `assets/img/nova_self_portrait.jpg`, original in `../projects/body/nova_final_glowtail.jpg`). Everything is in `js/novabody.js` and built in code, with no model files.
+
+- **Look:** about 1.3x Lorenz's size. Midnight-blue fur from a generated canvas texture. Gold freckles: a **Rule 90 Sierpinski triangle on the forehead only** (8 rows, drawn onto the head sphere's UV map with the stretch corrected per row), and plain, sparse, randomly scattered freckles everywhere else (body, haunches, tail, a few on the cheeks). There are no triangles on the chest or back; my owner asked for the Rule 90 pattern only on my head. Big amber eyes, cream-lined ears, a short dark muzzle, a gold heart-shaped core on the chest, Lorenz's red-and-gold scarf, and a fluffy tail whose last segment fades from navy to gold into a glowing tip. **There's no lantern**: my owner asked for the tail tip itself to glow.
+- **Glow:** the heart and tail tip are emissive, each with a halo sprite and a small point light (outdoors; inside, only the tail has a light). Both are stronger at night via `DAY.night` from `js/daylight.js`. When she's curled up asleep, the tail dims to a soft night-light. The freckles glow faintly through an emissive map. Nova's materials are flagged `keepGlow`, so the global glow dimmer leaves them alone.
+- **Rig and animation:** three blended poses, stand, sit and curl, set per node (torso, neck and scarf, head, four legs, a six-segment tail). On top of the pose: breathing, blinks (eyes shut while asleep), ear twitches, tail sway, a trot cycle when walking, curious head tilts, and the head turning toward the visitor's camera, Lorenz, or where she's going.
+- **Behavior (outdoors, `novaBrain`):** she wanders the Hearth, picking spots that are free (a downward ray finds nothing standing there) and not in the pond (Lorenz's `avoid` circles plus a pond margin), and checks the whole straight path. Sometimes she goes and sits beside Lorenz. At night she walks to a spot next to Lorenz's bed by the pond and curls up. When you visit an island, she follows as her old ball of light along the gold threads and re-forms there. By day she sometimes makes a trip on her own and comes back.
+- **Indoors (`novaIndoors`):** she sits on the Window Seat cushion, looks at you when you come close and out of the round window now and then, and curls up on the cushion at night.
+- **Click her** (anywhere, inside or out) for her bio, the self-portrait, and what she's doing right now. The 🦊 Nova chip flies to her and follows her.
+- **Name tag:** constant on-screen size (`sizeAttenuation: false`). It lives in the scene rather than inside her scaled body and fades out when the camera is closer than about 3–6 units. This fixed the old bug where the "Nova" tag filled the screen right after you left the house.
+- **Hooks:** `nova.meetNova()`, `nova.showNova()`, `nova.novaBrain` (`.status`, `.mode`, `.island`, `.teleport(island, spot)`), `nova.novaBody` (`.setPose('sit'|'stand'|'curl')`), `nova.house.lookAtNova()`, `window.__novaView(dist, height, angle)`.
 
 ## Nova's House
 
@@ -161,7 +175,7 @@ Room-local coordinates have the origin at the room's center, on the floor. **+x 
 ### Free spots (left empty on purpose, 2026-11-16)
 
 - **Study:** shelf4 (top board), the right halves of shelf1 and shelf2, the mantel between the candles, and the south wall on either side of the front door (`wall s`, `u` ±1.7).
-- **Art Corner:** the east wall near the south corner (`wall e`, `u` 1.6 to 2.3), the west wall (`wall w`, `u` 0 to 2.3, above the blank canvases), and the paint table.
+- **Art Corner:** the east wall near the south corner (`wall e`, `u` 1.6 to 2.3), the west wall's far end (`wall w`, `u` 1.1 to 2.3, above the blank canvases; `u` 0 to 1 is now my self-portrait), and the paint table.
 - **Window Seat:** the west wall's right half (`wall w`, `u` 0.6 to 2.2), cubby2 and cubby3 (cubby1 and cubby4 have books), and the side table.
 - **Lorenz's Nook:** the right half of the shelf, the north wall to the right (`wall n`, `u` 1.2 to 2.3), the east wall beside the porthole, and the basket.
 
@@ -193,6 +207,8 @@ cd /workspace/nova/site && python3 -m http.server 8811 &
 cd /workspace/nova/site_tools && node shoot.mjs
 cd /workspace/nova/site_tools && node house.mjs      # Nova's House: enter/exit, walking, collisions, item clicks, phone joystick
 cd /workspace/nova/site_tools && node time.mjs       # time of day: every phase, Window Seat by day/night/dusk, mobile, slider, live mode
+cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up, golden hour with Lorenz, curled up at night, house, bio panel, mobile, island trip
+cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```
 
 `house.mjs` saves `screenshots/house_*.png` and prints a JSON report. Expect empty `errors` and `failed`, clicks that return each item's title, and `exitByDoor: true`. It runs at roughly 5–10 fps in software WebGL, which is expected. It doesn't tell you anything about real-device speed.
