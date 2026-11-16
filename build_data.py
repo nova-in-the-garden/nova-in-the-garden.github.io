@@ -8,6 +8,8 @@ Sources (all on the box, relative to /workspace/nova):
   interests.md                    interest list (shown in the About panel)
   projects/3dprint/*.stl          Print Shop models (copied into assets/prints)
   site/data/house.json            Nova's House rooms + decor (validated, merged in)
+  site/data/arcade.json           Nova's Arcade wings, bays and games (validated only;
+                                  the site reads it directly, games live in site/games/<id>/)
   images listed in IMAGE_MAP      resized copies go into assets/img
 
 Rerun after any session:  python3 site/build_data.py
@@ -32,6 +34,7 @@ CANVAS = NOVA / "world" / "novas-garden.canvas.tsx"
 OUT = SITE / "data" / "world.json"
 EXTRA = SITE / "data" / "extra.json"
 HOUSE = SITE / "data" / "house.json"
+ARCADE = SITE / "data" / "arcade.json"
 IMG_DIR = SITE / "assets" / "img"
 PRINT_DIR = SITE / "assets" / "prints"
 AUDIO_DIR = SITE / "assets" / "audio"
@@ -353,6 +356,61 @@ def build_house() -> dict | None:
     }
 
 
+def check_arcade() -> list[str]:
+    """Validate data/arcade.json (the site loads it as-is). Returns a list of problems."""
+    if not ARCADE.exists():
+        return []
+    try:
+        a = json.loads(ARCADE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return [f"arcade.json is not valid JSON: {e}"]
+    problems: list[str] = []
+    wings = {}
+    for w in a.get("wings", []):
+        if not w.get("id") or w["id"] in wings:
+            problems.append(f"wing {w.get('id')!r}: missing or duplicate id"); continue
+        if not isinstance(w.get("bays"), int) or w["bays"] < 1:
+            problems.append(f"wing {w['id']!r}: bays must be a whole number >= 1"); continue
+        wings[w["id"]] = w
+    if not wings:
+        problems.append("arcade.json needs at least one wing")
+    used, ids = {}, set()
+    def bay_ok(kind, x):
+        w = wings.get(x.get("wing"))
+        if not w:
+            problems.append(f"{kind} {x.get('id') or x.get('title')!r}: unknown wing {x.get('wing')!r}"); return False
+        if not isinstance(x.get("bay"), int) or not 1 <= x["bay"] <= w["bays"]:
+            problems.append(f"{kind} {x.get('id') or x.get('title')!r}: bay must be 1..{w['bays']} in {w['id']}"); return False
+        key = (x["wing"], x["bay"])
+        if key in used:
+            problems.append(f"{kind} {x.get('id') or x.get('title')!r}: {x['wing']} bay {x['bay']} is already taken by {used[key]!r}"); return False
+        used[key] = x.get("id") or x.get("title")
+        return True
+    for g in a.get("games", []):
+        gid = g.get("id")
+        if not gid or gid in ids or not re.fullmatch(r"[a-z0-9-]+", gid):
+            problems.append(f"game {gid!r}: id must be unique, lowercase letters, digits and dashes"); continue
+        ids.add(gid)
+        for k in ("title", "module", "description"):
+            if not g.get(k):
+                problems.append(f"game {gid!r}: missing {k}")
+        mod = SITE / g.get("module", "")
+        if g.get("module") and not mod.is_file():
+            problems.append(f"game {gid!r}: module not found: {g['module']}")
+        elif g.get("module"):
+            src = mod.read_text(encoding="utf-8")
+            if not re.search(r"export\s+function\s+create\b", src):
+                problems.append(f"game {gid!r}: {g['module']} must export function create(host)")
+        bay_ok("game", g)
+    for c in a.get("coming_soon", []):
+        bay_ok("coming_soon", c)
+    total = sum(w["bays"] for w in wings.values())
+    log(f"arcade: {len(ids)} games, {len(wings)} wings, {total} bays ({total - len(ids)} open for new games)")
+    for p in problems:
+        log("  ARCADE:", p)
+    return problems
+
+
 def main():
     IMG_DIR.mkdir(parents=True, exist_ok=True)
     wd = load_world_data()
@@ -418,6 +476,8 @@ def main():
     log(f"wrote {OUT.relative_to(NOVA)}: {len(islands)} islands, {n_art} artifacts, "
         f"{len(world['journal'])} journal entries, {len(world['curiosities'])} curiosities, {len(prints)} prints, "
         f"{len((world['house'] or {}).get('items', []))} house items")
+    if check_arcade():
+        sys.exit("data/arcade.json has problems (see above); fix them before publishing")
 
 
 if __name__ == "__main__":

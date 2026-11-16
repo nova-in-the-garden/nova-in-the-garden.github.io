@@ -88,9 +88,10 @@ body.in-house #hud-title,body.in-house #btn-upto,body.in-house #chips,body.in-ho
 #room-chips::-webkit-scrollbar{display:none}
 #room-chips .pill.on{border-color:var(--gold);color:var(--gold2)}
 #house-hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(62px + env(safe-area-inset-bottom));margin:0;color:var(--ink);opacity:.8;font-size:12.5px;text-shadow:0 1px 6px #000;pointer-events:none;white-space:nowrap}
-#joy{display:none;position:fixed;left:22px;bottom:calc(96px + env(safe-area-inset-bottom));width:112px;height:112px;border-radius:50%;border:1px solid var(--line);background:radial-gradient(circle,rgba(232,193,90,.12),rgba(15,23,51,.55));touch-action:none;z-index:6}
-#joy i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#f6dc8c,#c99a2e);box-shadow:0 0 18px rgba(232,193,90,.5);transition:transform .05s}
+#joy,#arcade-joy{display:none;position:fixed;left:22px;bottom:calc(96px + env(safe-area-inset-bottom));width:112px;height:112px;border-radius:50%;border:1px solid var(--line);background:radial-gradient(circle,rgba(232,193,90,.12),rgba(15,23,51,.55));touch-action:none;z-index:6}
+#joy i,#arcade-joy i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#f6dc8c,#c99a2e);box-shadow:0 0 18px rgba(232,193,90,.5);transition:transform .05s}
 body.touch #joy{display:block}
+body.touch.in-arcade #arcade-joy{display:block}
 #house-tip{position:fixed;z-index:8;pointer-events:none;background:var(--panel);border:1px solid var(--line);color:var(--gold2);font-size:13px;padding:4px 10px;border-radius:8px;white-space:nowrap}
 #house-tip[hidden]{display:none}
 #fade{position:fixed;inset:0;background:#05070f;opacity:0;pointer-events:none;transition:opacity .35s;z-index:40}
@@ -104,7 +105,7 @@ ul.rooms{list-style:none;padding:0;margin:0}ul.rooms li{display:flex;gap:10px;al
   #house-title h1{font-size:20px}
   #room-chips{justify-content:flex-start}
   #house-hint{font-size:11px;bottom:calc(58px + env(safe-area-inset-bottom))}
-  #joy{bottom:calc(84px + env(safe-area-inset-bottom))}
+  #joy,#arcade-joy{bottom:calc(84px + env(safe-area-inset-bottom))}
 }
 
 /* ---------- sky clock (time of day) ---------- */
@@ -137,3 +138,41 @@ body:not([data-sky=night]) #hud-title,body:not([data-sky=night]) #house-title,bo
 body[data-sky=day] #hud-title p,body[data-sky=golden] #hud-title p{color:#e9e4d4}
 
 .now{margin:0 0 14px;padding:10px 12px;border-radius:12px;background:rgba(232,193,90,.1);border:1px solid rgba(232,193,90,.35);color:#f3e6c0}
+
+/* ---------- Nova's Arcade ---------- */
+#arcade-hud{display:none}
+body.in-arcade #arcade-hud{display:block}
+body.in-arcade #hud-title,body.in-arcade #btn-upto,body.in-arcade #chips,body.in-arcade #hint{display:none}
+#arcade-title{position:fixed;top:max(14px,env(safe-area-inset-top));left:18px;pointer-events:none;text-shadow:0 2px 12px #000;z-index:4}
+#arcade-title h1{color:var(--gold);font-size:26px}
+#arcade-title p{margin:2px 0 0;color:var(--gold2);font-size:14px;font-style:italic}
+#btn-arcade-exit{position:fixed;top:max(16px,env(safe-area-inset-top));right:16px;z-index:5}
+#wing-chips{position:fixed;left:0;right:0;bottom:max(12px,env(safe-area-inset-bottom));display:flex;gap:8px;padding:0 14px;overflow-x:auto;scrollbar-width:none;justify-content:center;z-index:4}
+#wing-chips::-webkit-scrollbar{display:none}
+#wing-chips .pill.on{border-color:var(--gold);color:var(--gold2)}
+#arcade-hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(62px + env(safe-area-inset-bottom));margin:0;color:var(--ink);opacity:.8;font-size:12.5px;text-shadow:0 1px 6px #000;pointer-events:none;white-space:nowrap}
+body.in-arcade #sky-clock{display:none}
+#toast{position:fixed;left:50%;top:calc(max(16px,env(safe-area-inset-top)) + 60px);transform:translateX(-50%);z-index:30;max-width:min(520px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--red);color:var(--ink);font-size:13.5px;padding:8px 14px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+#toast[hidden]{display:none}
+@media (max-width:640px){#arcade-title h1{font-size:20px}#wing-chips{justify-content:flex-start}#arcade-hint{font-size:11px;bottom:calc(58px + env(safe-area-inset-bottom))}}
+
+/* game overlay */
+#game-overlay{position:fixed;inset:0;z-index:50;background:radial-gradient(ellipse at 50% 40%,#141a3c 0%,#05070f 75%);display:flex;flex-direction:column;align-items:stretch;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));touch-action:none;user-select:none;-webkit-user-select:none}
+#game-overlay[hidden]{display:none}
+.game-bar{display:flex;align-items:center;gap:10px;padding:2px 4px 8px}
+.game-title{flex:1;color:var(--gold);font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.game-btns{display:flex;gap:8px}
+.gbtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(15,23,51,.85);color:var(--ink);font-size:18px;line-height:1;cursor:pointer}
+.gbtn:hover{border-color:var(--gold)}.gbtn.close{font-size:24px;color:var(--gold2)}
+.game-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+.game-canvas{image-rendering:pixelated;image-rendering:crisp-edges;border:2px solid #e8c15a;box-shadow:0 0 0 3px #c8323a,0 0 40px rgba(232,193,90,.25);border-radius:4px;outline:none;background:#070b1c}
+.game-loading{position:absolute;color:var(--muted)}
+.game-loading[hidden]{display:none}
+.game-help{margin:6px 0 0;text-align:center;color:var(--muted);font-size:12.5px}
+.game-pad{display:none;justify-content:center;padding:6px 0 0}
+#game-overlay.touch .game-pad{display:flex}
+.dpad{display:grid;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,52px);gap:6px;grid-template-areas:". u ." "l m r" ". d ."}
+.dpad button{border:1px solid var(--line);background:rgba(15,23,51,.9);color:var(--gold2);font-size:20px;border-radius:14px;touch-action:none;cursor:pointer}
+.dpad button.on{background:var(--gold);color:#1a1404}
+.dpad [data-dir=up]{grid-area:u}.dpad [data-dir=left]{grid-area:l}.dpad [data-dir=right]{grid-area:r}.dpad [data-dir=down]{grid-area:d}.dpad .mid{grid-area:m;color:var(--red);font-size:16px;border-radius:50%}
+@media (max-height:560px) and (orientation:landscape){#game-overlay.touch{flex-direction:row;flex-wrap:wrap}#game-overlay.touch .game-bar{width:100%}#game-overlay.touch .game-pad{order:-1;align-items:center;padding:0 10px}#game-overlay.touch .game-help{display:none}.dpad{grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,48px)}}

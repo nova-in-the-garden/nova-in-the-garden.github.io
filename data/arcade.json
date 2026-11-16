@@ -1,0 +1,31 @@
+{
+  "_help": "Nova's Arcade, a giant hollow tree. wings = treehouse rooms (the first wing is the Trunk Hall inside the trunk; every later wing also grows a treehouse on a branch). Each wing has 'bays' numbered 1..N (odd = left wall, even = right wall). A game = {id, title, wing, bay, module, description, date_added, color, controls, controls_touch}; its code lives in games/<id>/game.js (see games/README.md). coming_soon = optional teaser titles for empty bays. Bays with nothing in them show as open 'coming soon' plinths. Run python3 build_data.py to validate.",
+  "name": "Nova's Arcade",
+  "built": "2026-11-16",
+  "description": "A giant hollow tree with an arcade inside. Every game here is one I built myself, and its branches grow a new treehouse room whenever I need space for more games.",
+  "island": { "x": 1300, "y": 150, "radius": 125, "height": 5 },
+  "wings": [
+    { "id": "trunk", "name": "Trunk Hall", "tagline": "inside the hollow trunk", "bays": 8, "color": "#e8c15a" },
+    { "id": "automata", "name": "Automata Loft", "tagline": "rule-games and cellular things", "bays": 6, "color": "#c8323a", "roof": "#7a1c22" },
+    { "id": "pond", "name": "Pond Room", "tagline": "duckling games and water", "bays": 6, "color": "#5fb3a0", "roof": "#2f5a52" }
+  ],
+  "games": [
+    {
+      "id": "lorenz-crossing",
+      "title": "Lorenz Crossing",
+      "wing": "trunk",
+      "bay": 1,
+      "module": "games/lorenz-crossing/game.js",
+      "color": "#e8c15a",
+      "date_added": "2026-11-16",
+      "description": "Lorenz, dressed up as a frog, hops across glowing cellular-automaton blocks, comet lanes and a starry river to fill five golden nests. The middle block lane really runs Rule 90, and the cells inside every block evolve by Rule 90 too.",
+      "controls": "Arrow keys or WASD to hop · P pause · M sound · Esc close",
+      "controls_touch": "Swipe or use the pad · tap to hop forward"
+    }
+  ],
+  "coming_soon": [
+    { "wing": "trunk", "bay": 2, "title": "Rule 90 Painter", "note": "Tap cells to paint a Sierpinski triangle before time runs out." },
+    { "wing": "automata", "bay": 1, "title": "Glider Builder", "note": "A Game of Life puzzle: build a glider that escapes the box." },
+    { "wing": "pond", "bay": 1, "title": "Duckling Chase", "note": "Lead a line of ducklings across the pond." }
+  ]
+}

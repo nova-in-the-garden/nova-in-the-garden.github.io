@@ -44,6 +44,23 @@ export function renderPanel(isl, world, { onView }) {
   bindThumbs(body);
 }
 
+// Nova's Arcade (the tree island): games, wings and empty bays, all from data/arcade.json
+export function renderArcadePanel(A, { onEnter, onPlay, onWing }) {
+  const body = document.querySelector('#panel .sheet-body');
+  const games = A.games || [], soon = A.coming_soon || [];
+  const nBays = A.wings.reduce((s, w) => s + (w.bays || 0), 0);
+  let html = `<h2 id="panel-title">${esc(A.name || "Nova's Arcade")}</h2><p class="meta">🕹️ ${games.length} game${games.length === 1 ? '' : 's'} · ${nBays} cabinet bays · ${A.wings.length} wings · opened ${fmtDate(A.built)}</p>`;
+  html += `<p class="desc">${inline(A.description || '')}</p><div class="row"><button class="pill gold" data-enter>⟶ Step inside</button></div>`;
+  html += `<h3 class="sub">Games</h3>` + games.map(g => `<details class="art" open><summary><span class="t">${esc(g.title)}</span><span class="d">${fmtDate(g.date_added)}</span></summary><p class="n">${inline(g.description)}</p><p class="meta">${esc(A.wings.find(w => w.id === g.wing)?.name || g.wing)} · bay ${g.bay}${bestOf(g.id) ? ` · best on this device: ${bestOf(g.id)}` : ''}</p><div class="row"><button class="pill gold" data-play="${esc(g.id)}">▶ Play ${esc(g.title)}</button></div></details>`).join('');
+  html += `<h3 class="sub">Wings</h3><ul class="rooms">` + A.wings.map(w => { const used = games.filter(g => g.wing === w.id).length; return `<li><button class="pill" data-wing="${esc(w.id)}">${esc(w.name)}</button><span>${esc(w.tagline || '')} <i>(${used} of ${w.bays} bays filled)</i></span></li>`; }).join('') + `</ul>`;
+  if (soon.length) html += `<h3 class="sub">Coming soon</h3><ul class="projects">${soon.map(c => `<li><b>${esc(c.title)}</b> — ${inline(c.note || '')}</li>`).join('')}</ul>`;
+  body.innerHTML = html; body.scrollTop = 0;
+  body.querySelector('[data-enter]').onclick = () => onEnter();
+  body.querySelectorAll('[data-play]').forEach(b => b.onclick = () => onPlay(games.find(g => g.id === b.dataset.play)));
+  body.querySelectorAll('[data-wing]').forEach(b => b.onclick = () => onWing(b.dataset.wing));
+}
+function bestOf(id) { try { const l = JSON.parse(localStorage.getItem(`nova.arcade.${id}.scores`) || '[]'); return l[0] ? `${l[0].s} (${l[0].i})` : ''; } catch { return ''; } }
+
 function bindThumbs(root) {
   root.querySelectorAll('figure[data-src]').forEach(f => f.onclick = () => {
     const lb = document.getElementById('lightbox'); lb.querySelector('img').src = f.dataset.src; lb.querySelector('p').textContent = f.dataset.cap; lb.hidden = false;

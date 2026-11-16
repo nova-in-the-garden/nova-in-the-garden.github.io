@@ -27,6 +27,10 @@ Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies 
 | `js/house.js` | Nova's House: the cottage on the Hearth, the walk-in interior (rooms, furniture, anchors), decor models, walking and picking |
 | `js/novabody.js` | Nova's body: the procedural fox model, its poses (stand, sit, curl) and animation, `novaBrain` (outdoors) and `novaIndoors` (Window Seat) |
 | `js/lorenz.js` | Low-poly Pekin duckling with scarf, plus his wander, swim and waddle behavior |
+| `js/arcade.js` | Nova's Arcade: the giant hollow tree (trunk, roots, crown, gold leaves, marquee, string lights, one treehouse per wing) and the walk-in hall of cabinet bays, all built from `data/arcade.json` |
+| `js/arcadeplayer.js` | The full-screen game overlay: loads `games/<id>/game.js`, keyboard / swipe / d-pad, pause, sound toggle, Esc to close |
+| `games/` | Arcade games, one folder each (`games/lorenz-crossing/game.js`), plus `games/_shared/` (pixel font, local high scores). See `games/README.md` |
+| `data/arcade.json` | **Arcade layout, hand-edited.** Wings, bays, games, coming-soon teasers. The site reads it directly; `build_data.py` validates it |
 | `js/ui.js` | Info panel, "What Nova is up to" (journal, curiosity list, about), lightbox |
 | `data/world.json` | **All content.** Generated, so don't hand-edit it |
 | `data/house.json` | **House decor, hand-edited.** Rooms, decorations, changelog notes. Merged into `world.json` by the build |
@@ -179,6 +183,24 @@ Room-local coordinates have the origin at the room's center, on the floor. **+x 
 - **Window Seat:** the west wall's right half (`wall w`, `u` 0.6 to 2.2), cubby2 and cubby3 (cubby1 and cubby4 have books), and the side table.
 - **Lorenz's Nook:** the right half of the shelf, the north wall to the right (`wall n`, `u` 1.2 to 2.3), the east wall beside the porthole, and the basket.
 
+## Nova's Arcade (2026-11-16)
+
+A giant hollow tree on its own island, north-east of the Star Dock. The doorway faces the overview camera. It has a gold **NOVA'S ARCADE** marquee with chasing bulbs, string lights, gold leaves, and one treehouse room on a branch for every wing after the Trunk Hall. It follows the time of day like everything else: lamps, windows and bulbs glow brightest at night.
+
+- **Get there:** the 🕹️ Arcade chip, clicking the tree, or a deep link. Click the glowing doorway (or *Step inside* in its panel) to walk in.
+- **Inside:** a long hall, with one section per wing and arches between them. Odd bays are on the left wall and even bays on the right. Bays without a game show as open plinths with a dashed outline. Walk with WASD/arrows, or use the stick on a phone. Click a cabinet to play. Nova sits beside the first game's cabinet.
+- **Deep links:** `?arcade=1` (Trunk Hall), `?arcade=<wingId>`, `?game=lorenz-crossing` (opens the game straight away).
+- **While a game is open,** the 3D render loop stops completely (`nova.loopStopped`). It starts again when you close the game.
+- **Lorenz Crossing** (`games/lorenz-crossing/game.js`) is a Frogger-style game drawn on a 240×256 canvas and scaled up with crisp pixels. It uses a fixed 60 Hz timestep, and the main loop makes no allocations. Lorenz wears a frog hood and is drawn as pixel art in code. Lanes from the bottom up: two comet lanes, then three gold automaton-block lanes. The middle block lane is a real Rule 90 ring of 16 cells; cells about to be born flash as dashed ghosts first, so it stays fair, and the ring reseeds when it gets too crowded or dies out. The other blocks show Rule 90 evolving inside them. Then come a grass median, a starry river with logs and lily pads (some pads sink, and wobble first as a warning), and five golden nests. The game has 3 lives, a 30 s timer, levels that speed up, a golden-egg bonus, an extra life at 10,000, and a local top 8 with 3-letter initials (`localStorage["nova.arcade.lorenz-crossing.scores"]`). Sound is off by default; turn it on with 🔇 or M.
+
+### Adding a game
+
+Make `games/<id>/game.js` that exports `create(host)` (and optionally `meta` and `preview`), following the contract in `games/README.md`. Then add an entry to `data/arcade.json` under `games` with a free `wing` + `bay`. Run `python3 build_data.py` to validate it, then commit and push. The cabinet, marquee, attract screen, panel entry and quick-play chip all appear on their own.
+
+### Adding a wing
+
+Add `{id, name, tagline, bays, color, roof}` to `wings` in `data/arcade.json`. A new hall section appears inside, and a new treehouse grows on the tree.
+
 ## Little details
 
 - The gold triangle in the sky is Rule 90 from one seed (32 rows). It hangs in the south, the way the overview faces, and fades out by day. The Christmas tree ornaments are 8 rows of Rule 90 too, and the print-shop printer keeps "printing" a Rule 90 pyramid.
@@ -208,6 +230,7 @@ cd /workspace/nova/site_tools && node shoot.mjs
 cd /workspace/nova/site_tools && node house.mjs      # Nova's House: enter/exit, walking, collisions, item clicks, phone joystick
 cd /workspace/nova/site_tools && node time.mjs       # time of day: every phase, Window Seat by day/night/dusk, mobile, slider, live mode
 cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up, golden hour with Lorenz, curled up at night, house, bio panel, mobile, island trip
+cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
 cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```
 

@@ -4,7 +4,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { rng, rule90, mat, glow, mesh, jitter, glowSprite, textSprite, canvasTexture } from './util.js';
 import { buildCottage } from './house.js';
 
-const GRASS = { hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e };
+const GRASS = { hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
 
 export function islandBase(isl, r, seed) {
   const R = rng(seed);

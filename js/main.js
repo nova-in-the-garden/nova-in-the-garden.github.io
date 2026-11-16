@@ -4,14 +4,18 @@ import { rng, rule90, mesh, glow, glowSprite, textSprite, ease } from './util.js
 import { islandBase, decorate, makeSTLLoader } from './islands.js';
 import { makeLorenz, lorenzBrain } from './lorenz.js';
 import { makeNova, novaBrain } from './novabody.js';
-import { renderPanel, renderUpTo, renderDecor, renderNova, openSheet, closeSheets, setupUI } from './ui.js';
+import { renderPanel, renderUpTo, renderDecor, renderNova, renderArcadePanel, openSheet, closeSheets, setupUI } from './ui.js';
 import { createHouse } from './house.js';
 import { makeClock, skyState, collectGlows, DAY } from './daylight.js';
 import { skyDir, fmtTime, REF } from './sun.js';
 import { setupSkyClock } from './skyclock.js';
+import { buildArcadeTree, createArcade } from './arcade.js';
+import { createArcadePlayer } from './arcadeplayer.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA canvas px -> world units
 const world = await fetch('data/world.json').then(r => { if (!r.ok) throw new Error('world.json ' + r.status); return r.json(); });
+// Nova's Arcade (data/arcade.json): optional, the world still loads without it
+const arcadeData = await fetch('data/arcade.json').then(r => (r.ok ? r.json() : null)).catch(() => null);
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
@@ -141,6 +145,26 @@ world.islands.forEach((isl, idx) => {
 });
 const byId = id => islands.find(i => i.data.id === id);
 
+// ---------- Nova's Arcade: a giant hollow tree on its own island (js/arcade.js) ----------
+let arcadeExt = null;
+if (arcadeData?.wings?.length) {
+  const A = arcadeData.island || {};
+  const r = Math.max(6.5, (A.radius || 120) * SCALE * 1.15);
+  const data = { id: 'arcade', name: arcadeData.name || "Nova's Arcade", shortName: 'Arcade', interest: 'games I build', level: 1, artifacts: [], arcade: true };
+  const g = islandBase(data, r, 777);
+  const x = ((A.x ?? 1300) - 800) * SCALE * 1.15, z = ((A.y ?? 150) - 520) * SCALE * 1.15, baseY = A.height ?? 5;
+  g.position.set(x, baseY, z); scene.add(g); g.updateMatrixWorld(true);
+  // the doorway faces the usual camera spot, so you see it from the overview
+  arcadeExt = buildArcadeTree(g, arcadeData, { rot: Math.atan2(HOME.pos.x - x, HOME.pos.z - z) });
+  updaters.push(arcadeExt.update);
+  const nGames = (arcadeData.games || []).length, nBays = arcadeData.wings.reduce((s, w) => s + (w.bays || 0), 0);
+  const label = textSprite(data.name, { size: 1.6, sub: `${nGames} game${nGames === 1 ? '' : 's'} · ${nBays} bays · ${arcadeData.wings.length} wings` });
+  label.material.sizeAttenuation = false; label.scale.multiplyScalar(0.034 / 1.6);
+  label.position.set(0, 22, 0); label.renderOrder = 10; label.material.depthTest = false; g.add(label);
+  g.traverse(o => { if (o.isMesh) { o.userData.islandId = 'arcade'; pickables.push(o); } });
+  islands.push({ data, group: g, r, baseY, phase: 4.2, label });
+}
+
 // soft golden light-threads from the Hearth to every island
 const hearth = byId('hearth') || islands[0];
 islands.forEach(isl => {
@@ -209,9 +233,18 @@ function islandView(isl) {
 }
 function visit(id, { open = true } = {}) {
   const isl = byId(id); if (!isl) return;
-  follow = null; const v = islandView(isl); flyTo(v.pos, v.target); novaAt = isl; novaBrainT.goTo(isl, t);
-  if (open) { renderPanel(isl.data, world, { onView: viewPrint }); openSheet('panel'); }
+  follow = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : islandView(isl); flyTo(v.pos, v.target); novaAt = isl; novaBrainT.goTo(isl, t);
+  if (open) {
+    if (isl.data.arcade) renderArcadePanel(arcadeData, { onEnter: () => enterArcade(), onPlay: gm => enterArcade(undefined, { game: gm.id }), onWing: w => enterArcade(w) });
+    else renderPanel(isl.data, world, { onView: viewPrint });
+    openSheet('panel');
+  }
   setChip(id);
+}
+function arcadeView() {
+  const v = arcadeExt.viewPoint();
+  if (innerWidth < innerHeight) { v.pos.lerp(v.target, -0.6); v.target.y -= 9; }
+  return v;
 }
 function home() { follow = null; flyTo(HOME.pos, HOME.target, 1.8); novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('overview'); }
 function meetLorenz() {
@@ -222,7 +255,7 @@ function meetLorenz() {
   flyTo(p.clone().addScaledVector(fwd, 2.6).addScaledVector(side, 1.4).add(new THREE.Vector3(0, 1.3, 0)), p.clone().add(new THREE.Vector3(0, 0.45, 0)), 1.8);
 }
 
-function novaDoing() { return inside ? house.novaStatus : novaBrainT.status + (novaBrainT.mode === 'travel' ? '' : ` (on ${novaBrainT.island.data.name})`); }
+function novaDoing() { return inArcade ? arcade.novaStatus : inside ? house.novaStatus : novaBrainT.status + (novaBrainT.mode === 'travel' ? '' : ` (on ${novaBrainT.island.data.name})`); }
 function showNova() { renderNova(world, { doing: novaDoing(), onJournal: () => openSheet('upto') }); openSheet('panel'); }
 function meetNova({ panel = true } = {}) {
   follow = 'nova'; setChip('nova');
@@ -234,19 +267,20 @@ function meetNova({ panel = true } = {}) {
 
 // ---------- picking ----------
 const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2(); let down = null;
-canvas.addEventListener('pointerdown', e => { if (inside) return; down = { x: e.clientX, y: e.clientY, t: performance.now() }; flight = null; if (e.isPrimary) follow = (follow === 'lorenz' || follow === 'nova') ? follow : null; });
+canvas.addEventListener('pointerdown', e => { if (inside || inArcade) return; down = { x: e.clientX, y: e.clientY, t: performance.now() }; flight = null; if (e.isPrimary) follow = (follow === 'lorenz' || follow === 'nova') ? follow : null; });
 canvas.addEventListener('pointerup', e => {
-  if (inside) return;
+  if (inside || inArcade) return;
   if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7) return; down = null;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(pickables, false)[0];
   if (hit?.object.userData.novaPick) return meetNova();
   if (hit?.object.userData.lorenz) return meetLorenz();
   if (hit?.object.userData.house) return enterHouse();
+  if (hit?.object.userData.arcadeDoor) return enterArcade();
   if (hit) visit(hit.object.userData.islandId);
 });
 canvas.addEventListener('pointermove', e => {
-  if (inside || e.pointerType !== 'mouse' || e.buttons) return;
+  if (inside || inArcade || e.pointerType !== 'mouse' || e.buttons) return;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   canvas.style.cursor = ray.intersectObjects(pickables, false).length ? 'pointer' : 'grab';
 });
@@ -258,6 +292,7 @@ chip('✦ Overview', 'overview', home);
 chip('🦊 Nova', 'nova', () => meetNova());
 chip('🦆 Lorenz', 'lorenz', meetLorenz);
 chip('🏡 House', 'house', () => enterHouse());
+if (arcadeExt) chip('🕹️ Arcade', 'arcade', () => visit('arcade'));
 world.islands.forEach(i => chip(i.shortName || i.name, i.id, () => visit(i.id)));
 function setChip(id) { chips.querySelectorAll('.pill').forEach(b => b.classList.toggle('on', b.dataset.id === id)); }
 document.getElementById('motto').textContent = world.motto || '';
@@ -306,6 +341,60 @@ async function exitHouse() {
   document.getElementById('house-hint').textContent = touch ? 'Left stick to walk · drag to look · tap things to read about them' : 'WASD or arrow keys to walk · drag to look · click things to read about them';
 }
 
+// ---------- Nova's Arcade (walk-in hall + full-screen games) ----------
+const toastEl = document.getElementById('toast');
+let toastT = 0;
+function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.hidden = true; }, 2600); }
+let inArcade = false, loopStopped = false;
+const arcadeScores = {};
+const player = createArcadePlayer({
+  onOpen: () => { closeSheets(); },
+  onClose: () => { resumeLoop(); },
+  onScore: (g, s) => { arcadeScores[g.id] = s; },
+});
+const arcade = arcadeData ? createArcade({
+  renderer, data: arcadeData,
+  onExit: () => exitArcade(),
+  onPlay: g => openGame(g.id),
+  onWing: (id, name) => { document.getElementById('arcade-wing').textContent = name; document.querySelectorAll('#wing-chips [data-wing]').forEach(b => b.classList.toggle('on', b.dataset.wing === id)); },
+  onSoon: B => toast(B.teaser ? `Bay ${B.bay}: ${B.teaser.title} is coming soon. ${B.teaser.note || ''}` : `Bay ${B.bay} in the ${B.wingName} is waiting for a new game.`),
+}) : null;
+if (arcade) { arcade.onNova = () => showNova(); arcade.state.blocked = () => player.isOpen; }
+function openGame(id) {
+  const g = (arcadeData?.games || []).find(x => x.id === id); if (!g) return false;
+  if (inArcade) arcade.lookAtBay(g.id);
+  player.open(g); return true;
+}
+async function enterArcade(wing, { instant = false, game } = {}) {
+  if (!arcade || busy) return;
+  if (inArcade) { closeSheets(); if (wing) arcade.goto(wing); if (game) openGame(game); return; }
+  if (inside) { await exitHouse(); await wait(50); }
+  busy = true; closeSheets(); follow = null; setChip('arcade');
+  const isl = byId('arcade'); if (isl) novaAt = isl;
+  if (!instant && arcadeExt) { flyTo(arcadeExt.doorFront(3.2), arcadeExt.doorWorld(), 1.5); await wait(1350); fade(true); await wait(420); }
+  inArcade = true; controls.enabled = false; document.body.classList.add('in-arcade');
+  arcade.setActive(true, wing);
+  fade(false); busy = false;
+  if (game) openGame(game);
+}
+async function exitArcade() {
+  if (!inArcade || busy) return;
+  if (player.isOpen) player.close();
+  busy = true; closeSheets(); fade(true); await wait(380);
+  inArcade = false; arcade.setActive(false); document.body.classList.remove('in-arcade'); controls.enabled = true;
+  if (arcadeExt) { camera.position.copy(arcadeExt.doorFront(1.6)); controls.target.copy(arcadeExt.doorWorld()); const far = innerWidth < innerHeight ? 22 : 13; flyTo(arcadeExt.doorFront(far).add(new THREE.Vector3(0, far * 0.45, 0)), arcadeExt.doorWorld().add(new THREE.Vector3(0, 2.5, 0)), 1.8); }
+  fade(false); busy = false; setChip('arcade');
+}
+function resumeLoop() { if (loopStopped) { loopStopped = false; last = performance.now(); requestAnimationFrame(frame); } }
+if (arcade) {
+  const wc = document.getElementById('wing-chips');
+  for (const g of arcadeData.games || []) { const b = document.createElement('button'); b.className = 'pill gold'; b.dataset.game = g.id; b.textContent = '▶ ' + g.title; b.onclick = () => openGame(g.id); wc.appendChild(b); }
+  for (const w of arcade.layout.wings) { const b = document.createElement('button'); b.className = 'pill'; b.dataset.wing = w.id; b.textContent = w.name; b.onclick = () => enterArcade(w.id); wc.appendChild(b); }
+  document.getElementById('btn-arcade-exit').onclick = () => exitArcade();
+  const touch = document.body.classList.contains('touch');
+  document.getElementById('arcade-hint').textContent = touch ? 'Left stick to walk · drag to look · tap a cabinet to play' : 'WASD or arrow keys to walk · drag to look · click a cabinet to play';
+}
+
 // ---------- STL viewer modal ----------
 let viewer = null;
 async function viewPrint(p) {
@@ -334,13 +423,14 @@ document.querySelector('#viewer .close').onclick = closeViewer;
 document.getElementById('viewer').addEventListener('click', e => { if (e.target.id === 'viewer') closeViewer(); });
 
 addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 66 : 50; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); house.resize();
+  camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 66 : 50; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); house.resize(); arcade?.resize();
 });
 addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   const open = document.querySelector('.sheet.open') || !document.getElementById('viewer').hidden || !document.getElementById('lightbox').hidden;
   closeSheets(); closeViewer(); document.getElementById('lightbox').hidden = true;
   if (!open && inside) exitHouse();
+  if (!open && inArcade) exitArcade();
 });
 
 // ---------- time of day ----------
@@ -387,6 +477,7 @@ function applySky(date) {
   DAY.glow = p.glow; DAY.halo = p.halo; DAY.night = p.night; DAY.day = p.day; DAY.window = 0.3 + 0.7 * Math.max(p.night, 1 - p.day * 0.85);
   applyGlow(p.glow, p.halo);
   house.daylight?.(st, _d, _m);
+  arcade?.daylight?.(st);
   document.body.dataset.sky = st.phase.id;
   skyClock.update(st, clock);
   return st;
@@ -409,7 +500,13 @@ skyTick(performance.now(), true);
 let last = performance.now(), t = 0;
 function frame() {
   const now = performance.now(); const dt = Math.min((now - last) / 1000, 0.05); last = now; t += dt;
+  if (player.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game is open
   skyTick(now); skyU.uTime.value = t;
+  if (inArcade) {
+    arcade.update(dt, t);
+    renderer.render(arcade.scene, arcade.camera);
+    requestAnimationFrame(frame); return;
+  }
   if (inside) {
     house.update(dt, t);
     renderer.render(house.scene, house.camera);
@@ -443,15 +540,19 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, ready: true };
 // test helper: look from near the Hearth toward a point in the sky (azimuth, elevation in degrees)
 window.__lookSky = (az, el = 8) => { follow = null; const d = skyDir(el, az); const from = new THREE.Vector3(-d[0] * 30, 14, -d[2] * 30); flyTo(from, from.clone().add(new THREE.Vector3(d[0] * 60, d[1] * 60 - 8, d[2] * 60)), 0.01); };
 // test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)
 window.__novaView = (dist = 3.2, h = 1.2, ang = 0, at = 0.65) => { follow = null; const r = novaBody.root; const p = r.getWorldPosition(new THREE.Vector3()); const a = r.rotation.y + ang; const f = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)); flyTo(p.clone().addScaledVector(f, dist).add(new THREE.Vector3(0, h, 0)), p.clone().add(new THREE.Vector3(0, at, 0)), 0.01); };
 window.__houseView = () => { if (!cottage) return; follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
+window.__pick = (x, y) => { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); const h = ray.intersectObjects(pickables, false)[0]; return h ? { ...h.object.userData, d: +h.distance.toFixed(2), type: h.object.type } : null; };
+window.__arcadeView = (dur = 0.01) => { if (!arcadeExt) return; follow = null; const v = arcadeView(); flyTo(v.pos, v.target, dur); };
+window.__arcadeDoorScreen = () => { if (!arcadeExt) return null; const v = arcadeExt.doorWorld().project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
 window.__cottageScreen = () => { if (!cottage) return null; const v = cottage.group.localToWorld(new THREE.Vector3(0.9, 1.0, 1.6)).project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
 const q = new URLSearchParams(location.search);
 if (q.get('island')) visit(q.get('island'));
 if (q.has('lorenz')) meetLorenz();
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });
+if (q.has('arcade') || q.get('game')) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: q.get('game') || undefined }); }

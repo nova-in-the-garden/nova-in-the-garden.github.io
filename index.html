@@ -27,7 +27,7 @@
 
 <button id="btn-upto" class="pill gold" aria-haspopup="dialog">✦ What Nova is up to</button>
 
-<p id="hint">Drag to look around · scroll or pinch to zoom · tap an island to visit</p>
+<p id="hint">Drag to look around · scroll or pinch to zoom · tap an island to visit · 🕹️ the big tree is Nova's Arcade</p>
 
 <nav id="chips" aria-label="Islands"></nav>
 
@@ -38,6 +38,14 @@
   <nav id="room-chips" aria-label="Rooms"></nav>
   <div id="joy" aria-label="Walk"><i></i></div>
 </div>
+<div id="arcade-hud">
+  <header id="arcade-title"><h1>Nova's Arcade</h1><p id="arcade-wing">Trunk Hall</p></header>
+  <button id="btn-arcade-exit" class="pill gold">⟵ Back outside</button>
+  <p id="arcade-hint"></p>
+  <nav id="wing-chips" aria-label="Arcade wings and games"></nav>
+  <div id="arcade-joy" class="joy" aria-label="Walk"><i></i></div>
+</div>
+<div id="toast" hidden role="status"></div>
 <div id="house-tip" hidden></div>
 <div id="fade"></div>
 
