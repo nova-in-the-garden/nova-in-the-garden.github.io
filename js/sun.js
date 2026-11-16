@@ -125,4 +125,5 @@ export function skyDir(el, az, out = [0, 0, 0]) {
   const ce = cos(el); out[0] = -sin(az) * ce; out[1] = sin(el); out[2] = cos(az) * ce; return out;
 }
 
-export const fmtTime = (d, tz = REF.tz) => d ? new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(d) : '—';
+// rounded to the nearest minute, like published sunrise tables
+export const fmtTime = (d, tz = REF.tz) => d ? new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(new Date(Math.round(d.getTime() / 60000) * 60000)) : '—';
