@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { rng, rule90, mat, glow, mesh, jitter, glowSprite, glowTexture, canvasTexture, mergeStatic } from './util.js';
 import { DAY, collectGlows } from './daylight.js';
 import { makeNova, novaIndoors } from './novabody.js';
+import { zonedParts } from './sun.js';
 
 const DEG = Math.PI / 180;
 const GLASS_DAY = new THREE.Color(0x46577a);
@@ -187,6 +188,7 @@ const VIEWS = {
   art: { from: [-1.75, EYE, -1.85], at: [1.4, 1.35, 1.2] },
   window: { from: [0.9, 1.4, 1.75], at: [-0.25, 1.75, -2.65] },
   nook: { from: [-1.7, 1.45, 1.75], at: [1.0, 0.55, -1.6] },
+  crochet: { room: 'art', from: [0.15, 1.25, -0.55], at: [1.75, 0.62, -1.75] },   // the Crochet Corner (north-east corner of the Art Corner)
 };
 export const ROOM_IDS = Object.keys(ROOMS);
 
@@ -384,6 +386,145 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     mesh(new THREE.SphereGeometry(0.06, 8, 6), glow(color, 2.4), x, WALL_H - 0.45, z, rg);
     const h = glowSprite(0.9, color, 0.5); h.position.set(x, WALL_H - 0.47, z); rg.add(h);
   }
+  // =====================================================================
+  // The Crochet Corner (north-east corner of the Art Corner): an overstuffed red armchair where
+  // Nova sits and crochets her Rule 90 tapestry (black and red, 33 stitches x 16 rows), a floor lamp,
+  // a side table, a basket of yarn and a braided rug. The blanket grows stitch by stitch.
+  // =====================================================================
+  var crochet = null;
+  const CROCHET = { x: 1.78, z: -1.78, ry: -1.1, seat: 0.46, cols: 33, rows: 16, rowSec: 4.0, holdSec: 8, hookHz: 2.2 };
+  // a soft, puffy box (cushions and upholstery)
+  function puffy(w, h, d, k = 0.14) {
+    const g = new THREE.BoxGeometry(w, h, d, 6, 6, 6), p = g.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i); const nx = v.x / (w / 2), ny = v.y / (h / 2), nz = v.z / (d / 2);
+      v.x *= 1 - k * 0.5 * (ny * ny + nz * nz); v.y *= 1 - k * 0.5 * (nx * nx + nz * nz); v.z *= 1 - k * 0.5 * (nx * nx + ny * ny);
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeVertexNormals(); return g;
+  }
+  function yarnTex(hex) {
+    const t = canvasTexture(64, 64, (c, w, h) => { const col = new THREE.Color(hex); c.fillStyle = '#' + col.getHexString(); c.fillRect(0, 0, w, h);
+      for (let i = -8; i < 16; i++) { c.strokeStyle = `rgba(${i % 2 ? '255,255,255,.12' : '0,0,0,.28'})`; c.lineWidth = 2.5; c.beginPath(); c.moveTo(i * 6, 0); c.lineTo(i * 6 + 30, h); c.stroke(); } });
+    return t;
+  }
+  function crochetCorner(rg) {
+    const C = CROCHET;
+    const corner = new THREE.Group(); corner.position.set(C.x, 0, C.z); corner.rotation.y = C.ry; rg.add(corner);   // local +z = the way the chair faces
+    const smooth = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, ...o });
+    const velvet = smooth(0x9a2630, { roughness: 0.85 }), velvetDk = smooth(0x7a1d26), goldKnit = new THREE.MeshStandardMaterial({ map: yarnTex(0xd9a441), roughness: 1 });
+    const darkWood = M.darkWood;
+    // ---- armchair (merged), clickable as "crochet-chair"
+    const chair = new THREE.Group(); corner.add(chair);
+    mesh(puffy(0.84, 0.3, 0.78, 0.1), velvetDk, 0, 0.21, 0, chair);                       // base
+    mesh(puffy(0.6, 0.14, 0.64, 0.25), velvet, 0, 0.39, 0.04, chair);                     // seat cushion (top ~0.46)
+    const back = mesh(puffy(0.84, 0.66, 0.22, 0.18), velvet, 0, 0.7, -0.3, chair); back.rotation.x = -0.12;
+    mesh(puffy(0.56, 0.4, 0.14, 0.35), velvet, 0, 0.66, -0.17, chair).rotation.x = -0.15;  // back cushion
+    for (const sx of [-1, 1]) {
+      mesh(puffy(0.14, 0.3, 0.74, 0.15), velvet, sx * 0.36, 0.48, 0.0, chair);             // arm
+      const roll = mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.76, 16), velvet, sx * 0.375, 0.6, 0.0, chair); roll.rotation.x = Math.PI / 2;
+      for (const sz of [-1, 1]) mesh(new THREE.CylinderGeometry(0.087, 0.087, 0.012, 16), M.gold, sx * 0.375, 0.6, sz * 0.38, chair).rotation.x = Math.PI / 2;   // gold piping
+    }
+    for (const [lx, lz] of [[-.34, -.32], [.34, -.32], [-.34, .32], [.34, .32]]) mesh(new THREE.CylinderGeometry(0.03, 0.022, 0.07, 8), darkWood, lx, 0.035, lz, chair);
+    // gold knit throw over the right arm and the back, and a navy cushion with a gold star
+    const throwA = mesh(puffy(0.2, 0.025, 0.5, 0.2), goldKnit, -0.39, 0.69, 0.02, chair); throwA.rotation.z = 0.15;
+    mesh(puffy(0.04, 0.26, 0.46, 0.2), goldKnit, -0.47, 0.55, 0.02, chair);
+    const throwB = mesh(puffy(0.5, 0.025, 0.2, 0.2), goldKnit, -0.12, 1.02, -0.36, chair); throwB.rotation.set(-0.3, 0, 0.05);
+    const cush = mesh(puffy(0.26, 0.24, 0.09, 0.5), M.navy, 0.2, 0.6, -0.14, chair); cush.rotation.set(-0.25, 0.3, 0.15);
+    mergeStatic(chair);
+    chair.userData.decorId = 'crochet-chair'; chair.traverse(o => { if (o.isMesh) { o.userData.decorId = 'crochet-chair'; pickables.push(o); } });
+    // ---- side table on the right with a slot for a mug (anchor art.crochettable)
+    const tb = new THREE.Group(); tb.position.set(-0.66, 0, 0.08); corner.add(tb);
+    mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.035, 20), M.wood, 0, 0.56, 0, tb);
+    mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.54, 8), M.wood, 0, 0.28, 0, tb);
+    mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.03, 16), M.wood, 0, 0.015, 0, tb);
+    mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.09, 10), M.cream, 0.1, 0.62, -0.08, tb);   // a little jar of hooks
+    for (let i = 0; i < 4; i++) { const h = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.14, 4), i % 2 ? M.gold : M.red, 0.1 + Math.cos(i * 1.6) * 0.012, 0.69, -0.08 + Math.sin(i * 1.6) * 0.012, tb); h.rotation.z = (i - 1.5) * 0.12; }
+    anchor('art.crochettable', tb, -0.03, 0.578, 0.04, 30);
+    // ---- arched floor lamp behind the chair, warm shade (emissive, no extra light: the room is lit already)
+    const lp = new THREE.Group(); lp.position.set(-0.42, 0, -0.5); corner.add(lp);
+    mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.03, 18), M.black, 0, 0.015, 0, lp);
+    mesh(new THREE.CylinderGeometry(0.014, 0.014, 1.5, 6), M.gold, 0, 0.765, 0, lp);
+    const arc = mesh(new THREE.TorusGeometry(0.22, 0.012, 5, 16, Math.PI / 2), M.gold, 0.22 * Math.sin(0), 1.5, 0, lp); arc.rotation.y = -Math.PI / 2; arc.position.set(0, 1.52, 0.0);
+    const shadeG = new THREE.Group(); shadeG.position.set(0, 1.62, 0.25); lp.add(shadeG);   // ends over the chair's right shoulder
+    shadeG.position.set(0, 1.5, 0.22);
+    mesh(new THREE.CylinderGeometry(0.11, 0.2, 0.2, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0xf1d9a0, emissive: 0xffb860, emissiveIntensity: 0.9, side: THREE.DoubleSide, roughness: 1 }), 0, -0.1, 0, shadeG);
+    mesh(new THREE.SphereGeometry(0.045, 10, 8), glow(0xffe2a0, 3), 0, -0.14, 0, shadeG);
+    const lh = glowSprite(1.4, 0xffc070, 0.55); lh.position.set(0, -0.2, 0); shadeG.add(lh);
+    const pool = mesh(new THREE.CircleGeometry(0.75, 28), new THREE.MeshBasicMaterial({ color: 0xffb868, transparent: true, opacity: 0.14, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.012, 0.15, corner); pool.rotation.x = -Math.PI / 2; pool.userData.dynamic = true; pool.raycast = () => {};
+    // ---- braided oval rug (navy, gold, cream, red rings)
+    const rugG = new THREE.Group(); rugG.position.set(0.05, 0.008, 0.25); rugG.scale.set(1.25, 1, 1); corner.add(rugG);
+    [[0.78, 0x1f2a5c], [0.66, 0xe8c15a], [0.56, 0x1f2a5c], [0.44, 0xb32d35], [0.32, 0xeadfc8], [0.2, 0x1f2a5c]].forEach(([r, c], i) => { const m = mesh(new THREE.CircleGeometry(r, 32), mat(c, { roughness: 1 }), 0, i * 0.0008, 0, rugG); m.rotation.x = -Math.PI / 2; });
+    // ---- yarn basket on the floor at the left, with balls in Night & Gold and black & red
+    const bk = new THREE.Group(); bk.position.set(0.62, 0, 0.32); corner.add(bk);
+    const weave = canvasTexture(64, 64, (c, w, h) => { c.fillStyle = '#a8763f'; c.fillRect(0, 0, w, h); c.fillStyle = '#6e4823'; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) if ((x + y) % 2) c.fillRect(x * 8, y * 8, 8, 8); });
+    weave.wrapS = weave.wrapT = THREE.RepeatWrapping; weave.repeat.set(5, 1);
+    const bm = new THREE.MeshStandardMaterial({ map: weave, roughness: 1, side: THREE.DoubleSide });
+    const basketStatic = new THREE.Group(); bk.add(basketStatic);
+    mesh(new THREE.CylinderGeometry(0.19, 0.15, 0.2, 18, 1, true), bm, 0, 0.1, 0, basketStatic);
+    mesh(new THREE.CircleGeometry(0.15, 18), bm, 0, 0.01, 0, basketStatic).rotation.x = -Math.PI / 2;
+    mesh(new THREE.TorusGeometry(0.19, 0.018, 6, 22), mat(0x7a5230), 0, 0.2, 0, basketStatic).rotation.x = Math.PI / 2;
+    const balls = {};
+    [['navy', 0x1f2a5c, -0.07, 0.17, -0.06, 0.06], ['gold', 0xe0ae48, 0.07, 0.18, -0.05, 0.058], ['gold2', 0xe0ae48, -0.09, 0.2, 0.08, 0.05],
+     ['black', 0x18161a, 0.05, 0.22, 0.06, 0.062], ['red', 0xc0303a, -0.02, 0.25, 0.0, 0.062], ['navy2', 0x1f2a5c, 0.11, 0.15, 0.1, 0.05]]
+      .forEach(([id, c, x, y, z, r]) => { const b = mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshStandardMaterial({ map: yarnTex(c), roughness: 1 }), x, y, z, bk); b.rotation.set(id.length, id.length * 2, 0); b.userData.dynamic = true; balls[id] = b; b.userData.home = b.position.clone(); });
+    bk.userData.decorId = 'yarn-basket'; bk.traverse(o => { if (o.isMesh) { o.userData.decorId = 'yarn-basket'; pickables.push(o); } });
+    // ---- the Rule 90 tapestry in progress, over Nova's lap (newest row at her paws)
+    const R90 = rule90(C.rows), W = 0.5, L = 0.25, CW = C.cols, SPX = 8;
+    const chart = R90.map(row => { const off = (CW - row.length) / 2; return Array.from({ length: CW }, (_, i) => (i >= off && i < off + row.length ? row[i - off] : 0)); });
+    const tcan = document.createElement('canvas'); tcan.width = CW * SPX; tcan.height = C.rows * SPX; const tc = tcan.getContext('2d');
+    const btex = new THREE.CanvasTexture(tcan); btex.colorSpace = THREE.SRGBColorSpace; btex.anisotropy = 4;
+    const stitch = (x, y, red) => { tc.fillStyle = red ? '#c42f38' : '#161417'; tc.fillRect(x, y, SPX, SPX); tc.strokeStyle = red ? 'rgba(255,170,150,.35)' : 'rgba(255,255,255,.08)'; tc.lineWidth = 1;
+      tc.beginPath(); tc.moveTo(x + 1, y + 2); tc.lineTo(x + SPX / 2, y + SPX - 2); tc.lineTo(x + SPX - 1, y + 2); tc.stroke(); tc.fillStyle = 'rgba(0,0,0,.25)'; tc.fillRect(x, y + SPX - 1, SPX, 1); };
+    let drawn = -1;
+    function drawBlanket(done) {          // done = stitches finished so far (0 .. cols*rows)
+      if (done === drawn) return; drawn = done; tc.clearRect(0, 0, tcan.width, tcan.height);
+      const full = Math.floor(done / CW), part = done % CW; let y = 0;
+      if (part > 0) { const r = full, rtl = r % 2 === 0;   // chart row 1 is worked right to left, row 2 left to right, ...
+        for (let k = 0; k < part; k++) { const c = rtl ? CW - 1 - k : k; stitch(c * SPX, y, chart[r][c]); } y += SPX; }
+      for (let r = full - 1; r >= 0; r--, y += SPX) for (let c = 0; c < CW; c++) stitch(c * SPX, y, chart[r][c]);
+      btex.needsUpdate = true;
+    }
+    // drape: top edge at the paws, over the lap, a little over the seat's front edge; the sides settle onto the cushion
+    const H = new THREE.Vector3(0, 0.585, 0.17), E = new THREE.Vector3(0, 0.485, 0.37), F = new THREE.Vector3(0, 0.15, 0.4);
+    const bgeo = new THREE.PlaneGeometry(W, L, 22, 14), bp = bgeo.attributes.position, lenHE = H.distanceTo(E), q = new THREE.Vector3();
+    for (let i = 0; i < bp.count; i++) {
+      const x = bp.getX(i), sAlong = L / 2 - bp.getY(i);
+      if (sAlong <= lenHE) q.lerpVectors(H, E, sAlong / lenHE); else q.lerpVectors(E, F, (sAlong - lenHE) / E.distanceTo(F));
+      const side = THREE.MathUtils.smoothstep(Math.abs(x), 0.07, 0.21);
+      let yy = q.y; if (sAlong <= lenHE) yy = q.y - (q.y - (C.seat + 0.015)) * side; else yy = q.y - 0.02 * side;
+      bp.setXYZ(i, x, yy + Math.sin(x * 40 + sAlong * 30) * 0.003, q.z + side * 0.02);
+    }
+    bgeo.computeVertexNormals();
+    const blanket = mesh(bgeo, new THREE.MeshStandardMaterial({ map: btex, roughness: 1, alphaTest: 0.5, side: THREE.DoubleSide }), 0, 0, 0, corner);
+    blanket.userData.dynamic = true; blanket.userData.decorId = 'crochet-wip'; pickables.push(blanket);
+    drawBlanket(0);
+    // two strands (red and black, both carried in tapestry crochet) from the basket, over the arm, to the hook
+    const strandMat = { red: new THREE.MeshStandardMaterial({ color: 0xc0303a, roughness: 1 }), black: new THREE.MeshStandardMaterial({ color: 0x222024, roughness: 1 }) };
+    const strands = {};
+    for (const k of ['red', 'black']) { const m = new THREE.Mesh(new THREE.BufferGeometry(), strandMat[k]); m.userData.dynamic = true; m.raycast = () => {}; corner.add(m); strands[k] = m; }
+    const tmpV = new THREE.Vector3();
+    function updateStrands(hookWorld) {
+      const hook = corner.worldToLocal(tmpV.copy(hookWorld));
+      for (const k of ['red', 'black']) {
+        const b = balls[k], start = b.position.clone().add(bk.position).add(new THREE.Vector3(0, 0.05, 0));
+        const off = k === 'red' ? 0.008 : -0.008;
+        const pts = [start, new THREE.Vector3(0.5, 0.42, 0.34 + off), new THREE.Vector3(0.39, 0.7, 0.26 + off), new THREE.Vector3(0.2, 0.62, 0.22 + off), hook.clone().add(new THREE.Vector3(0, 0, off))];
+        const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 28, 0.0035, 4, false);
+        strands[k].geometry.dispose(); strands[k].geometry = g;
+      }
+    }
+    // colliders: chair + table + basket + lamp (axis-aligned boxes around the rotated footprint)
+    const cosR = Math.cos(C.ry), sinR = Math.sin(C.ry);
+    const toRoom = (x, z) => [C.x + x * cosR + z * sinR, C.z - x * sinR + z * cosR];
+    for (const [x0, x1, z0, z1] of [[-0.45, 0.45, -0.45, 0.42], [-0.88, -0.45, -0.14, 0.3], [0.42, 0.82, 0.12, 0.52], [-0.58, -0.26, -0.66, -0.34]]) {
+      const pts = [toRoom(x0, z0), toRoom(x1, z0), toRoom(x0, z1), toRoom(x1, z1)];
+      collide(rg, Math.min(...pts.map(p => p[0])), Math.max(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[1])));
+    }
+    builtins['crochet-chair'] = chair; builtins['yarn-basket'] = bk; builtins['crochet-wip'] = blanket;
+    crochet = { corner, chair, blanket, balls, drawBlanket, updateStrands, chart, seat: new THREE.Vector3(0, C.seat, -0.03) };
+  }
+  var builtins = {};
   var roomFurniture = {
     study(rg) {
       lampPendant(rg, 0, 0.3);
@@ -477,6 +618,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
       for (const side of ['e', 'n']) { const F = WALL_FRAME[side]; const rail = mesh(new THREE.BoxGeometry(5.3, 0.04, 0.03), M.gold, 0, 0, 0, rg); rail.position.set(...F.at(0, 2.5, 0.015)); rail.rotation.y = F.ry; }
       const rug = mesh(new THREE.CircleGeometry(1.2, 24), mat(0x8c2a2f), 0.2, 0.006, 0.5, rg); rug.rotation.x = -Math.PI / 2;
       const rr = mesh(new THREE.TorusGeometry(1.1, 0.03, 3, 40), M.gold, 0.2, 0.008, 0.5, rg); rr.rotation.x = Math.PI / 2;
+      crochetCorner(rg);
     },
     window(rg) {
       lampPendant(rg, -1.0, 1.2, 0xffc070);
@@ -713,6 +855,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   // ---------- place decor ----------
   function place(it) {
     const room = roomGroups[it.room]; if (!room) return;
+    if (it.builtin) { const g = builtins[it.builtin]; if (g) itemGroups.set(it.id, g); return; }   // built by the room code (e.g. the Crochet Corner)
     let model;
     if (it.type === 'frame') model = frameModel(it);
     else if (it.type === 'print') model = printModel(it);
@@ -730,10 +873,60 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   }
   (data.items || []).forEach(place);
 
-  // Nova herself, on the Window Seat cushion (curls up there at night)
-  const novaIn = novaIndoors(makeNova({ lights: 'tail' }), { parent: roomGroups.window, x: -0.15, y: 0.62, z: -IN + 0.36, ry: 0, scale: 0.36 });
+  // Nova herself. Awake hours (7:00-23:00 Central, her own rest rule) she sits in the Crochet Corner
+  // armchair and crochets; from 23:00 to 7:00 she curls up asleep on the Window Seat cushion.
+  const novaBody = makeNova({ lights: 'tail' });
+  const WINDOW_SPOT = { parent: roomGroups.window, x: -0.15, y: 0.62, z: -IN + 0.36, ry: 0, scale: 0.36 };
+  const novaIn = novaIndoors(novaBody, WINDOW_SPOT);
   novaIn.root.traverse(o => { if (o.isMesh) o.userData.novaPick = true; });
-  updaters.push((t, dt) => { if (state.active) novaIn.tick(t, dt, { camera }); });
+  // her crochet hook, held in the right front paw (moves with the leg)
+  const hookG = new THREE.Group(); hookG.position.set(0.0, -0.38, 0.04); hookG.rotation.set(Math.PI - 0.55, 0, -0.55); novaBody.root.userData.nodes.fr.add(hookG);
+  const hookMat = new THREE.MeshStandardMaterial({ color: 0xe8c15a, metalness: 0.7, roughness: 0.3 });
+  mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.13, 10), M.red, 0, 0.0, 0, hookG);                 // red grip in the paw
+  mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.24, 8), hookMat, 0, 0.18, 0, hookG);             // gold shaft
+  const lip = mesh(new THREE.TorusGeometry(0.022, 0.009, 5, 10, Math.PI * 1.2), hookMat, 0.012, 0.31, 0, hookG); lip.rotation.z = -0.6;   // the hook
+  const hookTip = new THREE.Object3D(); hookTip.position.set(0, 0.31, 0); hookG.add(hookTip);
+  hookG.traverse(o => { if (o.isMesh) o.userData.novaPick = true; });
+  let spotOverride = null, shownHour = 12, spot = null, why = '';
+  const crochetState = { row: 0, stitch: 0, done: 0, working: false }; let crochetSkip = 0;
+  const glance = { t: 6, on: 0 };
+  function setSpot(s) {
+    if (s === spot || (s === 'crochet' && !crochet)) return; spot = s; const r = novaBody.root;
+    if (s === 'crochet') { crochet.corner.add(r); r.position.copy(crochet.seat); r.rotation.set(0, 0, 0); r.scale.setScalar(0.4); hookG.visible = true; }
+    else { WINDOW_SPOT.parent.add(r); r.position.set(WINDOW_SPOT.x, WINDOW_SPOT.y, WINDOW_SPOT.z); r.rotation.set(0, WINDOW_SPOT.ry, 0); r.scale.setScalar(WINDOW_SPOT.scale); hookG.visible = false; }
+  }
+  const wantSpot = () => spotOverride || (shownHour >= 7 && shownHour < 23 ? 'crochet' : 'window');
+  const hookW = new THREE.Vector3(), lapW = new THREE.Vector3();
+  function crochetTick(t, dt) {
+    const C = CROCHET, cyc = C.rows * C.rowSec + C.holdSec, tc = (t + crochetSkip) % cyc, total = C.cols * C.rows;
+    const done = Math.min(total, Math.floor(tc / (C.rows * C.rowSec) * total)); const working = tc < C.rows * C.rowSec;
+    crochetState.done = done; crochetState.row = Math.min(C.rows, Math.floor(done / C.cols) + (done < total ? 1 : 0)); crochetState.stitch = done % C.cols; crochetState.working = working;
+    crochet.drawBlanket(done);
+    novaBody.setPose('sit');
+    // look at the work; now and then glance up at a visitor who is close
+    const me = novaBody.root.getWorldPosition(new THREE.Vector3()), near = camera.position.distanceTo(me) < 3.2;
+    glance.t -= dt; if (glance.t < 0) { glance.on = near ? 1.8 : 0; glance.t = 7 + Math.random() * 5; } glance.on = Math.max(0, glance.on - dt);
+    crochet.corner.localToWorld(lapW.set(0, 0.56, 0.24));
+    novaBody.anim.look = glance.on > 0 || !working ? (near ? camera.position.clone() : null) : lapW.clone();
+    novaBody.update(t, dt, { camera });
+    // paws forward over the lap; the right paw works the hook in little loops (yarn over, pull through)
+    const n = novaBody.root.userData.nodes, ph = t * Math.PI * 2 * C.hookHz, k = working ? 1 : 0.15;
+    n.fr.rotation.x += -1.22 + Math.sin(ph) * 0.16 * k; n.fr.rotation.z += 0.3 + Math.cos(ph) * 0.12 * k; n.fr.rotation.y += Math.sin(ph) * 0.1 * k;
+    n.fl.rotation.x += -1.15 + Math.sin(ph + 2.2) * 0.04 * k; n.fl.rotation.z += -0.32;
+    n.torso.rotation.x += 0.08; n.head.position.z += 0.03;
+    // yarn: the strand of the stitch being made pulls; its ball twitches and rolls
+    const red = working && crochet.chart[Math.min(C.rows - 1, Math.floor(done / C.cols))][(Math.floor(done / C.cols) % 2 === 0) ? C.cols - 1 - (done % C.cols) : done % C.cols];
+    for (const kk of ['red', 'black']) { const b = crochet.balls[kk], active = working && (kk === 'red') === !!red;
+      if (active) { b.rotation.x += dt * 2.2; b.rotation.z += dt * 0.7; }
+      b.position.copy(b.userData.home); b.position.y += active ? Math.abs(Math.sin(ph)) * 0.008 : 0; b.position.x += active ? Math.sin(ph * 0.5) * 0.004 : 0; }
+    novaBody.root.updateMatrixWorld(true); hookTip.getWorldPosition(hookW); crochet.updateStrands(hookW);
+    why = working ? `Crocheting my Rule 90 tapestry in the Crochet Corner: row ${crochetState.row} of ${C.rows}, ${red ? 'red' : 'black'} stitch` : 'Holding up a finished Rule 90 panel in the Crochet Corner, then starting the next one';
+  }
+  updaters.push((t, dt) => {
+    if (!state.active) return;
+    setSpot(wantSpot());
+    if (spot === 'crochet') crochetTick(t, dt); else { novaIn.tick(t, dt, { camera }); why = novaIn.status; }
+  });
 
   // =====================================================================
   // walking
@@ -753,13 +946,13 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   }
   const roomAt = p => (p.x < 0 ? (p.z > 0 ? 'study' : 'window') : (p.z > 0 ? 'art' : 'nook'));
   function setView(id) {
-    const v = VIEWS[id], c = ROOMS[id].c;
+    const v = VIEWS[id], c = ROOMS[v.room || id].c;
     pos.set(v.from[0] + c[0], v.from[1], v.from[2] + c[1]);
     const at = new THREE.Vector3(v.at[0] + c[0], v.at[1], v.at[2] + c[1]);
     const d = at.sub(pos); state.yaw = Math.atan2(-d.x, -d.z); state.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z));
     state.eye = v.from[1];
   }
-  function goto(id) { if (!ROOMS[id]) return; setView(id); applyCam(); checkRoom(); }
+  function goto(id) { if (!VIEWS[id]) return; setView(id); applyCam(); checkRoom(); }
   function applyCam() { camera.position.copy(pos); camera.position.y = state.eye ?? EYE; camera.rotation.set(state.pitch, state.yaw, 0); }
   function checkRoom() { const r = roomAt(pos); if (r !== state.room) { state.room = r; onRoom?.(r, ROOMS[r].name); } }
 
@@ -804,8 +997,10 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   function pickAt(x, y) {
     const h = hit(x, y); if (!h) return null;
     if (h.object.userData.exit) { onExit?.(); return 'exit'; }
-    if (h.object.userData.novaPick) { onNova?.(); return 'nova'; }
-    const it = data.items.find(i => i.id === h.object.userData.decorId);
+    if (h.object.userData.novaPick && spot !== 'crochet') { onNova?.(); return 'nova'; }
+    const id = h.object.userData.novaPick ? 'crochet-wip' : h.object.userData.decorId;
+    let it = data.items.find(i => i.id === id);
+    if (it && id === 'crochet-wip') it = { ...it, note: (it.note || '') + `\n\n*Right now:* ${crochetState.working ? `row ${crochetState.row} of ${CROCHET.rows}, stitch ${crochetState.stitch + 1} of ${CROCHET.cols}` : 'a finished panel; I start the next one in a moment'}.` };
     if (it) { onPick?.(it, ROOMS[it.room]?.name); return it.id; }
     return null;
   }
@@ -839,7 +1034,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   }
   function setActive(on, room) {
     state.active = on; state.keys.clear(); state.joy.x = state.joy.y = 0; drags.clear();
-    if (on) { state.room = null; goto(room && ROOMS[room] ? room : 'study'); if (!room || !ROOMS[room]) { pos.set(-2.75, 0, 4.7); state.yaw = 0.12; state.pitch = innerWidth < innerHeight ? -0.16 : -0.05; state.eye = EYE; applyCam(); checkRoom(); } }
+    if (on) { state.room = null; goto(room && VIEWS[room] ? room : 'study'); if (!room || !VIEWS[room]) { pos.set(-2.75, 0, 4.7); state.yaw = 0.12; state.pitch = innerWidth < innerHeight ? -0.16 : -0.05; state.eye = EYE; applyCam(); checkRoom(); } }
     if (tip) tip.hidden = true;
   }
   function screenPos(id) {
@@ -865,6 +1060,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   const cDay = new THREE.Color(), cTmp = new THREE.Color();
   function daylight(st, sunDir, moonDir) {
     const p = st.pal;
+    if (st.date) shownHour = zonedParts(st.date).h;
     if (!applyGlowIn) applyGlowIn = collectGlows(scene);
     starsMat.opacity = p.stars; constMat.opacity = p.stars;
     const sunUp = THREE.MathUtils.smoothstep(st.sun.elevation, -2.5, 1.5), moonUp = THREE.MathUtils.smoothstep(st.moon.elevation, -2, 2);
@@ -881,6 +1077,6 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   function resize() { camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 78 : 70; camera.updateProjectionMatrix(); }
   resize();
   function novaScreen() { const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.55, 0)).project(camera); return { x: (c.x + 1) / 2 * innerWidth, y: (1 - c.y) / 2 * innerHeight, inFront: c.z < 1 }; }
-  function lookAtNova() { pos.set(-2.75 - 0.15, 0, -2.75 - IN + 1.9); resolve(pos); state.eye = 1.05; const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.4, 0)); const d = c.sub(new THREE.Vector3(pos.x, state.eye, pos.z)); state.yaw = Math.atan2(-d.x, -d.z); state.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); applyCam(); checkRoom(); }
-  return { scene, camera, update, daylight, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders, novaScreen, lookAtNova, get novaStatus() { return novaIn.status; } };
+  function lookAtNova() { if (spot === 'crochet') return goto('crochet'); pos.set(-2.75 - 0.15, 0, -2.75 - IN + 1.9); resolve(pos); state.eye = 1.05; const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.4, 0)); const d = c.sub(new THREE.Vector3(pos.x, state.eye, pos.z)); state.yaw = Math.atan2(-d.x, -d.z); state.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); applyCam(); checkRoom(); }
+  return { scene, camera, update, daylight, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders, novaScreen, lookAtNova, get novaStatus() { return why || novaIn.status; }, get novaSpot() { return spot; }, idAt: (x, y) => { const h = hit(x, y); return h ? (h.object.userData.novaPick ? 'nova' : h.object.userData.decorId || null) : null; }, setNovaSpot: s => { spotOverride = s || null; }, skipCrochet: sec => { crochetSkip += sec; }, crochetState, views: VIEWS };
 }

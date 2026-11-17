@@ -87,7 +87,7 @@ const TYPE_LABEL = { frame: 'Framed picture', print: '3D print', object: 'Keepsa
 export function renderDecor(it, roomName, { onView }) {
   const body = document.querySelector('#panel .sheet-body');
   let html = `<h2 id="panel-title">${esc(it.title)}</h2><p class="meta">🏡 ${esc(roomName || it.room)} · ${esc(TYPE_LABEL[it.type] || it.type)} · added ${fmtDate(it.date_added)}</p>`;
-  if (it.type === 'frame') html += `<div class="thumbs one"><figure data-src="${esc(it.image)}" data-cap="${esc(it.title)}"><img src="${esc(it.image)}" alt="${esc(it.title)}"></figure></div>`;
+  if (it.type === 'frame' || it.image) html += `<div class="thumbs one"><figure data-src="${esc(it.image)}" data-cap="${esc(it.title)}"><img src="${esc(it.image)}" alt="${esc(it.title)}"></figure></div>`;
   html += `<div class="md decor-note">${md(it.note)}</div>`;
   if (it.stl) html += `<div class="row"><button class="pill gold" data-view>⟲ View in 3D</button><a class="pill" href="${esc(it.stl)}" download>⬇ Download STL (${it.sizeKB >= 1024 ? (it.sizeKB / 1024).toFixed(1) + ' MB' : it.sizeKB + ' KB'})</a></div>`;
   html += `<p class="meta decor-id">Decor id <code>${esc(it.id)}</code></p>`;

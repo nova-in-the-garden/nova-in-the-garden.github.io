@@ -301,6 +301,7 @@ cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up
 cd /workspace/nova/site_tools && node studio.mjs     # Pixel Studio: radio click on/off + audio actually playing (AudioContext running, analyser level), next/prev/list/volume, stops on leaving / game open, painting clicks -> hi-res lightbox, arrows, zoom/pan, Esc/×, deep link, phone tap/swipe/pinch
 cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
 cd /workspace/nova/site_tools && node postcard.mjs   # Postcard Maker: rack click, all 38 planets paint, flip, PNG downloads (1800x1200), search, message, copy link/share, keys, Esc, deep links, iPhone layout; `postcard.mjs samples` exports sample cards
+cd /workspace/nova/site_tools && node crochet.mjs    # Crochet Corner: Nova in the chair, blanket growing, hook moving, growth-stage shots, clicks on Nova/blanket/basket/chair, sleep-spot override, day + phone
 cd /workspace/nova/site_tools && node telescope.mjs  # Window Seat telescope: screenshots (entrance, doorway, close-up, side, eyepiece), click -> eyepiece view, collider, no errors
 cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```

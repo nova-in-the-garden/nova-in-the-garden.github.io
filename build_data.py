@@ -284,8 +284,9 @@ HOUSE_ANCHORS = {
     "study.desk", "study.mantel", "study.overmantel", "study.shelf1", "study.shelf2", "study.shelf3", "study.shelf4",
     "art.easel", "art.painttable",
     "window.cubby1", "window.cubby2", "window.cubby3", "window.cubby4", "window.table", "window.seat", "window.telescope",
-    "nook.shelf", "nook.hook", "nook.basket",
+    "nook.shelf", "nook.hook", "nook.basket", "art.crochettable",
 }
+HOUSE_BUILTINS = {"crochet-wip", "crochet-chair", "yarn-basket"}
 
 
 def resolve_asset(path: str, kind: str) -> str | None:
@@ -313,6 +314,19 @@ def build_house() -> dict | None:
             problems.append(f"{where}: room must be one of {sorted(HOUSE_ROOMS)}"); continue
         if it.get("type") not in HOUSE_TYPES:
             problems.append(f"{where}: type must be one of {sorted(HOUSE_TYPES)}"); continue
+        if it.get("builtin"):
+            # built by js/house.js itself (e.g. the Crochet Corner); the item only carries the title and note
+            if it["builtin"] not in HOUSE_BUILTINS:
+                problems.append(f"{where}: unknown builtin {it['builtin']!r}"); continue
+            it = dict(it)
+            it.setdefault("title", iid); it.setdefault("note", "")
+            it.setdefault("date_added", datetime.now().strftime("%Y-%m-%d"))
+            if it.get("image"):
+                url = resolve_asset(it["image"], "image")
+                if not url:
+                    problems.append(f"{where}: image not found: {it['image']}"); continue
+                it["image"] = url
+            items.append(it); continue
         if not (it.get("anchor") or it.get("wall") or it.get("position")):
             problems.append(f"{where}: needs anchor, wall or position"); continue
         if it.get("anchor") and it["anchor"] not in HOUSE_ANCHORS:
@@ -356,6 +370,7 @@ def build_house() -> dict | None:
         "built": h.get("built"),
         "description": h.get("description", ""),
         "rooms": h.get("rooms", []),
+        "spots": h.get("spots", []),
         "items": items,
         "changelog": changelog,
         "problems": problems,

@@ -355,6 +355,8 @@ async function exitHouse() {
 {
   const rc = document.getElementById('room-chips');
   for (const r of world.house?.rooms || []) { const b = document.createElement('button'); b.className = 'pill'; b.dataset.room = r.id; b.textContent = r.name; b.onclick = () => enterHouse(r.id); rc.appendChild(b); }
+  // spots inside a room (e.g. the Crochet Corner in the Art Corner)
+  for (const sp of world.house?.spots || []) { const b = document.createElement('button'); b.className = 'pill'; b.dataset.spot = sp.id; b.textContent = sp.name; b.onclick = () => enterHouse(sp.id); rc.appendChild(b); }
   document.getElementById('btn-exit').onclick = () => exitHouse();
   const touch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('touch', touch);
