@@ -324,10 +324,11 @@ const roomLabel = document.getElementById('house-room');
 const scopeView = createScopeView();   // "look through the telescope" in the Window Seat
 const house = createHouse({
   renderer, world, loadSTL, skyMaterial: skyMat,
-  onPick: (item, roomName) => { if (item.view === 'scope') { closeSheets(); return scopeView.open(item); } renderDecor(item, roomName, { onView: viewPrint }); openSheet('panel'); },
+  onPick: (item, roomName) => { if (item.view === 'scope') { closeSheets(); return scopeView.open(item); } if (item.view === 'postcards' && postcards) { closeSheets(); return postcards.open(item.planet); } renderDecor(item, roomName, { onView: viewPrint }); openSheet('panel'); },
   onExit: () => exitHouse(),
   onNova: () => showNova(),
-  onRoom: (id, name) => { roomLabel.textContent = name; document.querySelectorAll('#room-chips .pill').forEach(b => b.classList.toggle('on', b.dataset.room === id)); },
+  onRoom: (id, name) => { roomLabel.textContent = name; document.querySelectorAll('#room-chips .pill').forEach(b => b.classList.toggle('on', b.dataset.room === id));
+    const rc = document.getElementById('room-chips'), on = rc.querySelector('.pill.on'); if (on && rc.scrollWidth > rc.clientWidth) rc.scrollLeft = on.offsetLeft - (rc.clientWidth - on.offsetWidth) / 2; },   // keep the lit chip in view on phones
 });
 let inside = false, busy = false;
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -415,7 +416,8 @@ function postcardButton() {
   box.innerHTML = `<button class="pill gold">🪐 Open the Postcard Maker</button><p style="margin:6px 0 0;color:var(--muted);font-size:13px">${postcardData.planets.length} real exoplanets, painted from NASA Exoplanet Archive numbers. Or tap the postcard rack.</p>`;
   box.querySelector('button').onclick = () => openPostcards(); const h = body.querySelector('h2'); h ? h.after(box) : body.prepend(box);
 }
-function openPostcards(id) { if (!postcards || inside || inArcade) return false; postcards.open(id); return true; }
+function openPostcards(id) { if (!postcards || inArcade) return false;   // works from the house too (the Kitchen fridge postcard)
+  postcards.open(id); return true; }
 function resumeLoop() { if (loopStopped) { loopStopped = false; last = performance.now(); requestAnimationFrame(frame); } }
 if (arcade) {
   const wc = document.getElementById('wing-chips');

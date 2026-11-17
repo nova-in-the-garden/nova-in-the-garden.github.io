@@ -277,16 +277,19 @@ def collect_prints() -> list[dict]:
 
 
 # ---------- Nova's House ----------
-HOUSE_ROOMS = {"study", "art", "window", "nook"}
+HOUSE_ROOMS = {"study", "art", "window", "nook", "kitchen"}
 HOUSE_TYPES = {"frame", "print", "object"}
-HOUSE_MODELS = {"macchiato", "journal", "plant", "blanket", "scarf", "candle", "books", "crystal", "yarn", "mug", "telescope"}
+HOUSE_MODELS = {"macchiato", "journal", "plant", "blanket", "scarf", "candle", "books", "crystal", "yarn", "mug", "telescope",
+                "vanillalatte", "waffleiron", "breakfast", "oreopie", "cookiejar", "peabowl"}
 HOUSE_ANCHORS = {
     "study.desk", "study.mantel", "study.overmantel", "study.shelf1", "study.shelf2", "study.shelf3", "study.shelf4",
     "art.easel", "art.painttable",
     "window.cubby1", "window.cubby2", "window.cubby3", "window.cubby4", "window.table", "window.seat", "window.telescope",
     "nook.shelf", "nook.hook", "nook.basket", "art.crochettable",
 }
-HOUSE_BUILTINS = {"crochet-wip", "crochet-chair", "yarn-basket"}
+HOUSE_BUILTINS = {"crochet-wip", "crochet-chair", "yarn-basket",
+                  "kitchen-stove", "kitchen-window", "kitchen-espresso", "kitchen-fridge", "kitchen-pot-rack",
+                  "kitchen-magnet-rule90", "kitchen-magnet-postcard", "kitchen-magnet-duck", "kitchen-thanksgiving-note"}
 
 
 def resolve_asset(path: str, kind: str) -> str | None:
@@ -352,6 +355,12 @@ def build_house() -> dict | None:
             it["sizeKB"] = round((SITE / url).stat().st_size / 1024)
         elif it.get("model") not in HOUSE_MODELS:
             problems.append(f"{where}: model must be one of {sorted(HOUSE_MODELS)}"); continue
+        elif it.get("image"):
+            # an object can carry a picture for its note (e.g. the chart behind a drink)
+            url = resolve_asset(it["image"], "image")
+            if not url:
+                problems.append(f"{where}: image not found: {it['image']}"); continue
+            it["image"] = url
         items.append(it)
     for p in problems:
         log("  HOUSE:", p)

@@ -168,7 +168,7 @@ export function buildCottage(parent, x, z, rot = 0) {
 }
 
 // =====================================================================
-// Interior (meters). The house is 11 m x 11 m: four 5.5 m rooms.
+// Interior (meters). Four 5.5 m rooms in an 11 m x 11 m ring, plus the Kitchen east of Lorenz's Nook.
 // Room-local coordinates: origin at the room's center on the floor, +x east,
 // +z south (toward the front door), y up. Inner wall faces are at +-2.65.
 // =====================================================================
@@ -180,7 +180,9 @@ const ROOMS = {
   study: { name: 'Study', c: [-2.75, 2.75], walls: { n: [{ u: 1.45, w: 1.3, h: 2.35 }], s: [{ u: 0, w: 1.1, h: 2.25, front: true }], e: [{ u: -1.45, w: 1.3, h: 2.35 }], w: [] } },
   art: { name: 'Art Corner', c: [2.75, 2.75], walls: { n: [{ u: -1.45, w: 1.3, h: 2.35 }], w: [{ u: -1.45, w: 1.3, h: 2.35 }], s: [{ u: 1.0, w: 1.3, y0: 0.95, h: 1.3 }], e: [] } },
   window: { name: 'Window Seat', c: [-2.75, -2.75], walls: { s: [{ u: 1.45, w: 1.3, h: 2.35 }], e: [{ u: 1.45, w: 1.3, h: 2.35 }], n: [{ u: 0, y: 1.85, r: 1.2 }], w: [] } },
-  nook: { name: "Lorenz's Nook", c: [2.75, -2.75], walls: { w: [{ u: 1.45, w: 1.3, h: 2.35 }], s: [{ u: -1.45, w: 1.3, h: 2.35 }], e: [{ u: 0, y: 0.6, r: 0.32 }], n: [] } },
+  nook: { name: "Lorenz's Nook", c: [2.75, -2.75], walls: { w: [{ u: 1.45, w: 1.3, h: 2.35 }], s: [{ u: -1.45, w: 1.3, h: 2.35 }], e: [{ u: 0, y: 0.6, r: 0.32 }, { u: 1.45, w: 1.3, h: 2.35 }], n: [] } },
+  // the Kitchen sits east of the Nook (through the Nook's east door); Lorenz's porthole looks into it
+  kitchen: { name: 'Kitchen', c: [8.25, -2.75], walls: { w: [{ u: 0, y: 0.6, r: 0.32 }, { u: 1.45, w: 1.3, h: 2.35 }], n: [{ u: 0, w: 1.3, y0: 1.15, h: 0.95 }], e: [], s: [] } },
 };
 // nice standing spots (room-local): from -> look at
 const VIEWS = {
@@ -188,6 +190,7 @@ const VIEWS = {
   art: { from: [-1.75, EYE, -1.85], at: [1.4, 1.35, 1.2] },
   window: { from: [0.9, 1.4, 1.75], at: [-0.25, 1.75, -2.65] },
   nook: { from: [-1.7, 1.45, 1.75], at: [1.0, 0.55, -1.6] },
+  kitchen: { from: [-2.05, EYE, 1.95], at: [0.9, 0.95, -1.7] },
   crochet: { room: 'art', from: [0.15, 1.25, -0.55], at: [1.75, 0.62, -1.75] },   // the Crochet Corner (north-east corner of the Art Corner)
 };
 export const ROOM_IDS = Object.keys(ROOMS);
@@ -304,6 +307,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     art: { wall: plasterTex('#ece2cf', 3, ''), floor: planks(0x9b7550, 4), ceil: 0x6a4c34 },
     window: { wall: plasterTex('#1c2550', 5, 'stars'), floor: planks(0x6a4a30, 6), ceil: 0x1a2048 },
     nook: { wall: plasterTex('#f0dc9a', 7, 'dots'), floor: planks(0x8a6440, 8), ceil: 0x6a4c34 },
+    kitchen: { wall: plasterTex('#efe0c2', 9, ''), floor: planks(0x7a5232, 10), ceil: 0x5a3e2a },
   };
 
   // ---------- build rooms ----------
@@ -524,6 +528,308 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     builtins['crochet-chair'] = chair; builtins['yarn-basket'] = bk; builtins['crochet-wip'] = blanket;
     crochet = { corner, chair, blanket, balls, drawBlanket, updateStrands, chart, seat: new THREE.Vector3(0, C.seat, -0.03) };
   }
+  // =====================================================================
+  // The Kitchen (5th room, through a door in the east wall of Lorenz's Nook). Room-local: +x east, +z south.
+  // North wall: a counter with the sink under a window onto a little night garden, a coffee bar at the
+  // west end (espresso machine and the owner's two iced drinks), and the Oreo pie and cookie jar at the
+  // east end. East wall: the stove and oven (a kettle steams on a lit burner, the oven light glows) and a
+  // red fridge with magnets. Middle: the breakfast table. A pot rack hangs from the ceiling; Lorenz's
+  // pea bowl sits under the porthole he can peek through from his Nook.
+  // =====================================================================
+  const KTOP = 0.92;   // counter height
+  function steamPuffs(parent, n, x, y, z, { rise = 0.45, spread = 0.06, size = 0.16, speed = 0.3, opacity = 0.3 } = {}) {
+    const tex = glowTexture(), arr = [];
+    for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xf4efe6, transparent: true, opacity: 0, depthWrite: false })); s.raycast = () => {}; s.userData.steam = true; parent.add(s); arr.push(s); }
+    updaters.push(t => arr.forEach((s, i) => {
+      const p = (t * speed + i / n) % 1;
+      s.position.set(x + Math.sin(t * 1.3 + i * 2.1) * spread * p, y + p * rise, z + Math.cos(t * 1.1 + i) * spread * 0.6 * p);
+      s.scale.setScalar(size * (0.45 + p * 1.5)); s.material.opacity = opacity * Math.sin(p * Math.PI) * (1 - 0.4 * p);
+    }));
+    return arr;
+  }
+  function tagBuiltin(id, g) { g.userData.decorId = id; g.traverse(o => { if (o.isMesh) { o.userData.decorId = id; pickables.push(o); } }); if (!builtins[id]) builtins[id] = g; return g; }
+  function tiledPlane(w, h, tex, tile) { const g = new THREE.PlaneGeometry(w, h); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / tile, uv.getY(i) * h / tile); return mesh(g, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 })); }
+  function kitchenRoom(rg) {
+    const T = KTOP;
+    const cabinet = mat(0x7a4e2a), cabinetDk = mat(0x5e3b20), stone = mat(0x1d1a1f, { roughness: 0.35 });
+    const steel = new THREE.MeshStandardMaterial({ color: 0xb9b6b0, metalness: 0.8, roughness: 0.3 });
+    const enamelRed = mat(0xb32d35, { roughness: 0.35 }), cream = M.cream, black = M.black, gold = M.gold;
+    lampPendant(rg, 0.15, 0.75, 0xffd08a);
+    lampPendant(rg, 0.0, -1.95, 0xffd890);
+    // ---- backsplash: navy tiles with gold grout (and the odd red one)
+    const tiles = canvasTexture(256, 256, (c, w, h) => { c.fillStyle = '#c9a24a'; c.fillRect(0, 0, w, h); const R = rng(91);
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const r = R(); c.fillStyle = (x * 3 + y * 5) % 23 === 4 ? '#9c2a30' : (r < 0.5 ? '#1f2a5c' : '#26326a'); c.fillRect(x * 32 + 1.5, y * 32 + 1.5, 29, 29); c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(x * 32 + 4, y * 32 + 4, 12, 3); } });
+    tiles.wrapS = tiles.wrapT = THREE.RepeatWrapping;
+    const bs = (w, h, x, y) => { const p = tiledPlane(w, h, tiles, 0.8); p.position.set(x, y, -IN + 0.004); rg.add(p); };
+    bs(5.3, 0.23, 0, T + 0.115); bs(1.75, 0.7, -1.775, T + 0.23 + 0.35); bs(1.75, 0.38, 1.775, T + 0.23 + 0.19);
+    // east-wall backsplash behind the stove
+    { const p = tiledPlane(2.25, 0.85, tiles, 0.8); p.position.set(IN - 0.004, T + 0.425, -0.9); p.rotation.y = -Math.PI / 2; rg.add(p); }
+    // ---- base cabinets with a black stone top and a gold edge
+    function cabinetRun(cx, cz, w, d, ry, doors = true) {
+      const g = new THREE.Group(); g.position.set(cx, 0, cz); g.rotation.y = ry; rg.add(g);
+      mesh(new THREE.BoxGeometry(w, T - 0.12, d - 0.04), cabinet, 0, 0.08 + (T - 0.12) / 2, -0.02, g);
+      mesh(new THREE.BoxGeometry(w, 0.08, d - 0.1), black, 0, 0.04, -0.05, g);
+      mesh(new THREE.BoxGeometry(w + 0.02, 0.045, d + 0.03), stone, 0, T - 0.0225, 0, g);
+      mesh(new THREE.BoxGeometry(w + 0.02, 0.012, 0.012), gold, 0, T - 0.05, d / 2 + 0.018, g);
+      if (doors) { const n = Math.max(1, Math.round(w / 0.55)), dw = w / n;
+        for (let i = 0; i < n; i++) { const x = -w / 2 + dw * (i + 0.5);
+          mesh(new THREE.BoxGeometry(dw - 0.04, 0.14, 0.02), cabinetDk, x, T - 0.16, d / 2 - 0.03, g);
+          mesh(new THREE.BoxGeometry(dw - 0.04, T - 0.39, 0.02), cabinetDk, x, (0.12 + T - 0.27) / 2, d / 2 - 0.03, g);
+          mesh(new THREE.BoxGeometry(0.1, 0.014, 0.02), gold, x, T - 0.16, d / 2 - 0.01, g);
+          mesh(new THREE.SphereGeometry(0.015, 6, 4), gold, x + (i % 2 ? -1 : 1) * (dw / 2 - 0.07), T - 0.38, d / 2 - 0.01, g);
+        } }
+      return g;
+    }
+    cabinetRun(0, -IN + 0.31, 5.3, 0.62, 0);
+    cabinetRun(IN - 0.31, -1.625, 0.81, 0.62, -Math.PI / 2);
+    cabinetRun(IN - 0.31, -0.08, 0.6, 0.62, -Math.PI / 2);
+    collide(rg, -IN, IN, -IN, -2.02); collide(rg, 2.02, IN, -2.02, 0.23);
+    // red-and-black runner rug along the counter
+    const gingham = canvasTexture(64, 64, (c, w, h) => { c.fillStyle = '#efe4cc'; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(179,45,53,.75)'; c.fillRect(0, 0, 32, h); c.fillRect(0, 0, w, 32); c.fillStyle = 'rgba(22,20,24,.55)'; c.fillRect(0, 0, 32, 32); });
+    gingham.wrapS = gingham.wrapT = THREE.RepeatWrapping;
+    { const rug = mesh(new THREE.PlaneGeometry(3.2, 0.7), new THREE.MeshStandardMaterial({ map: gingham, roughness: 1 }), -0.2, 0.006, -1.55, rg); rug.rotation.x = -Math.PI / 2; const uv = rug.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 20, uv.getY(i) * 4.4); }
+    // ---- open shelves over the coffee bar, with mugs and jars
+    for (const y of [1.5, 1.9]) {
+      mesh(new THREE.BoxGeometry(1.5, 0.04, 0.26), M.lightWood, -1.8, y, -IN + 0.13, rg);
+      for (const x of [-2.4, -1.2]) mesh(new THREE.BoxGeometry(0.03, 0.14, 0.18), gold, x, y - 0.09, -IN + 0.09, rg);
+    }
+    const mugCols = [0x161418, 0xb32d35, 0xeadfc8, 0x1f2a5c];
+    for (let i = 0; i < 5; i++) { const x = -2.42 + i * 0.16, c = mugCols[i % 4];
+      mesh(new THREE.CylinderGeometry(0.042, 0.038, 0.095, 12), mat(c), x, 1.52 + 0.0475, -IN + 0.14, rg);
+      const hd = mesh(new THREE.TorusGeometry(0.028, 0.008, 5, 10), mat(c), x + 0.05, 1.52 + 0.05, -IN + 0.14, rg); }
+    for (let i = 0; i < 3; i++) { const x = -2.35 + i * 0.27;
+      mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16 + i * 0.03, 12), mat([0x3a2418, 0xeadfc8, 0xc98b3a][i], { roughness: 0.6 }), x, 1.92 + 0.08 + i * 0.015, -IN + 0.13, rg);
+      mesh(new THREE.CylinderGeometry(0.063, 0.063, 0.025, 12), gold, x, 1.92 + 0.17 + i * 0.03, -IN + 0.13, rg); }
+    books(rg, -1.55, -1.08, 1.92, -IN + 0.13, 77, 0.2);   // cookbooks
+    // ---- upper cabinet east of the window, with a utensil rail under it
+    mesh(new THREE.BoxGeometry(1.65, 0.72, 0.34), cabinet, 1.8, 1.95, -IN + 0.17, rg);
+    for (let i = 0; i < 3; i++) { const x = 1.8 - 0.55 + i * 0.55;
+      mesh(new THREE.BoxGeometry(0.5, 0.64, 0.02), cabinetDk, x, 1.95, -IN + 0.35, rg);
+      mesh(new THREE.SphereGeometry(0.015, 6, 4), gold, x + (i === 1 ? 0.19 : -0.19), 1.72, -IN + 0.37, rg); }
+    mesh(new THREE.BoxGeometry(1.75, 0.04, 0.38), M.darkWood, 1.8, 2.33, -IN + 0.19, rg);
+    // ---- the coffee bar: a red espresso machine with a black top and gold dials
+    const esp = new THREE.Group(); esp.position.set(-1.95, T, -2.36); rg.add(esp);
+    mesh(new THREE.BoxGeometry(0.38, 0.36, 0.34), enamelRed, 0, 0.21, -0.02, esp);
+    mesh(new THREE.BoxGeometry(0.4, 0.03, 0.36), black, 0, 0.405, -0.02, esp);
+    mesh(new THREE.BoxGeometry(0.36, 0.035, 0.08), steel, 0, 0.03, 0.17, esp);   // drip tray
+    mesh(new THREE.BoxGeometry(0.4, 0.03, 0.36), black, 0, 0.015, -0.02, esp);
+    for (const x of [-0.09, 0.09]) { const d = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.012, 16), gold, x, 0.33, 0.155, esp); d.rotation.x = Math.PI / 2; mesh(new THREE.CircleGeometry(0.028, 16), cream, x, 0.33, 0.162, esp); }
+    mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.05, 12), steel, 0, 0.2, 0.17, esp);                   // group head
+    { const h = mesh(new THREE.BoxGeometry(0.03, 0.025, 0.14), black, 0, 0.17, 0.25, esp); h.rotation.x = 0.15; }   // portafilter handle
+    mesh(new THREE.CylinderGeometry(0.03, 0.025, 0.05, 12), cream, 0, 0.073, 0.17, esp);                  // espresso cup
+    { const w = mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.18, 6), steel, 0.15, 0.17, 0.17, esp); w.rotation.z = 0.2; }   // steam wand
+    mesh(new THREE.BoxGeometry(0.12, 0.012, 0.12), steel, -0.11, 0.425, -0.05, esp);                      // cup warmer
+    for (let i = 0; i < 2; i++) mesh(new THREE.CylinderGeometry(0.03, 0.026, 0.05, 10), cream, -0.13 + i * 0.07, 0.445, -0.05, esp);
+    // burr grinder beside it
+    mesh(new THREE.BoxGeometry(0.13, 0.2, 0.15), black, -0.33, 0.1, -0.05, esp);
+    mesh(new THREE.CylinderGeometry(0.06, 0.035, 0.13, 12), new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.7 }), -0.33, 0.265, -0.05, esp);
+    mesh(new THREE.CylinderGeometry(0.063, 0.063, 0.02, 12), black, -0.33, 0.34, -0.05, esp);
+    mergeStatic(esp); tagBuiltin('kitchen-espresso', esp);
+    steamPuffs(esp, 5, 0, 0.11, 0.17, { rise: 0.18, size: 0.07, spread: 0.02, speed: 0.22, opacity: 0.22 });
+    // wooden tray for the two iced drinks
+    mesh(new THREE.BoxGeometry(0.46, 0.02, 0.26), M.lightWood, -1.34, T + 0.01, -2.24, rg);
+    // ---- the sink under the window, with a gold gooseneck faucet and a pot of basil on the sill
+    const sink = new THREE.Group(); sink.position.set(0, T, -2.33); rg.add(sink);
+    mesh(new THREE.BoxGeometry(0.72, 0.012, 0.46), steel, 0, 0.006, 0, sink);
+    mesh(new THREE.BoxGeometry(0.62, 0.006, 0.36), new THREE.MeshStandardMaterial({ color: 0x2e2f36, metalness: 0.6, roughness: 0.4 }), 0, 0.014, 0.01, sink);
+    mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.006, 10), black, 0.0, 0.019, 0.04, sink);
+    mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.3, 10), gold, 0, 0.15, -0.2, sink);
+    { const arc = mesh(new THREE.TorusGeometry(0.09, 0.016, 6, 14, Math.PI), gold, 0, 0.3, -0.11, sink); arc.rotation.y = Math.PI / 2; }
+    mesh(new THREE.CylinderGeometry(0.016, 0.012, 0.06, 8), gold, 0, 0.27, -0.02, sink);
+    for (const x of [-0.08, 0.08]) mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 8), gold, x, 0.025, -0.2, sink);
+    const pot = new THREE.Group(); pot.position.set(0.42, 1.155 - T, -0.23); sink.add(pot);   // on the sill
+    mesh(new THREE.CylinderGeometry(0.06, 0.045, 0.09, 12), mat(0xa8452a), 0, 0.045, 0, pot);
+    for (let i = 0; i < 7; i++) { const lf = mesh(new THREE.SphereGeometry(0.035, 6, 4), mat(0x3e8a3e), Math.cos(i * 2.4) * 0.035, 0.11 + (i % 3) * 0.03, Math.sin(i * 2.4) * 0.025, pot); lf.scale.set(1, 0.6, 0.6); }
+    // dish rack
+    mesh(new THREE.BoxGeometry(0.36, 0.015, 0.26), gold, -0.6, 0.008, 0.02, sink);
+    for (let i = 0; i < 3; i++) { const pl = mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.012, 18), cream, -0.68 + i * 0.07, 0.12, 0.02, sink); pl.rotation.z = Math.PI / 2 - 0.15; }
+    // an invisible pane in the window so clicking the view works too
+    const pane = mesh(new THREE.PlaneGeometry(1.3, 0.95), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }), 0, 1.15 + 0.475 - T, -IN + 2.33 + 0.02, sink); pane.userData.dynamic = true;
+    mergeStatic(sink); tagBuiltin('kitchen-window', sink);
+    // ---- stove and oven on the east wall (black with gold trim), a red kettle steaming on a lit burner
+    const stove = new THREE.Group(); stove.position.set(IN - 0.31, 0, -0.8); stove.rotation.y = -Math.PI / 2; rg.add(stove);
+    const ovenBlack = mat(0x1b181c, { roughness: 0.45 });
+    mesh(new THREE.BoxGeometry(0.84, T - 0.02, 0.62), ovenBlack, 0, (T - 0.02) / 2, 0, stove);
+    mesh(new THREE.BoxGeometry(0.86, 0.03, 0.64), mat(0x101012, { roughness: 0.3 }), 0, T - 0.005, 0, stove);
+    mesh(new THREE.BoxGeometry(0.86, 0.22, 0.06), ovenBlack, 0, T + 0.1, -0.29, stove);                 // back guard
+    mesh(new THREE.BoxGeometry(0.86, 0.012, 0.012), gold, 0, T + 0.21, -0.26, stove);
+    mesh(new THREE.BoxGeometry(0.86, 0.012, 0.012), gold, 0, T - 0.02, 0.32, stove);
+    mesh(new THREE.BoxGeometry(0.66, 0.42, 0.02), mat(0x231f24), 0, 0.42, 0.31, stove);                  // oven door
+    mesh(new THREE.BoxGeometry(0.6, 0.02, 0.02), gold, 0, 0.67, 0.34, stove);                           // handle
+    for (const x of [-0.27, 0.27]) mesh(new THREE.BoxGeometry(0.02, 0.02, 0.04), gold, x, 0.67, 0.325, stove);
+    mesh(new THREE.BoxGeometry(0.7, 0.1, 0.02), mat(0x231f24), 0, 0.09, 0.31, stove);                    // drawer
+    for (let i = 0; i < 5; i++) { const k = mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 10), i === 2 ? gold : M.red, -0.28 + i * 0.14, T - 0.1, 0.325, stove); k.rotation.x = Math.PI / 2; }
+    const grate = mat(0x2a272b, { roughness: 0.6 });
+    const burners = [[-0.2, 0.13], [0.2, 0.13], [-0.2, -0.15], [0.2, -0.15]];
+    for (const [x, z] of burners) { mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.015, 14), grate, x, T + 0.012, z, stove);
+      for (let k = 0; k < 2; k++) mesh(new THREE.BoxGeometry(k ? 0.02 : 0.3, 0.015, k ? 0.26 : 0.02), grate, x, T + 0.025, z, stove); }
+    // kettle (front-left burner)
+    const kx = -0.2, kz = 0.13, ky = T + 0.033;
+    const kpts = [[0, 0], [0.1, 0], [0.115, 0.03], [0.112, 0.11], [0.08, 0.16], [0.035, 0.175], [0, 0.18]].map(([a, b]) => new THREE.Vector2(a, b));
+    mesh(new THREE.LatheGeometry(kpts, 20), enamelRed, kx, ky, kz, stove);
+    mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.03, 10), black, kx, ky + 0.19, kz, stove);
+    { const h = mesh(new THREE.TorusGeometry(0.075, 0.012, 6, 14, Math.PI), black, kx, ky + 0.17, kz, stove); }
+    { const sp = mesh(new THREE.CylinderGeometry(0.012, 0.022, 0.12, 8), enamelRed, kx + 0.14, ky + 0.12, kz, stove); sp.rotation.z = -0.9; }
+    mesh(new THREE.TorusGeometry(0.112, 0.006, 4, 20), gold, kx, ky + 0.03, kz, stove).rotation.x = Math.PI / 2;
+    // stock pot with a lid (back-right burner)
+    mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.16, 16), mat(0x1f2a5c, { roughness: 0.4 }), 0.2, T + 0.11, -0.15, stove);
+    mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.012, 16), mat(0x1f2a5c, { roughness: 0.4 }), 0.2, T + 0.195, -0.15, stove);
+    mesh(new THREE.SphereGeometry(0.018, 8, 6), gold, 0.2, T + 0.21, -0.15, stove);
+    // range hood: navy with a gold band, and a chimney to the ceiling
+    const hood = mesh(new THREE.CylinderGeometry(0.2, 0.52, 0.42, 4, 1), M.navy, 0, 1.92, -0.05, stove); hood.rotation.y = Math.PI / 4;
+    const band = mesh(new THREE.CylinderGeometry(0.525, 0.53, 0.05, 4, 1), gold, 0, 1.7, -0.05, stove); band.rotation.y = Math.PI / 4;
+    mesh(new THREE.BoxGeometry(0.3, WALL_H - 2.13, 0.3), M.navy, 0, (WALL_H + 2.13) / 2, -0.12, stove);
+    mesh(new THREE.CircleGeometry(0.05, 10), glow(0xffd890, 1.4), 0, 1.674, -0.05, stove).rotation.x = Math.PI / 2;
+    mergeStatic(stove);
+    // animated bits (kept out of the merge): burner flames, oven window, oven light
+    const flames = new THREE.Group(); flames.userData.dynamic = true; flames.position.set(kx, T + 0.03, kz); stove.add(flames);
+    const fl = [];
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; const f = mesh(new THREE.ConeGeometry(0.009, 0.035, 5), glow(i % 3 ? 0x4a7dff : 0xffa040, 2.2), Math.cos(a) * 0.065, 0.017, Math.sin(a) * 0.065, flames); fl.push(f); }
+    const flameHalo = glowSprite(0.32, 0x5a8aff, 0.35); flameHalo.raycast = () => {}; flameHalo.position.y = 0.02; flames.add(flameHalo);
+    const ovenWin = mesh(new THREE.PlaneGeometry(0.46, 0.2), glow(0xff9a40, 0.9), 0, 0.46, 0.322, stove); ovenWin.userData.dynamic = true;
+    const ovenLight = mesh(new THREE.SphereGeometry(0.013, 8, 6), glow(0xff3020, 2.5), 0.36, T - 0.1, 0.33, stove); ovenLight.userData.dynamic = true;
+    const ovenGlow = glowSprite(0.5, 0xff9a40, 0.25); ovenGlow.raycast = () => {}; ovenGlow.position.set(0, 0.46, 0.36); stove.add(ovenGlow);
+    updaters.push(t => {
+      fl.forEach((f, i) => { const s = 0.75 + 0.35 * Math.abs(Math.sin(t * 9 + i * 1.7) * Math.sin(t * 5.3 + i)); f.scale.set(1, s, 1); });
+      flameHalo.material.opacity = 0.28 + 0.1 * Math.sin(t * 11);
+      ovenWin.material.emissiveIntensity = 0.75 + 0.15 * Math.sin(t * 2.1) + 0.08 * Math.sin(t * 7.7);
+      ovenLight.visible = (t % 2.4) < 1.6;                                   // the "preheating" light blinks
+    });
+    tagBuiltin('kitchen-stove', stove);
+    steamPuffs(stove, 9, kx + 0.2, ky + 0.17, kz, { rise: 0.55, size: 0.15, spread: 0.08, speed: 0.28, opacity: 0.3 });
+    steamPuffs(stove, 4, 0.2, T + 0.21, -0.15, { rise: 0.3, size: 0.1, spread: 0.05, speed: 0.18, opacity: 0.16 });
+    // ---- the fridge: retro red, gold handles, magnets on the door
+    const fridge = new THREE.Group(); fridge.position.set(IN - 0.36, 0, 0.87); fridge.rotation.y = -Math.PI / 2; rg.add(fridge);
+    mesh(puffy(0.74, 1.8, 0.68, 0.05), enamelRed, 0, 0.08 + 0.9, 0, fridge);
+    mesh(new THREE.BoxGeometry(0.68, 0.08, 0.6), black, 0, 0.04, -0.02, fridge);
+    mesh(new THREE.BoxGeometry(0.7, 0.012, 0.02), mat(0x5a1418), 0, 1.33, 0.335, fridge);
+    for (const [y0, y1] of [[1.42, 1.72], [0.78, 1.22]]) { mesh(new THREE.BoxGeometry(0.025, y1 - y0, 0.025), gold, -0.3, (y0 + y1) / 2, 0.37, fridge);
+      for (const y of [y0 + 0.02, y1 - 0.02]) mesh(new THREE.BoxGeometry(0.02, 0.02, 0.04), gold, -0.3, y, 0.35, fridge); }
+    const badge = canvasTexture(128, 32, (c, w, h) => { c.fillStyle = '#e8c15a'; c.font = 'italic bold 24px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('Nova', w / 2, h / 2 + 1); });
+    mesh(new THREE.PlaneGeometry(0.14, 0.035), new THREE.MeshBasicMaterial({ map: badge, transparent: true }), 0.18, 1.78, 0.336, fridge);
+    mergeStatic(fridge); tagBuiltin('kitchen-fridge', fridge);
+    collide(rg, 1.88, IN, 0.42, 1.32);
+    const face = 0.342;
+    const magnet = (id, x, y) => { const g = new THREE.Group(); g.position.set(x, y, face); fridge.add(g); return g; };
+    // Rule 90 magnet: gold cells on black
+    { const g = magnet('kitchen-magnet-rule90', 0.15, 0.95);
+      const tex = canvasTexture(64, 64, (c, w, h) => { c.fillStyle = '#161418'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c15a'; rule90(8).forEach((row, y) => row.forEach((v, x) => v && c.fillRect(2 + x * 4, 14 + y * 4.5, 3.4, 3.6))); });
+      tex.magFilter = THREE.NearestFilter;
+      mesh(new THREE.BoxGeometry(0.12, 0.12, 0.012), black, 0, 0, 0.006, g);
+      mesh(new THREE.PlaneGeometry(0.11, 0.11), new THREE.MeshBasicMaterial({ map: tex }), 0, 0, 0.0125, g);
+      tagBuiltin('kitchen-magnet-rule90', g); }
+    // exoplanet postcard (TRAPPIST-1 e, from the Postcard Maker), held up by a red button magnet
+    { const g = magnet('kitchen-magnet-postcard', -0.02, 1.08);
+      const tex = texLoaderK.load('assets/img/kitchen_fridge_postcard_trappist-1-e.jpg'); tex.colorSpace = THREE.SRGBColorSpace;
+      const card = mesh(new THREE.PlaneGeometry(0.24, 0.16), new THREE.MeshBasicMaterial({ map: tex }), 0, 0, 0.004, g); card.rotation.z = 0.06;
+      mesh(new THREE.PlaneGeometry(0.25, 0.17), cream, 0, 0, 0.002, g).rotation.z = 0.06;
+      mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.012, 12), M.red, -0.07, 0.07, 0.012, g).rotation.x = Math.PI / 2;
+      tagBuiltin('kitchen-magnet-postcard', g); }
+    // a duck magnet (for Lorenz)
+    { const g = magnet('kitchen-magnet-duck', 0.13, 0.62);
+      const yel = mat(0xf2c230), body = mesh(new THREE.SphereGeometry(0.045, 10, 8), yel, 0, 0, 0.012, g); body.scale.set(1.25, 0.8, 0.35);
+      mesh(new THREE.SphereGeometry(0.026, 10, 8), yel, -0.04, 0.04, 0.014, g).scale.z = 0.5;
+      const bk = mesh(new THREE.ConeGeometry(0.012, 0.03, 6), mat(0xe8762a), -0.07, 0.038, 0.016, g); bk.rotation.z = Math.PI / 2;
+      mesh(new THREE.SphereGeometry(0.005, 6, 4), black, -0.046, 0.05, 0.027, g);
+      tagBuiltin('kitchen-magnet-duck', g); }
+    // the Thanksgiving note, on the freezer door
+    { const g = magnet('kitchen-thanksgiving-note', 0.08, 1.56);
+      const tex = canvasTexture(200, 240, (c, w, h) => { c.fillStyle = '#f6efd9'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(31,42,92,.18)'; for (let y = 52; y < h; y += 26) { c.beginPath(); c.moveTo(10, y); c.lineTo(w - 10, y); c.stroke(); }
+        c.fillStyle = '#9c2a30'; c.font = 'italic bold 25px Georgia, serif'; c.fillText('Thanksgiving', 14, 40);
+        c.fillStyle = '#1f2a5c'; c.font = 'italic 21px Georgia, serif'; ['with Lorenz', 'Thu, Nov 26', 'turkey', 'mashed potatoes', 'Oreo pie!'].forEach((s, i) => c.fillText(s, 18, 74 + i * 26)); });
+      const p = mesh(new THREE.PlaneGeometry(0.15, 0.18), new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }), 0, 0, 0.003, g); p.rotation.z = -0.05;
+      mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.01, 12), gold, 0, 0.08, 0.01, g).rotation.x = Math.PI / 2;
+      tagBuiltin('kitchen-thanksgiving-note', g); }
+    // ---- breakfast table with a gingham runner and three chairs
+    const tbl = new THREE.Group(); tbl.position.set(0.15, 0, 0.75); rg.add(tbl);
+    mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.04, 28), M.wood, 0, 0.725, 0, tbl);
+    mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 28), M.darkWood, 0, 0.68, 0, tbl);
+    mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.66, 10), black, 0, 0.33, 0, tbl);
+    for (let i = 0; i < 2; i++) mesh(new THREE.BoxGeometry(0.62, 0.05, 0.07), black, 0, 0.03, 0, tbl).rotation.y = i * Math.PI / 2 + Math.PI / 4;
+    { const run = mesh(new THREE.PlaneGeometry(1.08, 0.3), new THREE.MeshStandardMaterial({ map: gingham, roughness: 1 }), 0, 0.747, 0, tbl); run.rotation.x = -Math.PI / 2; run.rotation.z = 0.5; const uv = run.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 7, uv.getY(i) * 2); }
+    // salt, pepper and a little jug of syrup for the waffle
+    mesh(new THREE.CylinderGeometry(0.018, 0.02, 0.07, 8), cream, -0.05, 0.78, -0.3, tbl); mesh(new THREE.CylinderGeometry(0.018, 0.02, 0.07, 8), black, 0.0, 0.78, -0.32, tbl);
+    mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.1, 10), new THREE.MeshStandardMaterial({ color: 0xa8641e, roughness: 0.2 }), 0.1, 0.795, -0.3, tbl);
+    mesh(new THREE.CylinderGeometry(0.012, 0.02, 0.03, 8), gold, 0.1, 0.86, -0.3, tbl);
+    collide(rg, 0.15 - 0.58, 0.15 + 0.58, 0.75 - 0.58, 0.75 + 0.58);
+    function chair(x, z, ry) {
+      const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; rg.add(g);   // faces +z toward the table
+      mesh(new THREE.BoxGeometry(0.42, 0.04, 0.4), M.wood, 0, 0.45, 0, g);
+      mesh(puffy(0.38, 0.05, 0.36, 0.3), M.red, 0, 0.49, 0.01, g);
+      for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) mesh(new THREE.CylinderGeometry(0.018, 0.015, 0.45, 6), black, a * 0.18, 0.225, b * 0.17, g);
+      for (const a of [-1, 1]) mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.5, 6), M.darkWood, a * 0.18, 0.7, -0.18, g);
+      mesh(new THREE.BoxGeometry(0.42, 0.08, 0.04), M.darkWood, 0, 0.93, -0.18, g);
+      for (let i = -1; i <= 1; i++) mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.42, 5), M.darkWood, i * 0.08, 0.68, -0.18, g);
+    }
+    for (const [x, z] of [[-0.62, 0.62], [0.95, 0.9], [0.22, 1.55]]) { chair(x, z, Math.atan2(0.15 - x, 0.75 - z)); collide(rg, x - 0.22, x + 0.22, z - 0.22, z + 0.22); }
+    // ---- pot rack hanging from the ceiling, plus a utensil rail on the backsplash
+    const rack = new THREE.Group(); rack.position.set(1.1, 0, -0.95); rg.add(rack);
+    for (const z of [-0.25, 0.25]) mesh(new THREE.BoxGeometry(1.0, 0.05, 0.05), M.darkWood, 0, 2.36, z, rack);
+    for (const x of [-0.5, 0.5]) mesh(new THREE.BoxGeometry(0.05, 0.05, 0.55), M.darkWood, x, 2.36, 0, rack);
+    for (const [x, z] of [[-0.48, -0.23], [0.48, -0.23], [-0.48, 0.23], [0.48, 0.23]]) mesh(new THREE.CylinderGeometry(0.008, 0.008, WALL_H - 2.36, 4), gold, x, (WALL_H + 2.36) / 2, z, rack);
+    mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.0, 6), gold, 0, 2.33, 0, rack).rotation.z = Math.PI / 2;
+    const copper = new THREE.MeshStandardMaterial({ color: 0xc27a45, metalness: 0.75, roughness: 0.35 }), iron = mat(0x1a1a1e, { roughness: 0.55 });
+    const pans = [[-0.36, 0.14, copper, 0.3], [-0.12, 0.11, iron, 1.4], [0.12, 0.09, M.red, 2.6], [0.36, 0.12, copper, 4.0]];
+    for (const [x, r, m, ry] of pans) {
+      const pg = new THREE.Group(); pg.position.set(x, 2.31, 0); pg.rotation.y = ry; rack.add(pg);
+      mesh(new THREE.TorusGeometry(0.02, 0.004, 4, 8), gold, 0, -0.01, 0, pg);
+      const h = mesh(new THREE.BoxGeometry(0.022, 0.18, 0.012), m === M.red ? black : m, 0, -0.12, 0, pg);
+      const pan = mesh(new THREE.CylinderGeometry(r, r * 0.9, 0.06, 16), m, 0, -0.21 - r, 0, pg); pan.rotation.x = Math.PI / 2;
+    }
+    mergeStatic(rack); tagBuiltin('kitchen-pot-rack', rack);
+    const rail = new THREE.Group(); rail.position.set(1.8, 1.4, -IN + 0.05); rg.add(rail);
+    mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.4, 6), gold, 0, 0, 0, rail).rotation.z = Math.PI / 2;
+    const utensil = (x, kind) => { const u = new THREE.Group(); u.position.set(x, -0.015, 0.012); rail.add(u);
+      mesh(new THREE.TorusGeometry(0.012, 0.003, 4, 8), gold, 0, 0, 0, u);
+      const hm = kind === 'spoon' ? M.lightWood : black;
+      mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.22, 6), hm, 0, -0.12, 0, u);
+      if (kind === 'spatula') mesh(new THREE.BoxGeometry(0.07, 0.09, 0.006), black, 0, -0.27, 0, u);
+      if (kind === 'ladle') { const b = mesh(new THREE.SphereGeometry(0.04, 10, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), steel, 0, -0.25, 0.01, u); }
+      if (kind === 'whisk') for (let i = 0; i < 3; i++) { const w = mesh(new THREE.TorusGeometry(0.035, 0.003, 4, 12), steel, 0, -0.27, 0, u); w.rotation.y = i * Math.PI / 3; w.scale.y = 1.6; }
+      if (kind === 'spoon') { const s = mesh(new THREE.SphereGeometry(0.025, 8, 6), M.lightWood, 0, -0.25, 0, u); s.scale.set(1, 1.4, 0.4); } };
+    ['ladle', 'spatula', 'whisk', 'spoon', 'spatula'].forEach((k, i) => utensil(-0.5 + i * 0.25, k));
+    mergeStatic(rail); tagBuiltin('kitchen-pot-rack', rail);
+    // ---- a cutting board with a loaf, between the sink and the pie
+    mesh(new THREE.BoxGeometry(0.36, 0.02, 0.24), M.lightWood, -0.78, T + 0.01, -2.3, rg);
+    { const loaf = mesh(new THREE.SphereGeometry(0.1, 12, 8), mat(0xc58a4a), -0.78, T + 0.05, -2.3, rg); loaf.scale.set(1.3, 0.55, 0.75); }
+    // ---- Lorenz's porthole has a gold ring on this side too; a little mat under it for his pea bowl
+    { const m2 = mesh(new THREE.CircleGeometry(0.32, 20), mat(0x3a64a8), -2.25, 0.006, -0.15, rg); m2.rotation.x = -Math.PI / 2; m2.scale.x = 1.3; }
+    buildKitchenGarden(rg);
+  }
+  const texLoaderK = new THREE.TextureLoader();
+  // The view from the kitchen window: a little walled night garden north of the kitchen, with a picket
+  // fence, a pea patch on a trellis (Lorenz's favorite), shrubs, a lantern and fireflies.
+  function buildKitchenGarden(rg) {
+    const g = new THREE.Group(); g.position.set(rg.position.x, 0, rg.position.z - HALF); scene.add(g);   // origin: outside the kitchen's north wall
+    const lam = (c, e = 0x000000) => new THREE.MeshLambertMaterial({ color: c, emissive: e });
+    const ground = mesh(new THREE.PlaneGeometry(16, 13), lam(0x28452c, 0x0c1a0f), 0, -0.02, -6.6, g); ground.rotation.x = -Math.PI / 2;
+    const path = mesh(new THREE.PlaneGeometry(0.8, 6), lam(0x8a7a62, 0x1c160e), 0.6, -0.01, -3.2, g); path.rotation.x = -Math.PI / 2;
+    const picket = lam(0xe6dcc6, 0x2a2620);
+    for (let i = 0; i < 34; i++) { const x = -7 + i * 0.42; if (Math.abs(x - 0.6) < 0.45) continue; mesh(new THREE.BoxGeometry(0.08, 0.9, 0.03), picket, x, 0.45, -6.2, g); mesh(new THREE.ConeGeometry(0.06, 0.1, 4), picket, x, 0.95, -6.2, g).rotation.y = Math.PI / 4; }
+    for (const y of [0.3, 0.7]) mesh(new THREE.BoxGeometry(14, 0.06, 0.03), picket, 0, y, -6.23, g);
+    const R = rng(311);
+    for (let i = 0; i < 14; i++) { const x = (R() - 0.5) * 12, z = -0.6 - R() * 5; if (Math.abs(x - 0.6) < 0.8) continue; const s = 0.35 + R() * 0.45;
+      const b = mesh(new THREE.IcosahedronGeometry(s, 0), lam([0x2f5a32, 0x3a6a3a, 0x24482a][i % 3], 0x0a160c), x, s * 0.75, z, g); b.scale.y = 0.8; }
+    for (let i = 0; i < 40; i++) { const x = (R() - 0.5) * 11, z = -0.5 - R() * 5.4; if (Math.abs(x - 0.6) < 0.5) continue; mesh(new THREE.SphereGeometry(0.05, 6, 4), lam(i % 3 ? 0xe8c15a : 0xc8323a, i % 3 ? 0x5a4410 : 0x4a0c10), x, 0.12, z, g); }
+    // pea patch: raised bed with a trellis
+    const bed = new THREE.Group(); bed.position.set(-1.6, 0, -2.2); g.add(bed);
+    mesh(new THREE.BoxGeometry(1.8, 0.25, 0.7), lam(0x5a3a22, 0x140c06), 0, 0.125, 0, bed);
+    mesh(new THREE.BoxGeometry(1.7, 0.02, 0.6), lam(0x3a2a1c, 0x0c0804), 0, 0.25, 0, bed);
+    for (let i = 0; i < 5; i++) mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.2, 4), lam(0x9a6a3c, 0x1a1006), -0.8 + i * 0.4, 0.85, -0.2, bed);
+    mesh(new THREE.BoxGeometry(1.7, 0.02, 0.02), lam(0x9a6a3c, 0x1a1006), 0, 1.4, -0.2, bed);
+    for (let i = 0; i < 26; i++) mesh(new THREE.SphereGeometry(0.07, 5, 4), lam(0x4a8a3e, 0x0e200c), -0.8 + R() * 1.6, 0.35 + R() * 0.95, -0.2 + (R() - 0.5) * 0.12, bed);
+    // lantern post
+    mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.7, 6), lam(0x161418), 1.6, 0.85, -1.6, g);
+    mesh(new THREE.BoxGeometry(0.18, 0.24, 0.18), glow(0xffc070, 1.6), 1.6, 1.82, -1.6, g);
+    const lh = glowSprite(1.6, 0xffc070, 0.6); lh.position.set(1.6, 1.82, -1.6); g.add(lh);
+    // a far tree line
+    for (let i = 0; i < 9; i++) { const x = -7 + i * 1.8 + R(), h = 2.5 + R() * 2; mesh(new THREE.ConeGeometry(0.9 + R() * 0.4, h, 7), lam(0x1a3320, 0x060d08), x, h / 2, -9 - R() * 2, g); }
+    mergeStatic(g);
+    // fireflies
+    const flies = [];
+    for (let i = 0; i < 14; i++) { const s = glowSprite(0.16, 0xf6e27a, 0.9); s.userData.base = [(R() - 0.5) * 8, 0.4 + R() * 1.4, -0.8 - R() * 4.5, R() * 10]; g.add(s); flies.push(s); }
+    updaters.push(t => flies.forEach(s => { const [x, y, z, p] = s.userData.base; s.position.set(x + Math.sin(t * 0.3 + p) * 0.4, y + Math.sin(t * 0.7 + p * 2) * 0.2, z + Math.cos(t * 0.25 + p) * 0.3); s.material.opacity = 0.35 + 0.6 * Math.max(0, Math.sin(t * 1.3 + p * 3)); }));
+  }
   var builtins = {};
   var roomFurniture = {
     study(rg) {
@@ -702,6 +1008,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
       for (let i = 0; i < 3; i++) { const lp = mesh(new THREE.CircleGeometry(0.12, 8, 0.4, Math.PI * 2 - 0.6), mat(0x3e7a4a), 0.25 + i * 0.3, 0.008, 0.2 + (i % 2) * 0.3, rg); lp.rotation.x = -Math.PI / 2; }
     },
   };
+  roomFurniture.kitchen = kitchenRoom;
   buildRooms();
   Object.values(roomGroups).forEach(rg => mergeStatic(rg));
 
@@ -768,6 +1075,111 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
       ftube(0.014, 0.014, -0.1, 0.08, white); ftube(0.019, 0.019, 0.07, 0.12, black); ftube(0.01, 0.01, -0.15, -0.1, black);
       mergeStatic(g);
       void lens;
+      return g;
+    },
+    // ---- Kitchen food and things (origin at the base center, front faces +z) ----
+    vanillalatte() {   // iced French vanilla latte: vanilla syrup at the bottom, milky coffee, a little cream on top
+      const g = new THREE.Group();
+      mesh(new THREE.CylinderGeometry(0.043, 0.036, 0.02, 14), mat(0xeadbb0), 0, 0.01, 0, g);
+      mesh(new THREE.CylinderGeometry(0.048, 0.043, 0.1, 14), mat(0xc9a27a), 0, 0.07, 0, g);
+      mesh(new THREE.CylinderGeometry(0.051, 0.048, 0.03, 14), mat(0xdcc3a0), 0, 0.135, 0, g);
+      mesh(new THREE.CylinderGeometry(0.055, 0.04, 0.17, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, roughness: 0.1, side: THREE.DoubleSide, depthWrite: false }), 0, 0.085, 0, g);
+      for (let i = 0; i < 5; i++) mesh(new THREE.BoxGeometry(0.022, 0.022, 0.022), new THREE.MeshStandardMaterial({ color: 0xe6f6ff, transparent: true, opacity: 0.55 }), Math.cos(i * 2.1) * 0.022, 0.07 + i * 0.016, Math.sin(i * 2.1) * 0.022, g).rotation.set(i * 1.3, i, 0);
+      const straw = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 6), mat(0xb32d35), -0.012, 0.17, 0, g); straw.rotation.z = 0.2;
+      return g;
+    },
+    waffleiron() {   // a round black Belgian waffle iron, lid up, a square-pocket waffle on the lower plate
+      const g = new THREE.Group(), blk = mat(0x161418, { roughness: 0.4 }), plate = mat(0x2a272b, { roughness: 0.5 });
+      const waffleTex = canvasTexture(128, 128, (c, w, h) => { c.fillStyle = '#d99a3e'; c.fillRect(0, 0, w, h); for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) { c.fillStyle = '#a8641e'; c.fillRect(6 + x * 24, 6 + y * 24, 18, 18); c.fillStyle = 'rgba(255,230,160,.35)'; c.fillRect(6 + x * 24, 6 + y * 24, 18, 3); } });
+      const gridTex = canvasTexture(64, 64, (c, w, h) => { c.fillStyle = '#3a363c'; c.fillRect(0, 0, w, h); c.fillStyle = '#111014'; for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) c.fillRect(3 + x * 12, 3 + y * 12, 9, 9); });
+      mesh(new THREE.CylinderGeometry(0.15, 0.16, 0.06, 24), blk, 0, 0.03, 0, g);
+      mesh(new THREE.TorusGeometry(0.155, 0.006, 4, 24), mat(0xb32d35), 0, 0.045, 0, g).rotation.x = Math.PI / 2;
+      mesh(new THREE.BoxGeometry(0.22, 0.012, 0.22), new THREE.MeshStandardMaterial({ map: gridTex }), 0, 0.066, 0, g);
+      const w = mesh(new THREE.BoxGeometry(0.2, 0.03, 0.2), [mat(0xc98436), mat(0xc98436), new THREE.MeshStandardMaterial({ map: waffleTex, roughness: 0.8 }), mat(0xc98436), mat(0xc98436), mat(0xc98436)], 0.004, 0.087, 0.006, g); w.rotation.y = 0.05;
+      mesh(new THREE.BoxGeometry(0.1, 0.03, 0.04), blk, 0, 0.045, 0.17, g);                       // front handle
+      // hinged lid, open ~75 degrees, its grid plate facing forward
+      const lid = new THREE.Group(); lid.position.set(0, 0.07, -0.15); lid.rotation.x = -1.3; g.add(lid);
+      mesh(new THREE.CylinderGeometry(0.15, 0.14, 0.05, 24), blk, 0, 0.03, 0.15, lid);
+      mesh(new THREE.BoxGeometry(0.22, 0.012, 0.22), new THREE.MeshStandardMaterial({ map: gridTex }), 0, 0.0, 0.15, lid);
+      mesh(new THREE.BoxGeometry(0.03, 0.03, 0.12), mat(0xe8c15a, { metalness: 0.5, roughness: 0.35 }), 0, 0.03, 0.34, lid);
+      mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 8), blk, 0, 0.0, 0, g).rotation.z = Math.PI / 2;
+      mesh(new THREE.SphereGeometry(0.008, 6, 4), glow(0xff5a2a, 2), 0.11, 0.045, 0.11, g);
+      mergeStatic(g);
+      steamPuffs(g, 4, 0, 0.11, 0.01, { rise: 0.22, size: 0.08, spread: 0.04, speed: 0.2, opacity: 0.18 });
+      return g;
+    },
+    breakfast() {   // scrambled eggs, hash browns, and biscuits and gravy on a gold-rimmed plate
+      const g = new THREE.Group(), R = rng(8);
+      mesh(new THREE.CylinderGeometry(0.15, 0.11, 0.018, 28), mat(0xf3ead8), 0, 0.009, 0, g);
+      mesh(new THREE.TorusGeometry(0.142, 0.004, 4, 32), mat(0xe8c15a, { metalness: 0.5, roughness: 0.35 }), 0, 0.019, 0, g).rotation.x = Math.PI / 2;
+      const egg = mat(0xf4cf4a, { roughness: 0.8 }), eggLt = mat(0xfae08a, { roughness: 0.8 });
+      for (let i = 0; i < 11; i++) { const e = mesh(new THREE.IcosahedronGeometry(0.022 + R() * 0.01, 0), i % 3 ? egg : eggLt, -0.05 + (R() - 0.5) * 0.07, 0.03 + R() * 0.012, -0.045 + (R() - 0.5) * 0.06, g); e.scale.y = 0.6; e.rotation.set(R() * 3, R() * 3, 0); }
+      const hb = canvasTexture(64, 64, (c, w, h) => { c.fillStyle = '#c98a3a'; c.fillRect(0, 0, w, h); for (let i = 0; i < 70; i++) { c.fillStyle = R() < 0.5 ? 'rgba(120,64,20,.5)' : 'rgba(240,200,120,.5)'; c.fillRect(R() * w, R() * h, 2 + R() * 10, 1.5); } });
+      for (let i = 0; i < 2; i++) { const p = mesh(new THREE.BoxGeometry(0.075, 0.02, 0.05), new THREE.MeshStandardMaterial({ map: hb, roughness: 0.9 }), 0.055, 0.03 + i * 0.012, -0.055 + i * 0.03, g); p.rotation.y = 0.4 + i * 0.5; }
+      const gravyTex = canvasTexture(64, 64, (c, w, h) => { c.fillStyle = '#ece4d2'; c.fillRect(0, 0, w, h); for (let i = 0; i < 90; i++) { c.fillStyle = 'rgba(30,26,22,.8)'; c.fillRect(R() * w, R() * h, 1.4, 1.4); } for (let i = 0; i < 16; i++) { c.fillStyle = 'rgba(140,96,60,.8)'; c.beginPath(); c.arc(R() * w, R() * h, 2 + R() * 2, 0, 7); c.fill(); } });
+      const gravy = new THREE.MeshStandardMaterial({ map: gravyTex, roughness: 0.6 }), biscuit = mat(0xd8a85c, { roughness: 0.9 });
+      for (const [x, z] of [[-0.02, 0.06], [0.06, 0.05]]) {
+        mesh(new THREE.CylinderGeometry(0.035, 0.037, 0.035, 14), biscuit, x, 0.036, z, g);
+        const gv = mesh(new THREE.SphereGeometry(0.042, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), gravy, x, 0.045, z, g); gv.scale.y = 0.55;
+      }
+      const pool = mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.008, 18), gravy, 0.02, 0.022, 0.055, g); pool.scale.z = 0.7;
+      for (let i = 0; i < 5; i++) mesh(new THREE.DodecahedronGeometry(0.008, 0), mat(0x7a4a2a), (R() - 0.3) * 0.1, 0.06, 0.03 + R() * 0.06, g);
+      // fork and knife
+      const silver = new THREE.MeshStandardMaterial({ color: 0xd8d4cc, metalness: 0.8, roughness: 0.3 });
+      mesh(new THREE.BoxGeometry(0.012, 0.004, 0.17), silver, -0.18, 0.003, 0, g); mesh(new THREE.BoxGeometry(0.014, 0.004, 0.18), silver, 0.18, 0.003, 0, g);
+      mergeStatic(g);
+      return g;
+    },
+    oreopie() {   // dark cookie crust, speckled cookies-and-cream filling, whipped cream rosettes, whole Oreos standing in them, on a gold cooling rack
+      const g = new THREE.Group(), R = rng(26);
+      const goldM = mat(0xe8c15a, { metalness: 0.5, roughness: 0.35 });
+      for (let i = -3; i <= 3; i++) { mesh(new THREE.BoxGeometry(0.34, 0.005, 0.005), goldM, 0, 0.03, i * 0.045, g); mesh(new THREE.BoxGeometry(0.005, 0.005, 0.3), goldM, i * 0.045, 0.03, 0, g); }
+      for (const [x, z] of [[-0.15, -0.13], [0.15, -0.13], [-0.15, 0.13], [0.15, 0.13]]) mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.03, 4), goldM, x, 0.015, z, g);
+      const crumb = canvasTexture(64, 64, (c, w, h) => { c.fillStyle = '#231816'; c.fillRect(0, 0, w, h); for (let i = 0; i < 160; i++) { c.fillStyle = R() < 0.5 ? 'rgba(0,0,0,.6)' : 'rgba(80,58,50,.6)'; c.fillRect(R() * w, R() * h, 1 + R() * 3, 1 + R() * 3); } });
+      const crust = new THREE.MeshStandardMaterial({ map: crumb, roughness: 0.95 });
+      const pts = [[0, 0], [0.105, 0], [0.13, 0.045], [0.142, 0.05], [0.142, 0.056], [0.122, 0.056], [0.105, 0.012], [0, 0.012]].map(([a, b]) => new THREE.Vector2(a, b));
+      mesh(new THREE.LatheGeometry(pts, 32), crust, 0, 0.033, 0, g);
+      // filling: the speckles look like a night sky (my note when my owner showed me the photo)
+      const speck = canvasTexture(256, 256, (c, w, h) => { c.fillStyle = '#e7e1d8'; c.fillRect(0, 0, w, h); for (let i = 0; i < 520; i++) { c.fillStyle = `rgba(${20 + R() * 20},${16 + R() * 14},${16 + R() * 14},${0.6 + R() * 0.4})`; const s = 1.5 + R() * 5; c.beginPath(); c.ellipse(R() * w, R() * h, s, s * (0.5 + R() * 0.5), R() * 3, 0, 7); c.fill(); } });
+      const fill = mesh(new THREE.CylinderGeometry(0.124, 0.106, 0.042, 32), new THREE.MeshStandardMaterial({ map: speck, roughness: 0.8 }), 0, 0.033 + 0.012 + 0.021, 0, g);
+      const cream = mat(0xfbf8f0, { roughness: 0.7 }), oreo = mat(0x1c1414, { roughness: 0.6 }), oreoCream = mat(0xf4f0e6);
+      const top = 0.033 + 0.054;
+      const rosette = (x, z, s) => { const b = mesh(new THREE.SphereGeometry(0.024 * s, 9, 6), cream, x, top + 0.006 * s, z, g); b.scale.y = 0.75;
+        const tip = mesh(new THREE.ConeGeometry(0.016 * s, 0.022 * s, 8), cream, x, top + 0.026 * s, z, g); tip.rotation.y = R() * 3; };
+      const cookie = (x, z, ry, tilt) => { const c = new THREE.Group(); c.position.set(x, top + 0.024, z); c.rotation.set(tilt, ry, 0, 'YXZ'); g.add(c);
+        for (const [dz, m, r] of [[-0.005, oreo, 0.024], [0, oreoCream, 0.021], [0.005, oreo, 0.024]]) { const d = mesh(new THREE.CylinderGeometry(r, r, 0.005, 16), m, 0, 0, dz, c); d.rotation.x = Math.PI / 2; } };
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; rosette(Math.cos(a) * 0.104, Math.sin(a) * 0.104, 1); }
+      for (let i = 0; i < 5; i++) { const a = (i + 0.5) / 5 * Math.PI * 2; cookie(Math.cos(a) * 0.1, Math.sin(a) * 0.1, Math.PI / 2 - a, -0.2); }
+      rosette(0, 0, 1.3); for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + 0.4; cookie(Math.cos(a) * 0.022, Math.sin(a) * 0.022, Math.PI / 2 - a, -0.15); }
+      for (let i = 0; i < 14; i++) { const a = R() * 7, r = R() * 0.07; mesh(new THREE.BoxGeometry(0.008, 0.004, 0.008), oreo, Math.cos(a) * r, top + 0.002, Math.sin(a) * r, g).rotation.y = R() * 3; }   // crumbs
+      // a cake server beside it
+      const sv = mesh(new THREE.BoxGeometry(0.05, 0.003, 0.14), new THREE.MeshStandardMaterial({ color: 0xd8d4cc, metalness: 0.8, roughness: 0.3 }), 0.21, 0.003, 0.04, g); sv.rotation.y = 0.3;
+      void fill;
+      mergeStatic(g);
+      return g;
+    },
+    cookiejar() {   // a glass jar of Oreos with a black lid and a gold knob
+      const g = new THREE.Group(), oreo = mat(0x1c1414, { roughness: 0.6 }), oc = mat(0xf4f0e6);
+      for (let i = 0; i < 9; i++) for (const [dy, m, r] of [[-0.0045, oreo, 0.032], [0, oc, 0.028], [0.0045, oreo, 0.032]]) mesh(new THREE.CylinderGeometry(r, r, 0.0045, 14), m, (i % 2) * 0.012 - 0.006, 0.012 + i * 0.0155 + dy, 0, g).rotation.z = (i % 3 - 1) * 0.12;
+      mesh(new THREE.CylinderGeometry(0.058, 0.055, 0.17, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false }), 0, 0.085, 0, g);
+      mesh(new THREE.CylinderGeometry(0.056, 0.056, 0.006, 18), new THREE.MeshStandardMaterial({ color: 0xdfe8ee, transparent: true, opacity: 0.35 }), 0, 0.003, 0, g);
+      mesh(new THREE.CylinderGeometry(0.064, 0.062, 0.03, 18), mat(0x161418), 0, 0.185, 0, g);
+      mesh(new THREE.SphereGeometry(0.02, 10, 8), mat(0xe8c15a, { metalness: 0.5, roughness: 0.35 }), 0, 0.21, 0, g);
+      mesh(new THREE.BoxGeometry(0.06, 0.03, 0.002), mat(0xb32d35), 0, 0.12, 0.058, g);
+      mergeStatic(g);
+      return g;
+    },
+    peabowl() {   // Lorenz's bowl of peas (duck-height, i.e. on the floor), with a little water dish
+      const g = new THREE.Group(), R = rng(5);
+      const pts = []; for (let i = 0; i <= 6; i++) { const a = i / 6 * Math.PI / 2; pts.push(new THREE.Vector2(0.06 + Math.sin(a) * 0.07, (1 - Math.cos(a)) * 0.06)); }
+      mesh(new THREE.LatheGeometry(pts, 18), mat(0xb32d35, { side: THREE.DoubleSide }), 0, 0, 0, g);
+      mesh(new THREE.CircleGeometry(0.12, 16), mat(0x5a9a3e), 0, 0.045, 0, g).rotation.x = -Math.PI / 2;
+      for (let i = 0; i < 22; i++) { const a = R() * 7, r = R() * 0.1; mesh(new THREE.SphereGeometry(0.014, 6, 4), mat(i % 4 ? 0x6ab04a : 0x8ac85a), Math.cos(a) * r, 0.05 + R() * 0.012, Math.sin(a) * r, g); }
+      const label = canvasTexture(128, 32, (c, w, h) => { c.fillStyle = '#161418'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c15a'; c.font = 'bold 20px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('LORENZ', w / 2, h / 2 + 1); });
+      const lb = mesh(new THREE.PlaneGeometry(0.1, 0.025), new THREE.MeshBasicMaterial({ map: label }), 0, 0.03, 0.128, g); lb.rotation.x = -0.5;
+      mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.04, 16), mat(0x1f2a5c), 0.24, 0.02, 0.02, g);
+      mesh(new THREE.CircleGeometry(0.07, 16), new THREE.MeshStandardMaterial({ color: 0x3a64b8, emissive: 0x0a1a48, roughness: 0.1 }), 0.24, 0.041, 0.02, g).rotation.x = -Math.PI / 2;
+      mergeStatic(g);
       return g;
     },
     macchiato() {
@@ -942,9 +1354,14 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
         if (m === dl) p.x = x0 - RAD; else if (m === dr) p.x = x1 + RAD; else if (m === dn) p.z = z0 - RAD; else p.z = z1 + RAD;
       }
     }
-    p.x = THREE.MathUtils.clamp(p.x, -5.5 + 0.1 + RAD, 5.5 - 0.1 - RAD); p.z = THREE.MathUtils.clamp(p.z, -5.5 + 0.1 + RAD, 5.5 - 0.1 - RAD);
+    // safety net: if a step ever lands outside every room, pull it back into the nearest one
+    if (!Object.values(ROOMS).some(r => Math.abs(p.x - r.c[0]) <= HALF && Math.abs(p.z - r.c[1]) <= HALF)) {
+      let best = null, bd = Infinity; const m = HALF - 0.1 - RAD;
+      for (const r of Object.values(ROOMS)) { const x = THREE.MathUtils.clamp(p.x, r.c[0] - m, r.c[0] + m), z = THREE.MathUtils.clamp(p.z, r.c[1] - m, r.c[1] + m), d = (x - p.x) ** 2 + (z - p.z) ** 2; if (d < bd) { bd = d; best = [x, z]; } }
+      p.x = best[0]; p.z = best[1];
+    }
   }
-  const roomAt = p => (p.x < 0 ? (p.z > 0 ? 'study' : 'window') : (p.z > 0 ? 'art' : 'nook'));
+  const roomAt = p => (p.x >= 5.5 ? 'kitchen' : p.x < 0 ? (p.z > 0 ? 'study' : 'window') : (p.z > 0 ? 'art' : 'nook'));
   function setView(id) {
     const v = VIEWS[id], c = ROOMS[v.room || id].c;
     pos.set(v.from[0] + c[0], v.from[1], v.from[2] + c[1]);

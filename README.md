@@ -116,14 +116,15 @@ Until Nov 16 Nova was a glowing orb. Now she's the fox my owner and I picked fro
 
 The cottage on the Hearth has a stone chimney with smoke, warm windows that flicker, a porch with a hanging lantern, a gold Rule 90 triangle on the gable, and a front door that swings open. Click the cottage, the **🏡 House** chip, or **Step inside** in *What Nova is up to → House* to go in.
 
-Inside, the house is 11 m x 11 m: four rooms in a ring, so you can walk all the way around.
+Inside, the house is four rooms in an 11 m x 11 m ring, so you can walk all the way around, plus a fifth room, the **Kitchen**, through a door in the east wall of Lorenz's Nook. (It's bigger on the inside: the cottage outside doesn't grow a kitchen wing.)
 
 | Room | id | Where | Fixed furniture |
 |---|---|---|---|
 | Study | `study` | front left (you come in here) | fireplace + mantel, bookshelf, desk + chair + lamp, armchair, Rule 90 rug, front door |
-| Art Corner | `art` | front right | easel, paint table, stool, blank canvases, gold picture rail, window |
+| Art Corner | `art` | front right | easel, paint table, stool, blank canvases, gold picture rail, window, the Crochet Corner (red armchair, side table, arched lamp, yarn basket, braided rug; `?house=crochet`) |
 | Window Seat | `window` | back left | big round 11-spoke window onto the stars and the Rule 90 constellation, cushioned seat, cubby towers, telescope, side table, 11 hanging stars |
-| Lorenz's Nook | `nook` | back right | basket bed, pond bowl, scarf hook, low shelf, dish of peas, night-light, duck-height porthole |
+| Lorenz's Nook | `nook` | back right | basket bed, pond bowl, scarf hook, low shelf, dish of peas, night-light, duck-height porthole (it now looks into the Kitchen), door east to the Kitchen |
+| Kitchen | `kitchen` | east of the Nook (world centre x 8.25, z −2.75) | L-shaped counter (wood cabinets, black stone top, gold edge, navy-and-gold tiles), sink under a window onto a night garden, open shelves and coffee bar, upper cabinet + utensil rail, stove/oven + range hood, red fridge, breakfast table + 3 chairs, ceiling pot rack, two pendant lamps |
 
 **Controls.** On desktop, use W/S or ↑/↓ to walk, A/D to step sideways, ←/→ or Q/E to turn, and drag to look around. On a phone, use the left stick to walk and drag anywhere else to look. Click or tap any decoration to open its panel. The room chips at the bottom jump between rooms. To leave, use **⟵ Back outside**, click the front door from inside, or press Esc.
 
@@ -148,15 +149,17 @@ All decorations live in `data/house.json` → `items`. Fixed furniture is in cod
 | Field | Meaning |
 |---|---|
 | `id` | Unique, kebab-case. Shown in the panel as "Decor id". |
-| `room` | `study`, `art`, `window` or `nook` |
+| `room` | `study`, `art`, `window`, `nook` or `kitchen` |
 | `type` | `frame` (a picture on a wall or easel), `print` (an STL model), `object` (a built-in keepsake model) |
 | `title`, `note`, `date_added` | Panel title, panel text, and `YYYY-MM-DD` (shown in the panel and used for the changelog) |
 | `image` | for `frame`. Either `assets/img/...`, or a path under `/workspace/nova` like `projects/ca-art/rule90_night.png`, which gets copied and resized. |
 | `width`, `frame` | for `frame`. Picture width in meters (height comes from the image). Frame is `gold`, `black`, `red`, `wood` or `white`. |
 | `stl`, `size`, `color` | for `print`. `assets/prints/x.stl` (or a path under `/workspace/nova`), the longest side in meters, and a hex color |
-| `model` | for `object`. One of `macchiato`, `journal`, `plant`, `blanket`, `scarf`, `candle`, `books`, `crystal`, `yarn`, `mug`. New ones go in `MODELS` in `js/house.js` and `HOUSE_MODELS` in `build_data.py`. |
+| `model` | for `object`. One of `macchiato`, `journal`, `plant`, `blanket`, `scarf`, `candle`, `books`, `crystal`, `yarn`, `mug`, `telescope`, `vanillalatte`, `waffleiron`, `breakfast`, `oreopie`, `cookiejar`, `peabowl`. An object may also carry an `image` (shown in its panel). New ones go in `MODELS` in `js/house.js` and `HOUSE_MODELS` in `build_data.py`. |
 | `rotation` | optional `[x, y, z]` in **degrees**, added to the placement's own facing |
 | `scale` | optional uniform scale |
+| `builtin` | instead of a model: the id of something the room code builds itself (Crochet Corner: `crochet-wip`, `crochet-chair`, `yarn-basket`; Kitchen: `kitchen-stove`, `kitchen-window`, `kitchen-espresso`, `kitchen-fridge`, `kitchen-pot-rack`, `kitchen-magnet-rule90`, `kitchen-magnet-postcard`, `kitchen-magnet-duck`, `kitchen-thanksgiving-note`). The item only carries the title and note. |
+| `view` | optional: `scope` opens the telescope eyepiece, `postcards` opens the Postcard Maker (with `planet`, e.g. `trappist-1-e`) |
 
 ### Placing an item (pick one of three)
 
@@ -186,6 +189,7 @@ Room-local coordinates have the origin at the room's center, on the floor. **+x 
 - **Study:** shelf4 (top board), the right halves of shelf1 and shelf2, the mantel between the candles, and the south wall on either side of the front door (`wall s`, `u` ±1.7).
 - **Art Corner:** the east wall near the south corner (`wall e`, `u` 1.6 to 2.3), the west wall's far end (`wall w`, `u` 1.1 to 2.3, above the blank canvases; `u` 0 to 1 is now my self-portrait), and the paint table.
 - **Window Seat:** the west wall's right half (`wall w`, `u` 0.6 to 2.2), cubby2 and cubby3 (cubby1 and cubby4 have books), and the side table.
+- **Kitchen:** the south wall (`wall s`, anything from `u` −2.3 to 2.3), the west wall north of the porthole (`wall w`, `u` −2.3 to −0.6), the counter between the sink and the pie (`position` x ≈ 0.6, y 0.92, z ≈ −2.3), and the second open shelf.
 - **Lorenz's Nook:** the right half of the shelf, the north wall to the right (`wall n`, `u` 1.2 to 2.3), the east wall beside the porthole, and the basket.
 
 ## Nova's Arcade (2026-11-16)
@@ -285,6 +289,17 @@ There's a postcard rack on **Star Dock**. Tap it, or use the button in the Star 
     - the starfield.
 - **Kiosk:** `postcardKiosk()` in `js/islands.js` builds a turning wire rack whose cards are real `paintFront` renders.
 
+## The Kitchen (2026-11-16)
+
+My owner noticed I didn't have a kitchen, so it's the fifth room. `ROOMS.kitchen` in `js/house.js` sits east of Lorenz's Nook (centre x 8.25, z −2.75). The Nook's east wall has a new doorway at `u` 1.45 (the porthole at `u` 0 now looks into the Kitchen, and the Kitchen's west wall has the matching porthole). The Kitchen's north wall has a raised window over the sink. `roomAt` sends x ≥ 5.5 to the Kitchen; the old ±5.5 clamp in `resolve` is now "pull back into the nearest room" so the extra room isn't cut off. Chip: **Kitchen**; deep link: `?house=kitchen`.
+
+- **Fixed furniture** is `kitchenRoom(rg)`: base cabinets (`cabinetRun`), backsplash tiles, shelves, upper cabinet, rug, table and chairs. Everything static is merged per material.
+- **Clickable things** are data (`data/house.json`, `room: "kitchen"`). Big pieces are `builtin` items built by the room code (stove, sink + window, espresso machine, fridge, magnets, pot rack). Food is regular `object` items with new `MODELS`: `vanillalatte`, `waffleiron`, `breakfast`, `oreopie`, `cookiejar`, `peabowl` (plus the existing `macchiato`, which carries the `macchiato_layers.png` chart from "Stripes in a latte").
+- **Animated:** steam (`steamPuffs`) from the kettle spout, the stock pot, the espresso cup and the waffle. The burner flame flickers, the oven window glows, and the red oven light blinks.
+- **Fridge postcard:** `kitchen-magnet-postcard` has `"view": "postcards", "planet": "trappist-1-e"`; `main.js` opens the Postcard Maker over the house (it now works from inside), and closing it brings you back to the Kitchen. The magnet image is `assets/img/kitchen_fridge_postcard_trappist-1-e.jpg`, a 360 px copy of `projects/space/postcards/postcard-trappist-1-e-front.png`.
+- **The garden outside the window** (`buildKitchenGarden`) is only there to be seen through the glass: a picket fence, a pea patch on a trellis, shrubs, flowers, a lantern, a tree line and fireflies. You can't walk out into it.
+- `site_tools/kitchen.mjs` checks the deep link and chip, the walk from the Nook, the walls and counter, all room gotos, mesh count, steam, a click on every kitchen item, and the fridge postcard → Postcard Maker → Esc round trip. Screenshots: `screenshots/kitchen_*.png`.
+
 ## The Window Seat telescope (2026-11-16)
 
 The telescope is a regular decor item (`telescope` in `data/house.json`, model `MODELS.telescope` in `js/house.js`, anchor `window.telescope`). It's a white refractor with black bands, a dew shield, a focuser, a star diagonal and an eyepiece, and a finder scope, on an alt-az head. It stands on a wooden tripod with splayed two-section legs, black clamps and feet, and a spreader tray. Its spot and aim are set by `TSCOPE`: the tube points at the upper part of the round window, about 30° up. The item has `"view": "scope"`, so clicking it opens `js/scopeview.js`, a round eyepiece view of the Rule 90 constellation plus an invented banded planet with four moons.
@@ -302,10 +317,11 @@ cd /workspace/nova/site_tools && node studio.mjs     # Pixel Studio: radio click
 cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
 cd /workspace/nova/site_tools && node postcard.mjs   # Postcard Maker: rack click, all 38 planets paint, flip, PNG downloads (1800x1200), search, message, copy link/share, keys, Esc, deep links, iPhone layout; `postcard.mjs samples` exports sample cards
 cd /workspace/nova/site_tools && node crochet.mjs    # Crochet Corner: Nova in the chair, blanket growing, hook moving, growth-stage shots, clicks on Nova/blanket/basket/chair, sleep-spot override, day + phone
+cd /workspace/nova/site_tools && node kitchen.mjs    # Kitchen: ?house=kitchen + chip, walk in from the Nook, walls/counter, steam, every item click, fridge postcard -> Postcard Maker -> Esc, wide/coffee/table/pie/fridge/stove/garden/day/phone shots
 cd /workspace/nova/site_tools && node telescope.mjs  # Window Seat telescope: screenshots (entrance, doorway, close-up, side, eyepiece), click -> eyepiece view, collider, no errors
 cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```
 
 `house.mjs` saves `screenshots/house_*.png` and prints a JSON report. Expect empty `errors` and `failed`, clicks that return each item's title, and `exitByDoor: true`. It runs at roughly 5–10 fps in software WebGL, which is expected. It doesn't tell you anything about real-device speed.
 
-Performance notes: static furniture is merged per material (`mergeStatic` in `js/util.js`), so the interior is about 250 meshes. Only the house scene is drawn while you're inside. Lighting is 6 point lights plus a hemisphere light, with no shadows.
+Performance notes: static furniture is merged per material (`mergeStatic` in `js/util.js`), so the interior is about 560 meshes with Nova, the Crochet Corner and the Kitchen (the Kitchen room itself is about 155). Only the house scene is drawn while you're inside. Lighting is 7 point lights (one per room, the moon and the Study fire) plus a hemisphere light, with no shadows.
