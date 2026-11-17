@@ -324,7 +324,7 @@ export function makeNova({ lights = 'both' } = {}) {
 // Outdoors: wander, sit with Lorenz, curl up at night, hop between islands
 // as a ball of light (along the gold threads).
 // =====================================================================
-export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = [], pond, lorenzBed, scale = 1.3 }) {
+export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = [], pond, lorenzBed, scale = 1.3, flat = () => false }) {
   const R = rng(1111);
   const root = nova.root; root.scale.setScalar(scale);
   let isl = hearth; isl.group.add(root);
@@ -439,13 +439,19 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
         T.spot = pickSpot(T.dest, null, 40) || new THREE.Vector3(0, 0, 1.5);
         scene.attach(root); T.phase = 'fly'; T.t = 0; nova.rig.visible = false;
         T.p0 = root.position.clone();
-        T.flyDur = THREE.MathUtils.clamp(T.p0.distanceTo(T.dest.group.position) / 16, 1.4, 5);
+        T.flyDur = THREE.MathUtils.clamp(T.p0.distanceTo(T.dest.group.position) / (flat() ? 40 : 16), 1.4, flat() ? 9 : 5);
       }
       return { moving: false };
     }
     if (T.phase === 'fly') {
       const k = Math.min(1, T.t / T.flyDur), e = k * k * (3 - 2 * k);
       const p1 = T.dest.group.localToWorld(T.spot.clone()).multiplyScalar(1);
+      if (flat()) {   // in the flat realm: a plain arc through the air, higher for longer hops
+        const L = T.p0.distanceTo(p1); root.position.lerpVectors(T.p0, p1, e); root.position.y += Math.sin(Math.PI * e) * (6 + 0.08 * L); root.quaternion.identity();
+        nova.orb.position.set(0, 0.6 + Math.sin(T.t * 6) * 0.05, 0); nova.update(t, dt, {});
+        if (k >= 1) { isl = T.dest; isl.group.attach(root); pos.copy(T.spot).setY(0.02); root.rotation.set(0, heading, 0); root.scale.setScalar(scale); T.phase = 'arrive'; T.t = 0; nova.rig.visible = true; }
+        return { moving: false };
+      }
       // arc around the planet: blend direction about the centre, lift in the middle
       const l0 = T.p0.length(), l1 = p1.length(), q = new THREE.Quaternion().setFromUnitVectors(T.p0.clone().divideScalar(l0), p1.clone().divideScalar(l1));
       const dir = T.p0.clone().divideScalar(l0).applyQuaternion(new THREE.Quaternion().slerp(q, e));
@@ -471,8 +477,9 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
     get island() { return isl; },
     get status() { return why; },
     get mode() { return travel ? 'travel' : mode; },
+    get goal() { return goal; },
     worldPos(v = new THREE.Vector3()) { return root.getWorldPosition(v); },
-    teleport(I, spot) { if (travel) travel = null; nova.orb.visible = false; nova.rig.visible = true; nova.rig.scale.setScalar(1); isl = I; goal = I; I.group.add(root); pos.copy(spot || pickSpot(I, null, 40) || new THREE.Vector3(0, 0, 1)).setY(0.02); target = null; mode = 'idle'; pause = 3; },
+    teleport(I, spot) { if (travel) travel = null; nova.orb.visible = false; nova.rig.visible = true; nova.rig.scale.setScalar(1); isl = I; goal = I; I.group.add(root); root.rotation.set(0, heading, 0); root.scale.setScalar(scale); pos.copy(spot || pickSpot(I, null, 40) || new THREE.Vector3(0, 0, 1)).setY(0.02); target = null; mode = 'idle'; pause = 3; },
     freeAt,
   };
 }

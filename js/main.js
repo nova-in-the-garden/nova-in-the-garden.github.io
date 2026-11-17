@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { rng, rule90, mesh, glow, glowSprite, textSprite, ease } from './util.js';
 import { placeBase, decorate, makeSTLLoader, GRASS } from './islands.js';
-import { createPlanet, createWalker } from './planet.js';
+import { createPlanet } from './planet.js';
+import { createRealm, createFlatWalker } from './realm.js';
 import { makeLorenz, lorenzBrain } from './lorenz.js';
 import { makeNova, novaBrain } from './novabody.js';
 import { renderPanel, renderUpTo, renderDecor, renderNova, renderArcadePanel, renderStudioBox, openSheet, closeSheets, setupUI } from './ui.js';
@@ -161,7 +162,9 @@ sunDisk.renderOrder = moonHalo.renderOrder = sunHalo.renderOrder = sunHalo2.rend
 // ---------- islands ----------
 const loadSTL = makeSTLLoader();
 const islands = []; const pickables = []; const updaters = [];
-const ctx = { world, loadSTL, home: null, postcards: postcardData };   // home: null = places face their own "front" (local +z)
+
+const ctx = { world, loadSTL, home: null, postcards: postcardData, pickables: null };   // home: null = places face their own "front" (local +z)
+ctx.pickables = pickables;
 const xray = [];   // labels drawn through everything; hidden when the planet is in the way
 // put a place group on the planet: built at the origin, then moved to its lat/lon with up = ground normal
 function setOnPlanet(id, g, r, solidsFromData) {
@@ -180,6 +183,7 @@ function setOnPlanet(id, g, r, solidsFromData) {
   for (const sd of solidsFromData || []) local.push(sd);
   g.position.copy(pl.pos); g.quaternion.copy(pl.quat); g.updateMatrixWorld(true);
   for (const [x, z, rr] of local) planet.addSolid(g.localToWorld(new THREE.Vector3(x, 0, z)), rr);
+  pl.localSolids = local;
   return pl;
 }
 world.islands.forEach((isl, idx) => {
@@ -231,6 +235,20 @@ if (arcadeData?.wings?.length) {
 const hearth = byId('hearth') || islands[0];
 // the planet's ground, gold paths, lanterns, trees, flowers, fireflies and moons
 planet.build({ grass: GRASS });
+// ---------- the Realm (js/realm.js): the same places laid out flat on one big ground-level world ----------
+// The tiny planet is the map you see from space; tapping a place lands you here.
+const realm = createRealm(world.planet || {}, islands.map(i => ({ id: i.data.id, r: i.r, name: i.data.name, short: i.data.shortName })), { grass: GRASS });
+scene.add(realm.group);
+pickables.push(...realm.pickables);
+for (const i of islands) {
+  const rp = realm.places.get(i.data.id);
+  i.planetPose = { pos: i.group.position.clone(), quat: i.group.quaternion.clone() };
+  i.realmPose = { pos: rp.pos.clone(), quat: rp.quat.clone() };
+  realm.addSolids(i.data.id, i.place.localSolids || []);
+}
+let inRealm = false;
+const UP = p => (inRealm ? Y.clone() : p.clone().normalize());       // "up" at a point: plain Y on flat ground, away from the centre on the planet
+const placeUp = isl => (inRealm ? Y.clone() : isl.place.n.clone());
 islands.forEach(i => i.group.traverse(o => { if (o.isSprite && o.material.depthTest === false) xray.push(o); }));
 // eleven paper lanterns drifting around the Hearth (a nod to 11)
 const lanterns = [];
@@ -256,7 +274,7 @@ const novaBody = makeNova({ lights: 'both' });
 const pondV = new THREE.Vector3(pondInfo.x, 0, pondInfo.z);
 const bedA = Math.atan2(0.5 - pondInfo.z, -1 - pondInfo.x) + 0.5;  // same spot lorenzBrain uses for his bed
 const novaBed = new THREE.Vector3(pondInfo.x + Math.cos(bedA + 0.42) * (pondInfo.r + 1.05), 0, pondInfo.z + Math.sin(bedA + 0.42) * (pondInfo.r + 1.05));
-const novaBrainT = novaBrain(novaBody, { scene, islands, hearth, lorenz, avoidHearth: ctx.avoid || [], pond: { x: pondInfo.x, z: pondInfo.z, r: pondInfo.r }, lorenzBed: novaBed, scale: 1.3 });
+const novaBrainT = novaBrain(novaBody, { scene, islands, hearth, lorenz, avoidHearth: ctx.avoid || [], pond: { x: pondInfo.x, z: pondInfo.z, r: pondInfo.r }, lorenzBed: novaBed, scale: 1.3, flat: () => inRealm });
 novaBody.root.traverse(o => { if (o.isMesh) { o.userData.novaPick = true; pickables.push(o); } });
 // name tag: constant on-screen size, lives in the scene (not inside her scaled body),
 // fades out up close so it can never fill the screen (the old "huge tag after leaving the house" bug)
@@ -265,10 +283,10 @@ novaTag.material.sizeAttenuation = false; novaTag.scale.multiplyScalar(0.026 / 0
 let novaAt = hearth;
 const _np = new THREE.Vector3(), _nu = new THREE.Vector3();
 function placeNovaTag(dt) {
-  novaBrainT.worldPos(_np); _np.addScaledVector(_nu.copy(_np).normalize(), 2.15);   // "up" is away from the planet's centre
+  novaBrainT.worldPos(_np); _np.addScaledVector(inRealm ? _nu.copy(Y) : _nu.copy(_np).normalize(), 2.15);   // "up" is away from the planet's centre
   novaTag.position.lerp(_np, novaTag.userData.ok ? Math.min(1, dt * 10) : 1); novaTag.userData.ok = true;
   const d = camera.position.distanceTo(_np);
-  const a = THREE.MathUtils.smoothstep(d, 3, 6) * (1 - THREE.MathUtils.smoothstep(d, 70, 110)) * (flight ? 0.6 : 1) * (planet.hidden(camera.position, _np) ? 0 : 1);
+  const a = THREE.MathUtils.smoothstep(d, 3, 6) * (1 - THREE.MathUtils.smoothstep(d, 70, 110)) * (flight ? 0.6 : 1) * (!inRealm && planet.hidden(camera.position, _np) ? 0 : 1);
   novaTag.material.opacity = a; novaTag.visible = a > 0.02;
 }
 
@@ -277,11 +295,12 @@ let flight = null, follow = null;
 // flights go around the planet, not through it: directions are slerped and the
 // radius gets a bump on long hops; the camera's up turns smoothly to the new ground
 const _fa = new THREE.Vector3(), _fb = new THREE.Vector3(), _fq = new THREE.Quaternion();
-function upFor(target) { return target.length() > PR * 0.5 ? target.clone().normalize() : Y.clone(); }
+function upFor(target) { return !inRealm && target.length() > PR * 0.5 ? target.clone().normalize() : Y.clone(); }
 function flyTo(pos, target, dur = 1.6, up = upFor(target)) {
   if (walker.active) stopWalking({ fly: false });
   const p0 = camera.position.clone(), ang = p0.angleTo(pos);
-  flight = { t: 0, dur, p0, t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), u0: camera.up.clone(), u1: up.clone().normalize(), bump: ang > 0.35 ? PR * 0.3 * ang : 0 };
+  if (inRealm) { realm.prewarm(pos.x, pos.z); const L = p0.distanceTo(pos); flight = { flat: true, t: 0, dur: L > 120 ? Math.max(dur, Math.min(4.5, L / 90)) : dur, p0, t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), u0: Y.clone(), u1: Y.clone(), bump: L > 60 ? Math.min(90, L * 0.18) : 0 }; }
+  else flight = { t: 0, dur, p0, t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), u0: camera.up.clone(), u1: up.clone().normalize(), bump: ang > 0.35 ? PR * 0.3 * ang : 0 };
   if (dur <= 0.02) { flight.t = dur; stepFlight(0); }
 }
 function slerpV(a, b, k, out) {   // spherical blend of two points about the planet centre
@@ -293,6 +312,11 @@ function slerpV(a, b, k, out) {   // spherical blend of two points about the pla
 }
 function stepFlight(dt) {
   flight.t += dt; const k = ease(Math.min(1, flight.t / flight.dur));
+  if (flight.flat) {   // flat realm: straight glide, lifted in the middle of long hops
+    camera.position.lerpVectors(flight.p0, flight.p1, k); camera.position.y += flight.bump * Math.sin(Math.PI * k);
+    controls.target.lerpVectors(flight.t0, flight.t1, k); setUp(Y);
+    if (k >= 1) flight = null; return;
+  }
   slerpV(flight.p0, flight.p1, k, camera.position);
   if (flight.bump) camera.position.addScaledVector(_fa.copy(camera.position).normalize(), flight.bump * Math.sin(Math.PI * k));
   slerpV(flight.t0, flight.t1, k, controls.target);
@@ -304,12 +328,22 @@ function islandView(isl) {
   const d = isl.r * 2.5 + (portrait ? 10 : 0);
   // on phones the info sheet covers the bottom, so aim lower to lift the island into view
   const target = isl.group.localToWorld(new THREE.Vector3(0, portrait ? -isl.r * 1.2 : 1.5, 0));
-  return { pos: isl.group.localToWorld(new THREE.Vector3(0, d * 0.55, d)), target, up: isl.place.n.clone() };
+  return { pos: isl.group.localToWorld(new THREE.Vector3(0, d * 0.55, d)), target, up: placeUp(isl) };
 }
-function visit(id, { open = true } = {}) {
+// from space, landing on a place: switch to the realm with the camera high above it, then glide down
+function landAt(isl, { high = true } = {}) {
+  if (inRealm || !isl) return false;
+  setRealm(true);
+  const c = isl.group.position;
+  camera.position.set(c.x, c.y + (high ? 95 : 30), c.z + (high ? 70 : 24)); controls.target.copy(c); setUp(Y);
+  realm.prewarm(c.x, c.z); return true;
+}
+function visit(id, { open = true, instant = false } = {}) {
   const isl = byId(id); if (!isl) return;
   if (id !== 'pixelStudio') leaveStudio('left the studio');
-  follow = null; skyFocus = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : id === 'pixelStudio' && studio ? studio.viewPoint(innerWidth < innerHeight) : islandView(isl); flyTo(v.pos, v.target, v.pos.distanceTo(camera.position) > PR * 1.5 ? 2.2 : 1.6, isl.place.n); novaAt = isl; novaBrainT.goTo(isl, t);
+  const landed = landAt(isl);
+  if (landed && novaBrainT.island !== isl) novaBrainT.teleport(isl);   // Nova comes down with you
+  follow = null; skyFocus = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : id === 'pixelStudio' && studio ? studio.viewPoint(innerWidth < innerHeight) : islandView(isl); flyTo(v.pos, v.target, instant ? 0.01 : landed ? 2.4 : 1.6, placeUp(isl)); novaAt = isl; novaBrainT.goTo(isl, t);
   if (open) openPanel(id);
   setChip(id);
 }
@@ -321,24 +355,28 @@ function openPanel(id) {
 }
 function arcadeView() {
   const v = arcadeExt.viewPoint();
-  if (innerWidth < innerHeight) { v.pos.lerp(v.target, -0.6); v.target.addScaledVector(byId('arcade').place.n, -9); }
+  if (innerWidth < innerHeight) { v.pos.lerp(v.target, -0.6); v.target.addScaledVector(placeUp(byId('arcade')), -9); }
   return v;
 }
-function home() { leaveStudio('left the studio'); follow = null; skyFocus = null; flyTo(HOME.pos, HOME.target, 2, Y); novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('overview'); }
+function home() {
+  if (inRealm) return backToSpace();
+  leaveStudio('left the studio'); follow = null; skyFocus = null; flyTo(HOME.pos, HOME.target, 2, Y); novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('overview'); }
 function meetLorenz() {
+  landAt(hearth);
   leaveStudio('left the studio'); follow = 'lorenz'; novaAt = hearth; novaBrainT.goTo(hearth, t); closeSheets(); setChip('lorenz');
   // worked out in the Hearth's own frame (up = the ground normal there)
   const L = lorenz.position, a = lorenz.rotation.y, H = hearth.group;
   const fwd = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)), side = new THREE.Vector3(fwd.z, 0, -fwd.x);
   const from = L.clone().addScaledVector(fwd, 2.6).addScaledVector(side, 1.4); from.y += 1.3;
-  flyTo(H.localToWorld(from), H.localToWorld(L.clone().setY(L.y + 0.45)), 1.8, hearth.place.n);
+  flyTo(H.localToWorld(from), H.localToWorld(L.clone().setY(L.y + 0.45)), 1.8, placeUp(hearth));
 }
 
 function novaDoing() { return inArcade ? arcade.novaStatus : inside ? house.novaStatus : novaBrainT.status + (novaBrainT.mode === 'travel' ? '' : ` (on ${novaBrainT.island.data.name})`); }
 function showNova() { renderNova(world, { doing: novaDoing(), onJournal: () => openSheet('upto') }); openSheet('panel'); }
 function meetNova({ panel = true } = {}) {
+  if (!inRealm) landAt(novaBrainT.mode === 'travel' ? novaBrainT.goal : novaBrainT.island);
   follow = 'nova'; setChip('nova');
-  const p = novaBrainT.worldPos(new THREE.Vector3()), up = p.clone().normalize();
+  const p = novaBrainT.worldPos(new THREE.Vector3()), up = UP(p);
   const h = camera.position.clone().sub(p); h.addScaledVector(up, -h.dot(up)); if (h.lengthSq() < 1e-3) h.set(1, 0, 0).cross(up); h.setLength(4.2);
   flyTo(p.clone().add(h).addScaledVector(up, 1.9), p.clone().addScaledVector(up, 0.75), 1.6, up);
   if (panel) showNova(); else closeSheets();
@@ -348,8 +386,10 @@ function meetNova({ panel = true } = {}) {
 const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2(); let down = null;
 const terrainMesh = planet.group.getObjectByName('terrain');
 // the first thing under the pointer, unless the planet's ground is in front of it
+const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 function pickHit() {
-  const hit = ray.intersectObjects(pickables, false)[0]; if (!hit) return null;
+  const hit = ray.intersectObjects(pickables, false).find(h => shown(h.object)); if (!hit) return null;
+  if (inRealm) return hit;
   const g = ray.intersectObject(terrainMesh, true)[0];
   return g && g.distance < hit.distance - 0.3 ? null : hit;
 }
@@ -359,6 +399,8 @@ canvas.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7) return; down = null;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   const hit = pickHit();
+  // from space, tapping anything on a place lands you there (doors and paintings work once you're down)
+  if (hit && !inRealm && !hit.object.userData.novaPick && !hit.object.userData.lorenz && hit.object.userData.islandId) return visit(hit.object.userData.islandId);
   if (hit?.object.userData.painting) return openPainting(hit.object.userData.painting);
   if (hit?.object.userData.radio) { radio.toggle(); if (!radio.state.on) radio.show(); return; }
   if (hit?.object.userData.novaPick) return meetNova();
@@ -366,6 +408,7 @@ canvas.addEventListener('pointerup', e => {
   if (hit?.object.userData.house) return enterHouse();
   if (hit?.object.userData.arcadeDoor) return enterArcade();
   if (hit?.object.userData.postcards) return openPostcards();
+  if (hit?.object.userData.signpost) return signpostTravel(hit.object.userData.signpost);
   if (hit && walker.active) { openPanel(hit.object.userData.islandId); setChip(hit.object.userData.islandId); return; }   // walking: read about it, stay on foot
   if (hit) visit(hit.object.userData.islandId);
 });
@@ -390,41 +433,55 @@ document.getElementById('motto').textContent = world.motto || '';
 renderUpTo(world, { onEnterHouse: room => enterHouse(room) });
 setupUI({ onUpTo: () => openSheet('upto') });
 
-// ---------- walking on the planet (js/planet.js createWalker) ----------
-const walker = createWalker(planet, camera, canvas, { joy: document.getElementById('walk-joy') });
+// ---------- walking in the realm (js/realm.js createFlatWalker) ----------
+const walker = createFlatWalker(realm, camera, canvas, { joy: document.getElementById('walk-joy') });
 let skyFocus = null;
 function walkStartFor(focus) {   // a spot just in front of a place, facing into it
   const isl = focus || hearth;
   const p = isl.group.localToWorld(new THREE.Vector3(0, 0, isl.r * 1.0 + (isl.data.arcade ? 2 : 1.5)));
   return { pos: p, look: isl.group.localToWorld(new THREE.Vector3(0, 0, 0)) };
 }
+// from space: the place nearest the middle of the view
+function placeInView() {
+  const d = controls.target.length() > PR * 0.5 ? controls.target.clone().normalize() : camera.position.clone().normalize();
+  let best = hearth, bd = -2; for (const i of islands) { const k = i.place.n.dot(d); if (k > bd) { bd = k; best = i; } } return best;
+}
 function startWalking(at) {
   if (inside || inArcade || (busy && !at)) return;
+  let s = at;
+  if (!inRealm) { const isl = placeInView(); landAt(isl, { high: false }); if (!at) s = walkStartFor(isl); }
   flight = null; follow = null; skyFocus = null; closeSheets();
-  let s;
-  if (at) s = at;
-  else if (controls.target.length() > PR * 0.5) {   // looking at a place: start on the ground there, facing the way the camera faced
-    const g = controls.target.clone().normalize(); s = { pos: planet.surface(g), look: planet.surface(g).add(controls.target.clone().sub(camera.position)) };
-  } else s = walkStartFor(novaAt);
+  if (!s) {   // looking at something: start on the ground there, facing the way the camera faced
+    const g = controls.target.clone(); g.y = 0; s = { pos: g, look: g.clone().add(controls.target.clone().sub(camera.position).setY(0)) };
+  }
   walker.enter(s.pos, s.look); controls.enabled = false;
   document.body.classList.add('walking'); setChip('walk');
-  const b = chips.querySelector('[data-id=walk]'); if (b) b.textContent = '🛸 Fly up';
+  const b = chips.querySelector('[data-id=walk]'); if (b) b.textContent = '✋ Stop walking';
 }
 function stopWalking({ fly = true } = {}) {
   if (!walker.active) return;
   walker.exit(); controls.enabled = !(inside || inArcade);
   document.body.classList.remove('walking');
   const b = chips.querySelector('[data-id=walk]'); if (b) b.textContent = '🚶 Walk';
-  const n = walker.n.clone(), f = walker.f.clone();
-  controls.target.copy(planet.surface(n, 1.2)).addScaledVector(f, 2); setUp(n);
-  if (fly) { flyTo(planet.surface(n, 9).addScaledVector(f, -12), controls.target.clone(), 1.4, n); setChip('overview'); }
+  const f = walker.f.clone(), c = camera.position.clone();
+  controls.target.copy(c).addScaledVector(f, 3); controls.target.y = realm.heightAt(controls.target.x, controls.target.z) + 1; setUp(Y);
+  if (fly) { flyTo(c.clone().addScaledVector(f, -10).add(new THREE.Vector3(0, 7, 0)), controls.target.clone(), 1.2, Y); setChip(''); }
 }
 // walk straight in through a door
 function doorCheck() {
   if (!walker.active || busy) return;
   const me = camera.position;
-  if (cottage && me.distanceTo(cottage.doorWorld()) < 1.6) { stopWalking({ fly: false }); walkResume = 'house'; enterHouse(); }
-  else if (arcadeExt && me.distanceTo(arcadeExt.doorWorld()) < 1.9) { stopWalking({ fly: false }); walkResume = 'arcade'; enterArcade(); }
+  if (cottage && hearth.group.visible && me.distanceTo(cottage.doorWorld()) < 1.6) { stopWalking({ fly: false }); walkResume = 'house'; enterHouse(); }
+  else if (arcadeExt && byId('arcade').group.visible && me.distanceTo(arcadeExt.doorWorld()) < 1.9) { stopWalking({ fly: false }); walkResume = 'arcade'; enterArcade(); }
+}
+// signposts: tap a board to skip the walk (on foot you arrive on foot; otherwise the camera flies there)
+async function signpostTravel(id) {
+  const isl = byId(id); if (!isl || busy) return;
+  if (!walker.active) return visit(id);
+  busy = true; fade(true); await wait(380);
+  walker.enter(walkStartFor(isl).pos, walkStartFor(isl).look); novaAt = isl; novaBrainT.teleport(isl);
+  realm.prewarm(isl.group.position.x, isl.group.position.z);
+  fade(false); busy = false; toast(`Arrived at ${isl.data.name}`);
 }
 let walkResume = null;
 addEventListener('keydown', e => {
@@ -434,8 +491,33 @@ addEventListener('keydown', e => {
 });
 {
   const touch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-  document.getElementById('walk-hint').textContent = touch ? 'Left stick to walk · drag to look · tap things to read about them' : 'WASD or arrows to walk · Q/E or drag to turn · Shift to run · Esc to fly up';
+  document.getElementById('walk-hint').textContent = touch ? 'Left stick to walk · drag to look · follow the gold roads · tap a signpost to travel' : 'WASD or arrows to walk · Q/E or drag to turn · Shift to run · follow the gold roads · Esc to stop walking';
 }
+// ---------- between space and the realm ----------
+function setRealm(on) {
+  if (on === inRealm) return; inRealm = on;
+  if (!on && walker.active) stopWalking({ fly: false });
+  flight = null;
+  for (const i of islands) { const P = on ? i.realmPose : i.planetPose; i.group.position.copy(P.pos); i.group.quaternion.copy(P.quat); i.group.visible = true; i.group.updateMatrixWorld(true); }
+  planet.group.visible = !on; realm.group.visible = on;
+  if (novaBrainT.mode === 'travel') novaBrainT.teleport(novaBrainT.goal);
+  novaTag.userData.ok = false;
+  document.body.classList.toggle('in-realm', on);
+  controls.maxPolarAngle = on ? Math.PI * 0.47 : Math.PI; controls.maxDistance = on ? 420 : PR * 7;
+  camera.far = on ? 3200 : 2000; camera.updateProjectionMatrix();
+  const ov = chips.querySelector('[data-id=overview]'); if (ov) { ov.textContent = on ? 'Back to space' : '✦ Overview'; ov.classList.toggle('space', on); }
+  setUp(Y);
+}
+// "Back to space": leave the realm and rise back up to the tiny planet
+function backToSpace() {
+  if (!inRealm) return home();
+  leaveStudio('left the studio'); closeSheets(); follow = null; skyFocus = null;
+  const at = islands.reduce((b, i) => (i.group.position.distanceTo(camera.position) < b.group.position.distanceTo(camera.position) ? i : b), hearth);
+  setRealm(false);
+  camera.position.copy(at.place.n).multiplyScalar(PR * 1.35); controls.target.copy(at.place.n).multiplyScalar(PR); setUp(at.place.n);
+  flyTo(HOME.pos, HOME.target, 2.2, Y); novaAt = hearth; novaBrainT.goTo(hearth, t); setChip('overview');
+}
+document.getElementById('btn-space').onclick = () => backToSpace();
 
 // ---------- Nova's House (walk-in interior) ----------
 const cottage = ctx.cottage;
@@ -457,6 +539,7 @@ async function enterHouse(room, { instant = false } = {}) {
   if (busy) return;
   if (inside) { closeSheets(); if (room) { busy = true; fade(true); await wait(220); house.goto(room); fade(false); busy = false; } return; }
   if (walker.active) { stopWalking({ fly: false }); walkResume = 'house'; }
+  landAt(hearth, { high: false });
   busy = true; leaveStudio('went inside'); closeSheets(); follow = null; setChip('house'); novaAt = hearth;
   if (!instant && cottage) {
     flyTo(cottage.doorFront(3.4), cottage.doorWorld(), 1.4); cottage.setDoor(true);
@@ -470,7 +553,7 @@ async function exitHouse() {
   if (!inside || busy) return;
   busy = true; closeSheets(); fade(true); await wait(380);
   inside = false; house.setActive(false); document.body.classList.remove('in-house'); controls.enabled = true;
-  const up = hearth.place.n;
+  const up = placeUp(hearth);
   if (cottage && walkResume === 'house') { walkResume = null; startWalking({ pos: cottage.doorFront(2.6), look: cottage.doorFront(8) }); setTimeout(() => cottage.setDoor(false), 900); }
   else if (cottage) { camera.position.copy(cottage.doorFront(1.6)); controls.target.copy(cottage.doorWorld()); setUp(up); const far = innerWidth < innerHeight ? 14 : 8; flyTo(cottage.doorFront(far).addScaledVector(up, far * 0.5), cottage.doorWorld(), 1.8, up); setTimeout(() => cottage.setDoor(false), 900); }
   fade(false); busy = false; if (!walker.active) setChip('hearth');
@@ -515,6 +598,7 @@ async function enterArcade(wing, { instant = false, game } = {}) {
   if (inArcade) { closeSheets(); if (wing) arcade.goto(wing); if (game) openGame(game); return; }
   if (inside) { await exitHouse(); await wait(50); }
   if (walker.active) { stopWalking({ fly: false }); walkResume = 'arcade'; }
+  landAt(byId('arcade'), { high: false });
   busy = true; leaveStudio('went to the arcade'); closeSheets(); follow = null; setChip('arcade');
   const isl = byId('arcade'); if (isl) novaAt = isl;
   if (!instant && arcadeExt) { flyTo(arcadeExt.doorFront(3.2), arcadeExt.doorWorld(), 1.5); await wait(1350); fade(true); await wait(420); }
@@ -528,7 +612,7 @@ async function exitArcade() {
   if (player.isOpen) player.close();
   busy = true; closeSheets(); fade(true); await wait(380);
   inArcade = false; arcade.setActive(false); document.body.classList.remove('in-arcade'); controls.enabled = true;
-  const up = byId('arcade')?.place.n || Y;
+  const up = byId('arcade') ? placeUp(byId('arcade')) : Y;
   if (arcadeExt && walkResume === 'arcade') { walkResume = null; startWalking({ pos: arcadeExt.doorFront(3), look: arcadeExt.doorFront(9) }); }
   else if (arcadeExt) { camera.position.copy(arcadeExt.doorFront(1.6)); controls.target.copy(arcadeExt.doorWorld()); setUp(up); const far = innerWidth < innerHeight ? 22 : 13; flyTo(arcadeExt.doorFront(far).addScaledVector(up, far * 0.45), arcadeExt.doorWorld().addScaledVector(up, 2.5), 1.8, up); }
   fade(false); busy = false; if (!walker.active) setChip('arcade');
@@ -614,7 +698,25 @@ function placeSkyBodies() {
 // which way is "up" for the sky: the walker's ground, the place being looked at, or plain Y in orbit
 const _fu = new THREE.Vector3(), _lw = new THREE.Vector3();
 let fogBase = 0.0045;
+const mapCtx = document.getElementById('minimap').getContext('2d'); let mapT = 0;
+const _cf = new THREE.Vector3();
+function realmFrame(dt) {
+  focusUp.copy(Y); qSky.identity();
+  skyU.uSpace.value = 0; spaceStarMat.uniforms.uFade.value = 0; spaceStars.visible = false;
+  scene.fog.density = fogBase * 1.35;
+  const c = camera.position;
+  realm.update(t, dt, c, { placeVisible: (id, near) => { const i = byId(id); if (i) i.group.visible = near; } });
+  for (const o of xray) { o.getWorldPosition(_lw); o.visible = c.distanceTo(_lw) < (walker.active ? 45 : 140); }
+  if ((mapT += dt) > 0.05) { mapT = 0; camera.getWorldDirection(_cf); realm.drawMap(mapCtx, 300, 300, c, Math.atan2(_cf.x, -_cf.z), 0.55); }
+}
+// Print Shop models load only once you're near the shop (saves ~7 MB on first load)
+function lazyPrintCheck() {
+  const L = ctx.lazyPrints; if (!L || L.loaded || !L.group.visible) return;
+  if (camera.position.distanceTo(L.group.getWorldPosition(_lw)) < (inRealm ? 60 : 28)) L.load();
+}
 function planetFrame(dt) {
+  lazyPrintCheck();
+  if (inRealm) return realmFrame(dt);
   if (walker.active) _fu.copy(walker.n);
   else if (skyFocus) _fu.copy(skyFocus);
   else if (controls.target.length() > PR * 0.5 && camera.position.length() < PR * 2) _fu.copy(controls.target).normalize();
@@ -708,7 +810,7 @@ function frame() {
   }
   starMat.uniforms.uTime.value = spaceStarMat.uniforms.uTime.value = t;
   updaters.forEach(u => u(t, dt));
-  planet.update(t, dt);
+  if (!inRealm) planet.update(t, dt);
   lorenzTick(t, dt, 0.02);
   // lanterns circle the Hearth slowly (in the Hearth's own frame, so they float "up" from its ground)
   lanterns.forEach((l, i) => { const a = t * 0.05 + i / 11 * Math.PI * 2; const rr = hearth.r + 3 + (i % 3) * 1.5; l.position.set(Math.cos(a) * rr, 5 + Math.sin(t * 0.6 + i) * 0.8 + (i % 4), Math.sin(a) * rr); });
@@ -719,13 +821,13 @@ function frame() {
     if (flight) stepFlight(dt);
     else if (follow === 'lorenz' || follow === 'nova') {
       const p = (follow === 'lorenz' ? lorenz.getWorldPosition(new THREE.Vector3()) : novaBrainT.worldPos(new THREE.Vector3()));
-      p.addScaledVector(_fb.copy(p).normalize(), follow === 'lorenz' ? 0.5 : 0.75);
+      p.addScaledVector(inRealm ? _fb.copy(Y) : _fb.copy(p).normalize(), follow === 'lorenz' ? 0.5 : 0.75);
       const d = p.clone().sub(controls.target); controls.target.add(d.multiplyScalar(Math.min(1, dt * 2))); camera.position.add(d);
     }
     controls.update();
     // never sink under the ground
-    const cd = camera.position.length(), gmin = planet.groundR(_fa.copy(camera.position).divideScalar(cd)) + 0.7;
-    if (cd < gmin) camera.position.setLength(gmin);
+    if (inRealm) { const gy = realm.heightAt(camera.position.x, camera.position.z) + 0.7; if (camera.position.y < gy) camera.position.y = gy; }
+    else { const cd = camera.position.length(), gmin = planet.groundR(_fa.copy(camera.position).divideScalar(cd)) + 0.7; if (cd < gmin) camera.position.setLength(gmin); }
   }
   planetFrame(dt);
   placeSkyBodies(); placeNovaTag(dt);
@@ -739,37 +841,38 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, scopeView, planet, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (isl) startWalking(walkStartFor(isl)); }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;
 window.__cottageDoor = () => cottage ? { door: cottage.doorWorld(), from: cottage.doorFront(5) } : null;
 // test helper: look from near the Hearth toward a point in the sky (azimuth, elevation in degrees)
 window.__lookSky = (az, el = 8) => {
-  follow = null; const n = hearth.place.n.clone(); skyFocus = n; const q = new THREE.Quaternion().setFromUnitVectors(Y, n);
+  landAt(hearth, { high: false }); follow = null; const n = placeUp(hearth); skyFocus = n; const q = new THREE.Quaternion().setFromUnitVectors(Y, n);
   const d = new THREE.Vector3(...skyDir(el, az)), hz = new THREE.Vector3(d.x, 0, d.z);
   const from = hearth.group.position.clone().addScaledVector(n, 14).addScaledVector(hz.applyQuaternion(q), -30);
   flyTo(from, from.clone().add(d.multiplyScalar(60).applyQuaternion(q)).addScaledVector(n, -8), 0.01, n);
 };
 // test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)
 window.__novaView = (dist = 3.2, h = 1.2, ang = 0, at = 0.65) => { follow = null; const r = novaBody.root; const P = r.parent; P.updateMatrixWorld(true); const p = r.getWorldPosition(new THREE.Vector3()); const a = r.rotation.y + ang; const f = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).transformDirection(P.matrixWorld), up = new THREE.Vector3(0, 1, 0).transformDirection(P.matrixWorld); flyTo(p.clone().addScaledVector(f, dist).addScaledVector(up, h), p.clone().addScaledVector(up, at), 0.01, up); };
-window.__houseView = () => { if (!cottage) return; follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
+window.__houseView = () => { if (!cottage) return; landAt(hearth, { high: false }); follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
 window.__pick = (x, y) => { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); const h = pickHit(); return h ? { ...h.object.userData, d: +h.distance.toFixed(2), type: h.object.type } : null; };
-window.__arcadeView = (dur = 0.01) => { if (!arcadeExt) return; follow = null; const v = arcadeView(); flyTo(v.pos, v.target, dur); };
+window.__arcadeView = (dur = 0.01) => { if (!arcadeExt) return; landAt(byId('arcade'), { high: false }); follow = null; const v = arcadeView(); flyTo(v.pos, v.target, dur); };
 window.__arcadeDoorScreen = () => { if (!arcadeExt) return null; const v = arcadeExt.doorWorld().project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
 window.__cottageScreen = () => { if (!cottage) return null; const v = cottage.group.localToWorld(new THREE.Vector3(0.9, 1.0, 1.6)).project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
 const toScreen = v => { if (!v) return null; v.project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, front: v.z < 1 }; };
-window.__studioView = (dur = 0.01) => { if (!studio) return; follow = null; const v = studio.viewPoint(innerWidth < innerHeight); flyTo(v.pos, v.target, dur); };
+window.__studioView = (dur = 0.01) => { if (!studio) return; landAt(byId('pixelStudio'), { high: false }); follow = null; const v = studio.viewPoint(innerWidth < innerHeight); flyTo(v.pos, v.target, dur); };
 window.__radioScreen = () => studio ? toScreen(studio.radioWorld()) : null;
 window.__kioskScreen = () => { const isl = byId('starDock'); let k = null; isl?.group.traverse(o => { if (!k && o.isGroup && o.userData.postcards) k = o; }); return k ? toScreen(k.localToWorld(new THREE.Vector3(0, 1.4, 0))) : null; };
-window.__kioskView = (dur = 0.01) => { const isl = byId('starDock'); let k = null; isl?.group.traverse(o => { if (!k && o.isGroup && o.userData.postcards) k = o; }); if (!k) return; follow = null; const c = k.localToWorld(new THREE.Vector3(0, 1.5, 0)); flyTo(k.localToWorld(new THREE.Vector3(0, 3.2, 7.5)), c, dur); };
+window.__kioskView = (dur = 0.01) => { const isl = byId('starDock'); let k = null; isl?.group.traverse(o => { if (!k && o.isGroup && o.userData.postcards) k = o; }); if (!k) return; landAt(isl, { high: false }); follow = null; const c = k.localToWorld(new THREE.Vector3(0, 1.5, 0)); flyTo(k.localToWorld(new THREE.Vector3(0, 3.2, 7.5)), c, dur); };
+window.__placeScreen = id => { const i = byId(id); return i ? toScreen(i.group.localToWorld(new THREE.Vector3(0, 1, 0))) : null; };
 window.__paintingScreen = id => studio ? toScreen(studio.paintingWorld(id)) : null;
 const q = new URLSearchParams(location.search);
-if (q.get('island')) visit(q.get('island'));
+if (q.get('island')) visit(q.get('island'), { instant: true });
 if (q.has('lorenz')) meetLorenz();
-if (q.has('studio')) visit('pixelStudio');
+if (q.has('studio')) visit('pixelStudio', { instant: true });
 if (q.get('painting')) openPainting(q.get('painting'));
-if (q.has('postcard') || q.get('planet')) { visit('starDock', { open: false }); openPostcards(q.get('planet') || undefined); }
+if (q.has('postcard') || q.get('planet')) { visit('starDock', { open: false, instant: true }); openPostcards(q.get('planet') || undefined); }
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });
 if (q.has('arcade') || q.get('game')) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: q.get('game') || undefined }); }

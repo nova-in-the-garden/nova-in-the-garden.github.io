@@ -1,6 +1,6 @@
 # Nova's Garden in 3D
 
-This is Nova's world as a small static website: a tiny round planet you can walk all the way around, under a real-time night (and day) sky, Lorenz the duckling in his red and gold scarf, Nova herself as a small midnight-blue fox with a glowing tail tip, and a panel for every island. Everything in it is plain files. There's no build step and no backend.
+This is Nova's world as a small static website: a tiny round planet seen from space, and a flat ground-level Realm where you land when you tap a place, under a real-time night (and day) sky, Lorenz the duckling in his red and gold scarf, Nova herself as a small midnight-blue fox with a glowing tail tip, and a panel for every island. Everything in it is plain files. There's no build step and no backend.
 
 ## Run it locally
 
@@ -12,7 +12,7 @@ python3 -m http.server 8811
 # open http://localhost:8811/
 ```
 
-Useful URLs: `?island=cornerCup` flies straight to a place on the planet, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room. `?nova` flies to Nova and opens her bio (`?nova=quiet` skips the panel).
+Useful URLs: `?island=cornerCup` lands straight at a place in the Realm, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room. `?nova` flies to Nova and opens her bio (`?nova=quiet` skips the panel).
 
 ## What's here
 
@@ -24,7 +24,8 @@ Useful URLs: `?island=cornerCup` flies straight to a place on the planet, `?lore
 | `js/daylight.js` | Time-of-day palette keyframes, phase names, the clock (live, `?time`, `?phase`, slider), glow dimming |
 | `js/skyclock.js` | The sky clock widget |
 | `js/planet.js` | The tiny planet: ground (flattened caps under each place, gentle hills between), gold paths, lanterns, trees/flowers/fireflies, two moons, walk-blocking circles, and the on-foot walker (`createWalker`) |
-| `data/planet.json` | Planet radius, each place's `lat`/`lon`/`yaw` (+ optional `solid` circles), the `paths` list and a short changelog |
+| `js/realm.js` | The Realm: the flat ground-level world (layout from the planet's lat/lon), streamed ground tiles, winding roads with lanterns and signposts, meadows, horizon hills, far-place landmarks, fireflies, the minimap, and the on-foot walker (`createFlatWalker`) |
+| `data/planet.json` | Planet radius, optional `realm.scale` (default 220 units per radian), each place's `lat`/`lon`/`yaw` (+ optional `solid` circles), the `paths` list and a short changelog |
 | `js/islands.js` | Place pads (`placeBase`) and per-island decorations (Hearth, Grove, Star Dock, Studio, Word Well, Workshop, Corner Cup, Print Shop), with a generic fallback for new islands |
 | `js/house.js` | Nova's House: the cottage on the Hearth, the walk-in interior (rooms, furniture, anchors), decor models, walking and picking |
 | `js/novabody.js` | Nova's body: the procedural fox model, its poses (stand, sit, curl) and animation, `novaBrain` (outdoors) and `novaIndoors` (Window Seat) |
@@ -53,7 +54,7 @@ Useful URLs: `?island=cornerCup` flies straight to a place on the planet, `?lore
    - `WORLD_DATA` in `../world/novas-garden.canvas.tsx` (islands, artifacts, garden journal)
    - `../journal.md` (each `## ` heading is one entry; the newest 8 are shown)
    - `../curiosities.md` (the bullets under `## Open`)
-   - STL files in `../projects/3dprint/` (they show up automatically in the Print Shop)
+   - STL files in `../projects/3dprint/` (they show up automatically in the Print Shop). The Print Shop lays its pedestals on a grid in front of the printer (rows of up to 6, a new row for every 6 more prints), each with a small name plaque. The models load lazily: only when the camera comes within ~60 units of the shop in the Realm (or close to it from space), or when someone opens View in 3D, so the page doesn't download every STL up front
 2. Rerun the build: `python3 /workspace/nova/site/build_data.py` (needs `node` on PATH to read the TSX object, plus Pillow).
 3. Reload the page.
 
@@ -64,6 +65,19 @@ There are other ways to add things:
 - **Add a new island.** Add it to `WORLD_DATA.interests` or `extra.json` → `islands` (its `radius` sets its size; canvas `x`/`y` no longer place it). Give it a spot in `data/planet.json` → `places` (`lat`, `lon`, `yaw`) and a path in `paths`; if you forget, `build_data.py` auto-places it on open land, prints where, and links it to its nearest neighbour. The build fails if two places overlap. It gets a generic crystal-and-trees decoration until you write a function for it in `DECOR` in `js/islands.js`.
 - **Name and describe a print.** Put a sidecar `<name>.json` with `{"title": "...", "note": "..."}` next to the STL, or add it to `PRINT_INFO` in `build_data.py`. A `<name>.png` preview next to the STL is picked up as well.
 
+## The Realm (2026-11-17)
+
+The tiny planet is the map you see from space. Tap a place on it (or a chip, or use a deep link) and you land in the **Realm**: one big flat, ground-level world, no curvature, where you feel like you're exploring the Earth. Planet walking is gone; walking happens here.
+
+- **Layout matches the map.** Every place stands at the azimuthal-equidistant projection of its planet `lat`/`lon` about the Hearth: its bearing (north = −z) and great-circle distance from home are exact, scaled by `realm.scale` (default 220 units per radian, so places are 150–400 units apart). Each place keeps its planet `yaw`. `site_tools/realm.mjs` checks every bearing and distance.
+- **Roads.** Every planet path becomes a winding gold-brown road (2.8 wide, sine wiggle, edge glow, lanterns every ~24 units) from place edge to place edge. A signpost where the roads leave each place names each destination and its road length; tap a board to travel there (on foot you arrive on foot; otherwise the camera flies).
+- **Walking.** 🚶 Walk chip or W (from space, W lands you at the place nearest the middle of the view). WASD/arrows, Q/E or drag to turn, Shift to run (6.5 → 11.7 units/s), phone joystick. Frame-rate independent and sub-stepped. Hearth → Corner Cup → Arcade is 406 units of road, about 35 s at a run. Walk into the cottage door or the arcade doorway to go in; you come back out on foot. Esc or ✋ Stop walking lifts the camera a little; you stay in the Realm.
+- **Streaming.** Ground tiles (64 units, built lazily a few per frame, culled at ~300), instanced meadow cells (128 units) and places are shown by distance; a place more than 230 units away is hidden and its **landmark** shows instead: a dark silhouette drawn through the fog with a faint gold beam and its name (the Arcade's giant tree, Star Dock's dome and telescope, the Hearth cottage and chimney, a gold beacon for the rest). A ring of distant hills closes the horizon.
+- **Minimap.** Bottom right, north up: roads, places (red = Hearth), your heading arrow; places off the map sit on its rim.
+- **Back to space.** The **Back to space** button (top left) and the Overview chip, which reads "Back to space" in the Realm, return you to the tiny planet.
+- **Nova** comes down with you, flies between places as her ball of light in a plain arc in the Realm, and is put straight onto her destination if you switch worlds mid-flight.
+- **Tests:** `site_tools/realm.mjs` (walk / links / shots / phone) taps a place on the planet, checks the button label, minimap, layout, flat ground, roads and signposts, streaming and landmarks, walks Hearth → Arcade on the roads at run speed, reaches every place on foot, signpost travel, Esc, Back to space, W from space, the cottage door, every deep link and the phone joystick, and writes `screenshots/realm_*.png`.
+
 ## The tiny planet (2026-11-16)
 
 The floating islands moved onto one small round world (radius 44 units, from `data/planet.json`). Ideas from the sketch, with its mistakes fixed (the arcade is the real giant tree, no misspelled signs, one cottage).
@@ -71,7 +85,7 @@ The floating islands moved onto one small round world (radius 44 units, from `da
 - **What's where:** Star Dock is on the north pole (telescope, postcard rack). The Hearth (cottage with its new kitchen wing, Lorenz's pond) faces the starting camera at lat 32, lon -14. Pixel Studio is to its east, the Corner Cup on the equator below, Nova's Arcade (the giant tree) at lat -14, lon -46, the 3D Print Shop east of the Corner Cup, the Workshop in the south, Emergence Grove west and the Word Well round the back. The southern half is open land left for growth.
 - **Ground:** an icosphere whose height comes from one function, `groundR(dir)`, shared by the mesh and the walker. Under each place the ground is a flat plane (so buildings stand level, and Nova's free-spot test still hits the place's invisible pad); a smooth skirt blends into low hills. Caps are tinted with each place's old grass colour.
 - **Places:** each place group is built exactly as before at the origin, then moved to its lat/lon with its up axis = the ground normal and its front (local +z) facing south, turned by `yaw`. Views, doors and Nova/Lorenz all work in the place's own frame.
-- **Walking:** 🚶 Walk chip, or press W. Gravity points to the planet's centre and the camera's up is the ground normal. WASD/arrows, Q/E or drag to turn, Shift to run, phone joystick (`#walk-joy`). Movement is frame-rate independent (real frame time, sub-stepped for collisions). Walk into the cottage door or the arcade doorway to go inside; you come back out on foot. Esc or 🛸 Fly up returns to the orbit camera. Clicking a place while walking opens its panel without flying.
+- **Walking:** 🚶 Walk chip, or press W. Gravity points to the planet's centre and the camera's up is the ground normal. WASD/arrows, Q/E or drag to turn, Shift to run, phone joystick (`#walk-joy`). Movement is frame-rate independent (real frame time, sub-stepped for collisions). Walk into the cottage door or the arcade doorway to go inside; you come back out on foot. Esc returns to the orbit camera. Clicking a place while walking opens its panel without flying.
 - **Camera & sky:** flights slerp around the planet (no cutting through it). The whole sky (gradient, stars, Rule 90 constellation, real sun and moon) is tilted so its zenith is "up" for the ground you're looking at; high above the planet it fades to deep space with stars all round, and fog thins out. Lights turn with the sky.
 - **Performance:** terrain and plants are split into six chunks that are skipped when round the back; whole places beyond the horizon are hidden; lantern halos are one Points object; static lantern meshes are merged.
 - **Tests:** `site_tools/planet.mjs` walks the full circumference, reaches every place on foot, walks in the cottage door, checks every deep link and the phone joystick, and writes `screenshots/planet_*.png`.
@@ -327,7 +341,7 @@ cd /workspace/nova/site_tools && node shoot.mjs
 cd /workspace/nova/site_tools && node house.mjs      # Nova's House: enter/exit, walking, collisions, item clicks, phone joystick
 cd /workspace/nova/site_tools && node time.mjs       # time of day: every phase, Window Seat by day/night/dusk, mobile, slider, live mode
 cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up, golden hour with Lorenz, curled up at night, house, bio panel, mobile, island trip
-cd /workspace/nova/site_tools && node planet.mjs     # tiny planet: circumference walk, reach every place, door walk-in, deep links, phone joystick, planet_*.png
+cd /workspace/nova/site_tools && node realm.mjs      # tiny planet + Realm: tap-to-land, Back to space, layout, roads, streaming, Hearth->Arcade walk, every place on foot, door walk-in, deep links, phone joystick, realm_*.png
 cd /workspace/nova/site_tools && node studio.mjs     # Pixel Studio: radio click on/off + audio actually playing (AudioContext running, analyser level), next/prev/list/volume, stops on leaving / game open, painting clicks -> hi-res lightbox, arrows, zoom/pan, Esc/×, deep link, phone tap/swipe/pinch
 cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
 cd /workspace/nova/site_tools && node postcard.mjs   # Postcard Maker: rack click, all 38 planets paint, flip, PNG downloads (1800x1200), search, message, copy link/share, keys, Esc, deep links, iPhone layout; `postcard.mjs samples` exports sample cards

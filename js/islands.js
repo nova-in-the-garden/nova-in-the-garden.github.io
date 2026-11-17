@@ -282,26 +282,31 @@ const DECOR = {
     const rows = rule90(8); const layer = mat(0xe8c15a, { metalness: .2, roughness: .5 }); const cube = new THREE.BoxGeometry(0.09, 0.09, 0.09);
     const built = new THREE.Group(); built.position.set(0, 0.58, 0); pr.add(built);
     rows.slice().reverse().forEach((row, li) => row.forEach((v, ci) => { if (v) { const c = mesh(cube, layer, (ci - 7) * 0.09, li * 0.09, 0, built); c.visible = false; c.userData.layer = li; } }));
-    const peds = [];
-    const n = Math.max(prints.length, 1);
+    const peds = [], loaders = [];
+    // pedestals on a grid in front of the printer: rows of up to 6, more rows as prints are added
+    const n = prints.length, cols = Math.min(6, Math.max(1, Math.ceil(n / Math.max(1, Math.ceil(n / 6))))), DX = 1.85, DZ = 2.1;
     prints.forEach((p, i) => {
-      const a = Math.PI * (0.15 + 0.7 * (n === 1 ? 0.5 : i / (n - 1)));
-      const ped = new THREE.Group(); ped.position.set(-Math.cos(a) * 3.8, 0, Math.sin(a) * 2.6 + 0.6); g.add(ped);
-      mesh(new THREE.CylinderGeometry(0.7, 0.85, 1.0, 10), mat(0x3a3f5c), 0, 0.5, 0, ped);
-      mesh(new THREE.TorusGeometry(0.72, 0.04, 4, 24), glow(0xe8c15a, 1), 0, 1.0, 0, ped).rotation.x = Math.PI / 2;
-      const holder = new THREE.Group(); holder.position.y = 1.05; ped.add(holder);
-      const lbl = textSprite(p.name, { size: 0.42 }); lbl.position.y = 3.3; ped.add(lbl);
-      ctx.loadSTL(p.stl).then(geo => {
+      const row = Math.floor(i / cols), inRow = Math.min(cols, n - row * cols), col = i % cols;
+      const ped = new THREE.Group(); ped.position.set((col - (inRow - 1) / 2) * DX, 0, 0.5 + row * DZ); g.add(ped);
+      mesh(new THREE.CylinderGeometry(0.55, 0.66, 0.9, 10), mat(0x3a3f5c), 0, 0.45, 0, ped);
+      mesh(new THREE.TorusGeometry(0.56, 0.035, 4, 24), glow(0xe8c15a, 1), 0, 0.9, 0, ped).rotation.x = Math.PI / 2;
+      const holder = new THREE.Group(); holder.position.y = 0.95; ped.add(holder);
+      const lbl = textSprite(p.name, { size: 0.19 }); lbl.position.set(0, 0.5, 0.78); ped.add(lbl);   // a small plaque on the pedestal's front
+      // the model itself loads only when someone comes near the shop (see ctx.lazyPrints in main.js)
+      loaders.push(() => ctx.loadSTL(p.stl).then(geo => {
         const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: /duck|lorenz/i.test(p.stl) ? 0xf8e27a : 0xe8c15a, roughness: .45, metalness: .15 }));
         geo.computeBoundingBox(); const bb = geo.boundingBox, sz = new THREE.Vector3(); bb.getSize(sz);
-        const s = 1.8 / Math.max(sz.x, sz.y, sz.z); m.scale.setScalar(s);
+        const s = 1.25 / Math.max(sz.x, sz.y, sz.z); m.scale.setScalar(s);
         const c = new THREE.Vector3(); bb.getCenter(c);
         // STL files are Z-up; stand them upright in three's Y-up world
         m.rotation.x = -Math.PI / 2; m.position.set(-c.x * s, -bb.min.z * s, c.y * s);
+        m.userData.islandId = isl.id; ctx.pickables?.push(m);
         const spin = new THREE.Group(); spin.add(m); holder.add(spin); peds.push(spin);
-      }).catch(e => console.warn('STL not loaded', p.stl, e));
+      }).catch(e => console.warn('STL not loaded', p.stl, e)));
       p._pedestal = ped;
     });
+    let loaded = false;
+    ctx.lazyPrints = { group: g, get loaded() { return loaded; }, load() { if (loaded) return; loaded = true; loaders.forEach(f => f()); } };
     if (!prints.length) { const s = textSprite('Prints coming soon', { size: 0.4 }); s.position.set(0, 1.5, 1.5); g.add(s); }
     return t => { peds.forEach((s, i) => s.rotation.y = t * 0.5 + i); const k = (t * 0.6) % 10; noz.position.x = Math.sin(t * 5) * 0.5; noz.position.y = 0.75 + Math.min(k, 8) * 0.09; built.children.forEach(c => c.visible = c.userData.layer <= k); };
   },

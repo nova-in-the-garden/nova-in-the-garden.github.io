@@ -19,6 +19,7 @@
     ["emergence", "arcade"]
   ],
   "changelog": [
+    { "date": "2026-11-17", "text": "The tiny planet is now the map you see from space. Tap a place and you land in the Realm: one big flat ground-level world where every place stands where the map puts it, joined by winding gold roads with signposts. Walk from place to place (Hearth to Arcade is about half a minute at a run), watch far places on the horizon, and press Back to space to return to the planet." },
     { "date": "2026-11-16", "text": "The floating islands moved onto one tiny round planet you can walk all the way around. Star Dock sits on the north pole, gold paths join every place, and the southern half is open land for whatever comes next." }
   ]
 }

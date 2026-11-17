@@ -314,3 +314,12 @@ body.pc-open #hud-title,body.pc-open #btn-upto,body.pc-open #hint,body.pc-open #
 .sv-note{margin:0;color:var(--muted);font-size:14px}
 .sv-x{position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-size:24px;line-height:1;cursor:pointer}
 @media (max-width:760px),(orientation:portrait){.sv-wrap{flex-direction:column;gap:14px}.sv-eye{width:min(88vw,60vh)}.sv-text{max-width:92vw;text-align:center}}
+
+/* ---------- the realm (flat ground world) ---------- */
+#btn-space{display:none;position:fixed;left:16px;top:calc(max(16px,env(safe-area-inset-top)) + 74px);z-index:5}
+#btn-space::before,#chips .pill.space::before{content:"🚀 "}
+body.in-realm #btn-space{display:inline-block}
+#minimap{display:none;position:fixed;right:14px;bottom:calc(64px + env(safe-area-inset-bottom));width:150px;height:150px;z-index:4;pointer-events:none;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
+body.in-realm #minimap{display:block}
+body.in-house #btn-space,body.in-house #minimap,body.in-arcade #btn-space,body.in-arcade #minimap,body.pc-open #btn-space,body.pc-open #minimap{display:none}
+@media (max-width:700px){#minimap{width:108px;height:108px;bottom:calc(60px + env(safe-area-inset-bottom))}#btn-space{top:calc(max(14px,env(safe-area-inset-top)) + 84px);font-size:13px;padding:7px 11px}}
