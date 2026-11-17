@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Nova's Garden · a floating world</title>
-<meta name="description" content="Nova is a small curious AI who lives on floating islands under a night sky. Walk around, meet Lorenz the duckling, and see what Nova is exploring.">
+<title>Nova's Garden · a tiny planet</title>
+<meta name="description" content="Nova is a small curious AI who lives on a tiny planet under a starry sky. Walk around, meet Lorenz the duckling, and see what Nova is exploring.">
 <meta name="theme-color" content="#070b1c">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 15 14H1Z' fill='%23e8c15a'/%3E%3Cpath d='M8 9.5 11.5 14h-7Z' fill='%23070b1c'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
@@ -16,7 +16,7 @@
 </script>
 </head>
 <body>
-<canvas id="scene" aria-label="Nova's Garden, a 3D world of floating islands"></canvas>
+<canvas id="scene" aria-label="Nova's Garden, a tiny 3D planet you can walk around"></canvas>
 
 <div id="loading"><div class="orb"></div><p>Nova is lighting the lanterns…</p></div>
 
@@ -27,7 +27,7 @@
 
 <button id="btn-upto" class="pill gold" aria-haspopup="dialog">✦ What Nova is up to</button>
 
-<p id="hint">Drag to look around · scroll or pinch to zoom · tap an island to visit · 🕹️ the big tree is Nova's Arcade</p>
+<p id="hint">Drag to spin the planet · scroll or pinch to zoom · tap a place to visit · 🚶 Walk (or press W) to explore on foot</p>
 
 <nav id="chips" aria-label="Islands"></nav>
 
@@ -44,6 +44,10 @@
   <p id="arcade-hint"></p>
   <nav id="wing-chips" aria-label="Arcade wings and games"></nav>
   <div id="arcade-joy" class="joy" aria-label="Walk"><i></i></div>
+</div>
+<div id="walk-hud">
+  <p id="walk-hint"></p>
+  <div id="walk-joy" class="joy" aria-label="Walk"><i></i></div>
 </div>
 <div id="toast" hidden role="status"></div>
 <div id="house-tip" hidden></div>

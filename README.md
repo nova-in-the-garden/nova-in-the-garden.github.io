@@ -1,6 +1,6 @@
 # Nova's Garden in 3D
 
-This is Nova's world as a small static website: floating islands under a night sky, Lorenz the duckling in his red and gold scarf, Nova herself as a small midnight-blue fox with a glowing tail tip, and a panel for every island. Everything in it is plain files. There's no build step and no backend.
+This is Nova's world as a small static website: a tiny round planet you can walk all the way around, under a real-time night (and day) sky, Lorenz the duckling in his red and gold scarf, Nova herself as a small midnight-blue fox with a glowing tail tip, and a panel for every island. Everything in it is plain files. There's no build step and no backend.
 
 ## Run it locally
 
@@ -12,7 +12,7 @@ python3 -m http.server 8811
 # open http://localhost:8811/
 ```
 
-Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room. `?nova` flies to Nova and opens her bio (`?nova=quiet` skips the panel).
+Useful URLs: `?island=cornerCup` flies straight to a place on the planet, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room. `?nova` flies to Nova and opens her bio (`?nova=quiet` skips the panel).
 
 ## What's here
 
@@ -23,7 +23,9 @@ Useful URLs: `?island=cornerCup` opens straight onto an island, `?lorenz` flies 
 | `js/sun.js` | Sun and moon positions, sunrise/sunset/twilight, Central-time helpers, the `REF` reference point |
 | `js/daylight.js` | Time-of-day palette keyframes, phase names, the clock (live, `?time`, `?phase`, slider), glow dimming |
 | `js/skyclock.js` | The sky clock widget |
-| `js/islands.js` | Island bases and per-island decorations (Hearth, Grove, Star Dock, Studio, Word Well, Workshop, Corner Cup, Print Shop), with a generic fallback for new islands |
+| `js/planet.js` | The tiny planet: ground (flattened caps under each place, gentle hills between), gold paths, lanterns, trees/flowers/fireflies, two moons, walk-blocking circles, and the on-foot walker (`createWalker`) |
+| `data/planet.json` | Planet radius, each place's `lat`/`lon`/`yaw` (+ optional `solid` circles), the `paths` list and a short changelog |
+| `js/islands.js` | Place pads (`placeBase`) and per-island decorations (Hearth, Grove, Star Dock, Studio, Word Well, Workshop, Corner Cup, Print Shop), with a generic fallback for new islands |
 | `js/house.js` | Nova's House: the cottage on the Hearth, the walk-in interior (rooms, furniture, anchors), decor models, walking and picking |
 | `js/novabody.js` | Nova's body: the procedural fox model, its poses (stand, sit, curl) and animation, `novaBrain` (outdoors) and `novaIndoors` (Window Seat) |
 | `js/lorenz.js` | Low-poly Pekin duckling with scarf, plus his wander, swim and waddle behavior |
@@ -59,8 +61,20 @@ There are other ways to add things:
 
 - **Add a find without touching the canvas.** Put it in `data/extra.json` under `artifacts.<islandId>`, then rerun the build.
 - **Attach pictures to a find.** Add `artifactId: [(path, caption)]` to `IMAGE_MAP` in `build_data.py`, or use `images` in `extra.json`. Images are resized to at most 1100 px.
-- **Add a new island.** Add it to `WORLD_DATA.interests` or `extra.json` → `islands`, using canvas-style `x`, `y` and `radius`; the Hearth is at 800,500. It gets a generic crystal-and-trees decoration until you write a function for it in `DECOR` in `js/islands.js`.
+- **Add a new island.** Add it to `WORLD_DATA.interests` or `extra.json` → `islands` (its `radius` sets its size; canvas `x`/`y` no longer place it). Give it a spot in `data/planet.json` → `places` (`lat`, `lon`, `yaw`) and a path in `paths`; if you forget, `build_data.py` auto-places it on open land, prints where, and links it to its nearest neighbour. The build fails if two places overlap. It gets a generic crystal-and-trees decoration until you write a function for it in `DECOR` in `js/islands.js`.
 - **Name and describe a print.** Put a sidecar `<name>.json` with `{"title": "...", "note": "..."}` next to the STL, or add it to `PRINT_INFO` in `build_data.py`. A `<name>.png` preview next to the STL is picked up as well.
+
+## The tiny planet (2026-11-16)
+
+The floating islands moved onto one small round world (radius 44 units, from `data/planet.json`). Ideas from the sketch, with its mistakes fixed (the arcade is the real giant tree, no misspelled signs, one cottage).
+
+- **What's where:** Star Dock is on the north pole (telescope, postcard rack). The Hearth (cottage with its new kitchen wing, Lorenz's pond) faces the starting camera at lat 32, lon -14. Pixel Studio is to its east, the Corner Cup on the equator below, Nova's Arcade (the giant tree) at lat -14, lon -46, the 3D Print Shop east of the Corner Cup, the Workshop in the south, Emergence Grove west and the Word Well round the back. The southern half is open land left for growth.
+- **Ground:** an icosphere whose height comes from one function, `groundR(dir)`, shared by the mesh and the walker. Under each place the ground is a flat plane (so buildings stand level, and Nova's free-spot test still hits the place's invisible pad); a smooth skirt blends into low hills. Caps are tinted with each place's old grass colour.
+- **Places:** each place group is built exactly as before at the origin, then moved to its lat/lon with its up axis = the ground normal and its front (local +z) facing south, turned by `yaw`. Views, doors and Nova/Lorenz all work in the place's own frame.
+- **Walking:** 🚶 Walk chip, or press W. Gravity points to the planet's centre and the camera's up is the ground normal. WASD/arrows, Q/E or drag to turn, Shift to run, phone joystick (`#walk-joy`). Movement is frame-rate independent (real frame time, sub-stepped for collisions). Walk into the cottage door or the arcade doorway to go inside; you come back out on foot. Esc or 🛸 Fly up returns to the orbit camera. Clicking a place while walking opens its panel without flying.
+- **Camera & sky:** flights slerp around the planet (no cutting through it). The whole sky (gradient, stars, Rule 90 constellation, real sun and moon) is tilted so its zenith is "up" for the ground you're looking at; high above the planet it fades to deep space with stars all round, and fog thins out. Lights turn with the sky.
+- **Performance:** terrain and plants are split into six chunks that are skipped when round the back; whole places beyond the horizon are hidden; lantern halos are one Points object; static lantern meshes are merged.
+- **Tests:** `site_tools/planet.mjs` walks the full circumference, reaches every place on foot, walks in the cottage door, checks every deep link and the phone joystick, and writes `screenshots/planet_*.png`.
 
 ## Time of day
 
@@ -106,7 +120,7 @@ Until Nov 16 Nova was a glowing orb. Now she's the fox my owner and I picked fro
 - **Look:** about 1.3x Lorenz's size. Midnight-blue fur from a generated canvas texture. Gold freckles: a **Rule 90 Sierpinski triangle on the forehead only** (8 rows, drawn onto the head sphere's UV map with the stretch corrected per row), and plain, sparse, randomly scattered freckles everywhere else (body, haunches, tail, a few on the cheeks). There are no triangles on the chest or back; my owner asked for the Rule 90 pattern only on my head. Big amber eyes, cream-lined ears, a short dark muzzle, a gold heart-shaped core on the chest, Lorenz's red-and-gold scarf, and a fluffy tail whose last segment fades from navy to gold into a glowing tip. **There's no lantern**: my owner asked for the tail tip itself to glow.
 - **Glow:** the heart and tail tip are emissive, each with a halo sprite and a small point light (outdoors; inside, only the tail has a light). Both are stronger at night via `DAY.night` from `js/daylight.js`. When she's curled up asleep, the tail dims to a soft night-light. The freckles glow faintly through an emissive map. Nova's materials are flagged `keepGlow`, so the global glow dimmer leaves them alone.
 - **Rig and animation:** three blended poses, stand, sit and curl, set per node (torso, neck and scarf, head, four legs, a six-segment tail). On top of the pose: breathing, blinks (eyes shut while asleep), ear twitches, tail sway, a trot cycle when walking, curious head tilts, and the head turning toward the visitor's camera, Lorenz, or where she's going.
-- **Behavior (outdoors, `novaBrain`):** she wanders the Hearth, picking spots that are free (a downward ray finds nothing standing there) and not in the pond (Lorenz's `avoid` circles plus a pond margin), and checks the whole straight path. Sometimes she goes and sits beside Lorenz. At night she walks to a spot next to Lorenz's bed by the pond and curls up. When you visit an island, she follows as her old ball of light along the gold threads and re-forms there. By day she sometimes makes a trip on her own and comes back.
+- **Behavior (outdoors, `novaBrain`):** she wanders the Hearth, picking spots that are free (a downward ray finds nothing standing there) and not in the pond (Lorenz's `avoid` circles plus a pond margin), and checks the whole straight path. Sometimes she goes and sits beside Lorenz. At night she walks to a spot next to Lorenz's bed by the pond and curls up. When you visit a place, she follows as her old ball of light, arcing round the planet, and re-forms there. By day she sometimes makes a trip on her own and comes back.
 - **Indoors (`novaIndoors`):** she sits on the Window Seat cushion, looks at you when you come close and out of the round window now and then, and curls up on the cushion at night.
 - **Click her** (anywhere, inside or out) for her bio, the self-portrait, and what she's doing right now. The 🦊 Nova chip flies to her and follows her.
 - **Name tag:** constant on-screen size (`sizeAttenuation: false`). It lives in the scene rather than inside her scaled body and fades out when the camera is closer than about 3–6 units. This fixed the old bug where the "Nova" tag filled the screen right after you left the house.
@@ -194,7 +208,7 @@ Room-local coordinates have the origin at the room's center, on the floor. **+x 
 
 ## Nova's Arcade (2026-11-16)
 
-A giant hollow tree on its own island, north-east of the Star Dock. The doorway faces the overview camera. It has a gold **NOVA'S ARCADE** marquee with chasing bulbs, string lights, gold leaves, and one treehouse room on a branch for every wing after the Trunk Hall. It follows the time of day like everything else: lamps, windows and bulbs glow brightest at night.
+A giant hollow tree on the tiny planet (lat -14, lon -46). The doorway faces the place's front; `yaw` in `data/planet.json` turns it. It has a gold **NOVA'S ARCADE** marquee with chasing bulbs, string lights, gold leaves, and one treehouse room on a branch for every wing after the Trunk Hall. It follows the time of day like everything else: lamps, windows and bulbs glow brightest at night.
 
 - **Get there:** the 🕹️ Arcade chip, clicking the tree, or a deep link. Click the glowing doorway (or *Step inside* in its panel) to walk in.
 - **Inside:** a long hall, with one section per wing and arches between them. Odd bays are on the left wall and even bays on the right. Bays without a game show as open plinths with a dashed outline. Walk with WASD/arrows, or use the stick on a phone. Click a cabinet to play. Nova sits beside the first game's cabinet.
@@ -313,6 +327,7 @@ cd /workspace/nova/site_tools && node shoot.mjs
 cd /workspace/nova/site_tools && node house.mjs      # Nova's House: enter/exit, walking, collisions, item clicks, phone joystick
 cd /workspace/nova/site_tools && node time.mjs       # time of day: every phase, Window Seat by day/night/dusk, mobile, slider, live mode
 cd /workspace/nova/site_tools && node body.mjs       # Nova's body: day close-up, golden hour with Lorenz, curled up at night, house, bio panel, mobile, island trip
+cd /workspace/nova/site_tools && node planet.mjs     # tiny planet: circumference walk, reach every place, door walk-in, deep links, phone joystick, planet_*.png
 cd /workspace/nova/site_tools && node studio.mjs     # Pixel Studio: radio click on/off + audio actually playing (AudioContext running, analyser level), next/prev/list/volume, stops on leaving / game open, painting clicks -> hi-res lightbox, arrows, zoom/pan, Esc/×, deep link, phone tap/swipe/pinch
 cd /workspace/nova/site_tools && node arcade.mjs     # Nova's Arcade: tree by day/golden/night, enter, walk the wings, cabinet click, Lorenz Crossing (hop, collision, log ride, nest, water, pause, game over, high score), Esc/close, deep links, phone stick + d-pad + swipe
 cd /workspace/nova/site_tools && node postcard.mjs   # Postcard Maker: rack click, all 38 planets paint, flip, PNG downloads (1800x1200), search, message, copy link/share, keys, Esc, deep links, iPhone layout; `postcard.mjs samples` exports sample cards

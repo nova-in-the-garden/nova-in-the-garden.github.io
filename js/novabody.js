@@ -343,7 +343,7 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
       if (Math.hypot(x - pond.x, z - pond.z) < pond.r + 0.55) return false;
     }
     I.group.updateMatrixWorld();
-    o.set(x, 8, z); I.group.localToWorld(o); ray.set(o, down); ray.far = 12;
+    o.set(x, 8, z); I.group.localToWorld(o); down.set(0, -1, 0).transformDirection(I.group.matrixWorld); ray.set(o, down); ray.far = 12;   // "down" is the island's own -y (on the planet it points at the centre)
     const h = ray.intersectObjects(meshesOf(I.group), false)[0];
     if (!h) return false;
     q.copy(h.point); I.group.worldToLocal(q);
@@ -419,7 +419,7 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
     nova.setPose(moving ? 'stand' : mode === 'sleep' ? 'curl' : 'sit');
     // what she looks at
     let look = null;
-    const lw = lorenz.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.6, 0));
+    const lw = lorenz.localToWorld(new THREE.Vector3(0, 0.6 / (lorenz.scale.y || 1), 0));
     const me = root.getWorldPosition(new THREE.Vector3());
     if (camera && camera.position.distanceTo(me) < 9 && !moving) look = camera.position.clone();
     else if (isl === hearth && lw.distanceTo(me) < 5) look = lw;
@@ -439,15 +439,18 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
         T.spot = pickSpot(T.dest, null, 40) || new THREE.Vector3(0, 0, 1.5);
         scene.attach(root); T.phase = 'fly'; T.t = 0; nova.rig.visible = false;
         T.p0 = root.position.clone();
-        T.flyDur = THREE.MathUtils.clamp(T.p0.distanceTo(T.dest.group.position) / 16, 1.4, 4);
+        T.flyDur = THREE.MathUtils.clamp(T.p0.distanceTo(T.dest.group.position) / 16, 1.4, 5);
       }
       return { moving: false };
     }
     if (T.phase === 'fly') {
       const k = Math.min(1, T.t / T.flyDur), e = k * k * (3 - 2 * k);
       const p1 = T.dest.group.localToWorld(T.spot.clone()).multiplyScalar(1);
-      const mid = T.p0.clone().add(p1).multiplyScalar(0.5); mid.y += 6;
-      const a = T.p0.clone().lerp(mid, e), b = mid.clone().lerp(p1, e); root.position.copy(a.lerp(b, e));
+      // arc around the planet: blend direction about the centre, lift in the middle
+      const l0 = T.p0.length(), l1 = p1.length(), q = new THREE.Quaternion().setFromUnitVectors(T.p0.clone().divideScalar(l0), p1.clone().divideScalar(l1));
+      const dir = T.p0.clone().divideScalar(l0).applyQuaternion(new THREE.Quaternion().slerp(q, e));
+      root.position.copy(dir).multiplyScalar(l0 + (l1 - l0) * e + Math.sin(Math.PI * e) * (4 + 0.12 * T.p0.distanceTo(p1)));
+      root.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
       nova.orb.position.set(0, 0.6 + Math.sin(T.t * 6) * 0.05, 0);
       nova.update(t, dt, {});
       if (k >= 1) {

@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-16T19:27-06:00",
+ "generated": "2026-11-17T14:03-06:00",
  "title": "Nova's Garden",
  "planted": "2026-11-10",
  "motto": "Simple on the surface, surprising underneath.",
@@ -1481,6 +1481,123 @@
    }
   ],
   "problems": []
+ },
+ "planet": {
+  "radius": 44,
+  "places": {
+   "starDock": {
+    "lat": 90,
+    "lon": 0,
+    "yaw": 0
+   },
+   "hearth": {
+    "lat": 32,
+    "lon": -14,
+    "yaw": 0
+   },
+   "pixelStudio": {
+    "lat": 30,
+    "lon": 46,
+    "yaw": 0
+   },
+   "cornerCup": {
+    "lat": 2,
+    "lon": 16,
+    "yaw": 0
+   },
+   "arcade": {
+    "lat": -14,
+    "lon": -46,
+    "yaw": 20,
+    "solid": [
+     [
+      0,
+      0,
+      4.4
+     ]
+    ]
+   },
+   "printShop": {
+    "lat": -12,
+    "lon": 70,
+    "yaw": 0
+   },
+   "workshop": {
+    "lat": -42,
+    "lon": 18,
+    "yaw": 0
+   },
+   "emergence": {
+    "lat": 22,
+    "lon": -100,
+    "yaw": 0
+   },
+   "wordWell": {
+    "lat": 42,
+    "lon": 155,
+    "yaw": 180
+   }
+  },
+  "paths": [
+   [
+    "hearth",
+    "starDock"
+   ],
+   [
+    "hearth",
+    "cornerCup"
+   ],
+   [
+    "hearth",
+    "pixelStudio"
+   ],
+   [
+    "hearth",
+    "emergence"
+   ],
+   [
+    "cornerCup",
+    "arcade"
+   ],
+   [
+    "cornerCup",
+    "printShop"
+   ],
+   [
+    "pixelStudio",
+    "printShop"
+   ],
+   [
+    "pixelStudio",
+    "starDock"
+   ],
+   [
+    "arcade",
+    "workshop"
+   ],
+   [
+    "workshop",
+    "printShop"
+   ],
+   [
+    "starDock",
+    "wordWell"
+   ],
+   [
+    "wordWell",
+    "emergence"
+   ],
+   [
+    "emergence",
+    "arcade"
+   ]
+  ],
+  "changelog": [
+   {
+    "date": "2026-11-16",
+    "text": "The floating islands moved onto one tiny round planet you can walk all the way around. Star Dock sits on the north pole, gold paths join every place, and the southern half is open land for whatever comes next."
+   }
+  ]
  },
  "studio": {
   "paintings": [

@@ -567,6 +567,75 @@ def check_postcards() -> list[str]:
     return probs
 
 
+PLANET = SITE / "data" / "planet.json"
+
+
+def _place_r(radius):
+    """world-unit radius of a place (same formula as js/main.js)"""
+    return max(6.5, (radius or 80) / 9 * 1.15)
+
+
+def build_planet(islands):
+    """data/planet.json -> world.planet. Every island (and the arcade) gets a lat/lon;
+    missing ones are auto-placed on open land, overlaps are reported."""
+    import math
+    if not PLANET.exists():
+        return None, False
+    cfg = json.loads(PLANET.read_text())
+    R = float(cfg.get("radius", 44))
+    places = cfg.setdefault("places", {})
+    radii = {i["id"]: _place_r(i.get("radius")) for i in islands}
+    arc = SITE / "data" / "arcade.json"
+    if arc.exists():
+        a = json.loads(arc.read_text())
+        if a.get("wings"):
+            radii["arcade"] = _place_r((a.get("island") or {}).get("radius", 120))
+
+    def vec(lat, lon):
+        la, lo = math.radians(lat), math.radians(lon)
+        return (math.cos(la) * math.sin(lo), math.sin(la), math.cos(la) * math.cos(lo))
+
+    def ang(a, b):
+        va, vb = vec(a["lat"], a["lon"]), vec(b["lat"], b["lon"])
+        return math.acos(max(-1.0, min(1.0, sum(x * y for x, y in zip(va, vb)))))
+
+    bad = False
+    for pid in list(places):
+        if pid not in radii:
+            log(f"planet.json: place '{pid}' has no island (kept, unused)")
+    for pid, r in radii.items():
+        if pid in places:
+            continue
+        best = None
+        for lat in range(-70, 71, 4):
+            for lon in range(-180, 180, 6):
+                cand = {"lat": lat, "lon": lon}
+                gap = min((ang(cand, places[o]) * R - (r + radii[o]) * 1.25 for o in places if o in radii), default=99)
+                score = gap - (0.02 * lat if lat > 0 else 0)   # prefer the open south
+                if gap > 0 and (best is None or score > best[0]):
+                    best = (score, cand)
+        if best:
+            places[pid] = {**best[1], "yaw": 0, "auto": True}
+            log(f"planet: auto-placed new island '{pid}' at lat {best[1]['lat']}, lon {best[1]['lon']} (add it to data/planet.json to choose)")
+            near = min((o for o in places if o != pid and o in radii), key=lambda o: ang(places[pid], places[o]))
+            cfg.setdefault("paths", []).append([pid, near])
+        else:
+            log(f"planet: no room left for '{pid}' - grow the radius in data/planet.json"); bad = True
+    ids = [p for p in places if p in radii]
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            a, b = ids[i], ids[j]
+            if ang(places[a], places[b]) * R < (radii[a] + radii[b]) * 1.1:
+                log(f"planet: '{a}' and '{b}' overlap"); bad = True
+    for e in cfg.get("paths", []):
+        if any(x not in places for x in e):
+            log(f"planet: path {e} names an unknown place"); bad = True
+    cfg.pop("_help", None)
+    for v in places.values():
+        v.pop("note", None)
+    return cfg, bad
+
+
 def main():
     IMG_DIR.mkdir(parents=True, exist_ok=True)
     wd = load_world_data()
@@ -627,6 +696,8 @@ def main():
         "house": build_house(),
     }
     studio, sp = build_studio(); radio, rp = build_radio()
+    planet, pbad = build_planet(islands)
+    if planet: world["planet"] = planet
     if studio: world["studio"] = studio
     if radio: world["radio"] = radio
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -639,6 +710,8 @@ def main():
         sys.exit("data/arcade.json has problems (see above); fix them before publishing")
     if sp or rp:
         sys.exit("data/studio.json / data/radio.json have problems (see above); fix them before publishing")
+    if pbad:
+        sys.exit("data/planet.json has problems (see above)")
     if check_postcards():
         sys.exit("data/postcards.json has problems (see above); re-run fetch_postcards.py")
 

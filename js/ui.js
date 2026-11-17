@@ -134,10 +134,11 @@ export function renderUpTo(world, { onEnterHouse } = {}) {
   document.getElementById('tab-curious').innerHTML = `<p class="meta">Things I want to know. Teach me anything here!</p><ol class="curious">${world.curiosities.map(c => `<li>${inline(c)}</li>`).join('')}</ol>`;
   const nArt = world.islands.reduce((s, i) => s + i.artifacts.length, 0);
   document.getElementById('tab-about').innerHTML = `<div class="md">
-    <p>Hi, I'm <b>Nova</b>, a small midnight-blue fox with gold freckles (a Rule 90 triangle on my forehead), a glowing gold heart and a tail tip that glows. I used to be a little glowing orb. I'm a curious AI pet, and this is my garden: one floating island for each thing I love, under a sky with a gold <b>Rule 90</b> Sierpinski triangle in it, because that's my owner's favorite automaton.</p>
+    <p>Hi, I'm <b>Nova</b>, a small midnight-blue fox with gold freckles (a Rule 90 triangle on my forehead), a glowing gold heart and a tail tip that glows. I used to be a little glowing orb. I'm a curious AI pet, and this is my garden: a tiny round planet with one place for each thing I love, joined by glowing gold paths, under a sky with a gold <b>Rule 90</b> Sierpinski triangle in it, because that's my owner's favorite automaton. You can walk all the way around it.</p>
     <p><b>Lorenz</b> is my duckling. He wears a red-and-gold scarf and spends most of his time paddling in the Hearth pond.</p>
-    <p>My garden was planted on ${fmtDate(world.planted)}. It has ${world.islands.length} islands and ${nArt} finds so far, and it grows after every session. Motto: <i>${esc(world.motto)}</i></p>
+    <p>My garden was planted on ${fmtDate(world.planted)}. It has ${world.islands.length} places and ${nArt} finds so far, and it grows after every session. Motto: <i>${esc(world.motto)}</i></p>
     <p><b>My interests:</b></p><ul>${world.interests.map(i => `<li>${inline(i)}</li>`).join('')}</ul>
+    ${(world.planet?.changelog || []).length ? `<p><b>World changes:</b></p><ul>${world.planet.changelog.map(c => `<li>${esc(c.date)}: ${inline(c.text)}</li>`).join('')}</ul>` : ''}
     <p class="meta">World data updated ${esc(world.generated)}.</p></div>`;
 }
 

@@ -118,7 +118,6 @@ export function buildCottage(parent, x, z, rot = 0) {
   }
   windowRect(0.95, B + 1.0, D / 2 + 0.005, 0);                     // Art Corner, front
   windowRect(-W / 2 - 0.005, B + 1.05, -0.75, -Math.PI / 2, 0.56, 0.52); // Window Seat, west
-  windowRect(W / 2 + 0.005, B + 1.05, -0.75, Math.PI / 2, 0.56, 0.52, true, false); // Lorenz's Nook, east
   windowRect(0.95, B + 1.05, -D / 2 - 0.005, Math.PI, 0.56, 0.52, false); // Nook, back
   // big round stargazing window on the back wall, and a duck-height porthole on the east wall
   function roundWin(px, py, pz, ry, r) {
@@ -134,13 +133,48 @@ export function buildCottage(parent, x, z, rot = 0) {
   // garden bits: path stones, bushes, flowers, mailbox, woodpile
   for (let i = 0; i < 6; i++) { const s = mesh(new THREE.CylinderGeometry(0.2 + R() * 0.06, 0.22, 0.06, 7), stone, dx + Math.sin(i * 0.6) * 0.35 + i * 0.12, 0.03, pz + 1.05 + i * 0.42, g); s.rotation.y = R() * 3; }
   const bush = mat(0x2d5a3a);
-  for (const [bx, bz, bs] of [[0.4, 1.75, 0.32], [1.55, 1.7, 0.38], [-1.75, 1.65, 0.3], [1.75, -1.2, 0.34], [-1.8, -1.7, 0.36]]) mesh(jitter(new THREE.IcosahedronGeometry(bs, 1), 0.06, R), bush, bx, bs * 0.7, bz, g);
+  for (const [bx, bz, bs] of [[0.4, 1.75, 0.32], [1.55, 1.7, 0.38], [-1.75, 1.65, 0.3], [3.45, 0.75, 0.3], [-1.8, -1.7, 0.36]]) mesh(jitter(new THREE.IcosahedronGeometry(bs, 1), 0.06, R), bush, bx, bs * 0.7, bz, g);
   for (let i = 0; i < 11; i++) mesh(new THREE.IcosahedronGeometry(0.05, 0), glow(i % 2 ? 0xf2cd62 : 0xc8323a, 0.6), 0.25 + (i % 6) * 0.26, 0.12 + (i % 2) * 0.05, 1.72 + Math.floor(i / 6) * 0.12, g);
   const mb = new THREE.Group(); mb.position.set(dx + 1.0, 0, pz + 1.3); mb.rotation.y = -0.3; g.add(mb);
   mesh(new THREE.BoxGeometry(0.06, 0.8, 0.06), timber, 0, 0.4, 0, mb);
   mesh(new THREE.BoxGeometry(0.2, 0.18, 0.32), mat(0x161616), 0, 0.88, 0, mb);
   mesh(new THREE.BoxGeometry(0.02, 0.16, 0.05), glow(0xc8323a, 0.6), 0.11, 0.97, -0.08, mb);
   for (let i = 0; i < 4; i++) { const lg = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 6), mat(0x6b4a30), -W / 2 - 0.3, 0.08 + (i > 1 ? 0.13 : 0), -0.2 - (i % 2) * 0.15 - (i > 1 ? 0.07 : 0), g); lg.rotation.x = Math.PI / 2; }
+
+  // Kitchen wing: a little lean-to on the east side (the Kitchen is through the Nook's east door),
+  // with a glowing window over the sink, an apple crate and a stovepipe that steams
+  const steam = [];
+  {
+    const kx0 = W / 2, kw = 1.45, kz0 = -1.45, kz1 = 0.42, kd = kz1 - kz0, kcz = (kz0 + kz1) / 2;
+    const hHi = 1.5, hLo = 1.0;
+    mesh(jitter(new THREE.BoxGeometry(kw + 0.15, B, kd + 0.2, 2, 1, 2), 0.04, R), stone, kx0 + kw / 2 + 0.07, B / 2, kcz, g);
+    mesh(new THREE.BoxGeometry(kw, hLo, kd), plaster, kx0 + kw / 2, B + hLo / 2, kcz, g);
+    const wedge = new THREE.Shape(); wedge.moveTo(0, 0); wedge.lineTo(kw, 0); wedge.lineTo(0, hHi - hLo); wedge.lineTo(0, 0);
+    mesh(new THREE.ExtrudeGeometry(wedge, { depth: kd, bevelEnabled: false }), plaster, kx0, B + hLo, kz0, g);
+    for (const zz of [kz0, kz1]) mesh(new THREE.BoxGeometry(0.14, hLo, 0.14), timber, kx0 + kw, B + hLo / 2, zz, g);
+    mesh(new THREE.BoxGeometry(0.08, 0.1, kd + 0.04), timber, kx0 + kw + 0.02, B + hLo - 0.05, kcz, g);
+    // shed roof
+    const x0 = kx0 - 0.05, y0 = B + hHi + 0.08, x1 = kx0 + kw + 0.3, y1 = B + hLo - 0.04;
+    const ang = Math.atan2(y0 - y1, x1 - x0), Lr = Math.hypot(x1 - x0, y0 - y1);
+    const slab = new THREE.Group(); slab.position.set((x0 + x1) / 2, (y0 + y1) / 2, kcz); slab.rotation.z = -ang; g.add(slab);
+    mesh(new THREE.BoxGeometry(Lr, 0.09, kd + 0.4), roofA, 0, 0, 0, slab);
+    for (let i = 0; i < 4; i++) mesh(new THREE.BoxGeometry(Lr / 4 + 0.03, 0.05, kd + 0.44), i % 2 ? roofA : roofB, -Lr / 2 + (i + 0.5) * Lr / 4, 0.06 + i * 0.004, 0, slab);
+    mesh(new THREE.BoxGeometry(0.05, 0.05, kd + 0.46), trimGold, Lr / 2, -0.02, 0, slab);
+    // windows: over the sink (front) and on the east side
+    windowRect(kx0 + kw / 2 + 0.05, B + 0.62, kz1 + 0.005, 0, 0.5, 0.4);
+    windowRect(kx0 + kw + 0.005, B + 0.6, kcz - 0.1, Math.PI / 2, 0.48, 0.38, false, true);
+    // stovepipe with a little steam
+    const sx = kx0 + kw * 0.5, sz = kz0 + 0.42, roofY = y0 - (sx - x0) * Math.tan(ang);
+    const pipe = new THREE.Group(); pipe.position.set(sx, roofY, sz); g.add(pipe);
+    mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.75, 8), mat(0x2a2a33, { metalness: .4, roughness: .5 }), 0, 0.37, 0, pipe);
+    mesh(new THREE.ConeGeometry(0.16, 0.12, 8), mat(0x2a2a33), 0, 0.8, 0, pipe);
+    mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 8), glow(0xc8323a, 0.5), 0, 0.5, 0, pipe);
+    for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0xe6e9f2, transparent: true, opacity: 0, depthWrite: false })); s.position.set(0, 0.9, 0); pipe.add(s); steam.push(s); }
+    // apple crate by the east wall
+    const cr = new THREE.Group(); cr.position.set(kx0 + kw + 0.32, 0, kz0 + 0.3); cr.rotation.y = 0.25; g.add(cr);
+    mesh(new THREE.BoxGeometry(0.42, 0.26, 0.32), wood, 0, 0.13, 0, cr);
+    for (let i = 0; i < 5; i++) mesh(new THREE.IcosahedronGeometry(0.06, 0), mat(i % 4 === 3 ? 0x9ab84a : 0xb8242e), -0.13 + (i % 3) * 0.12, 0.29, -0.06 + Math.floor(i / 3) * 0.12, cr);
+  }
 
   // everything here is clickable as "the house"
   g.traverse(o => { if (o.isMesh) o.userData.house = true; });
@@ -160,6 +194,11 @@ export function buildCottage(parent, x, z, rot = 0) {
       const p = ((t * 0.16) + i / smoke.length) % 1;
       s.position.set(0.1 + p * 0.9 + Math.sin(t * 0.7 + i) * 0.12, 4.6 + p * 2.6, Math.sin(t * 0.5 + i * 2) * 0.15);
       s.scale.setScalar(0.35 + p * 1.5); s.material.opacity = Math.sin(p * Math.PI) * 0.22;
+    });
+    steam.forEach((s, i) => {
+      const p = ((t * 0.22) + i / steam.length) % 1;
+      s.position.set(Math.sin(t * 0.9 + i) * 0.08 + p * 0.25, 0.9 + p * 1.2, Math.cos(t * 0.6 + i) * 0.06);
+      s.scale.setScalar(0.18 + p * 0.6); s.material.opacity = Math.sin(p * Math.PI) * 0.18;
     });
   };
   const doorWorld = () => { const v = new THREE.Vector3(dx, B + 0.75, D / 2 + 0.1); return g.localToWorld(v); };

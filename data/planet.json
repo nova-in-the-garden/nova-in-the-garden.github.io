@@ -1,0 +1,24 @@
+{
+  "_help": "Nova's tiny planet. Every island lives at a lat/lon on one small round world (degrees; lat 90 = north pole, lon 0 faces the starting camera). yaw turns a place around its own up axis (degrees, 0 = its front faces south). solid = extra walk-blocking circles [x, z, radius] in the place's own coordinates. paths = glowing gold paths between places. A new island without a spot here is auto-placed on open land by build_data.py (it prints where), so add it here to choose its home. Leave the southern hemisphere open for growth.",
+  "radius": 44,
+  "places": {
+    "starDock":    { "lat": 90,  "lon": 0,    "yaw": 0,   "note": "north pole: telescope + postcard rack on top of the world" },
+    "hearth":      { "lat": 32,  "lon": -14,  "yaw": 0,   "note": "Nova's cottage, Lorenz's pond" },
+    "pixelStudio": { "lat": 30,  "lon": 46,   "yaw": 0 },
+    "cornerCup":   { "lat": 2,   "lon": 16,   "yaw": 0 },
+    "arcade":      { "lat": -14, "lon": -46,  "yaw": 20,  "solid": [[0, 0, 4.4]] },
+    "printShop":   { "lat": -12, "lon": 70,   "yaw": 0 },
+    "workshop":    { "lat": -42, "lon": 18,   "yaw": 0 },
+    "emergence":   { "lat": 22,  "lon": -100, "yaw": 0 },
+    "wordWell":    { "lat": 42,  "lon": 155,  "yaw": 180 }
+  },
+  "paths": [
+    ["hearth", "starDock"], ["hearth", "cornerCup"], ["hearth", "pixelStudio"], ["hearth", "emergence"],
+    ["cornerCup", "arcade"], ["cornerCup", "printShop"], ["pixelStudio", "printShop"], ["pixelStudio", "starDock"],
+    ["arcade", "workshop"], ["workshop", "printShop"], ["starDock", "wordWell"], ["wordWell", "emergence"],
+    ["emergence", "arcade"]
+  ],
+  "changelog": [
+    { "date": "2026-11-16", "text": "The floating islands moved onto one tiny round planet you can walk all the way around. Star Dock sits on the north pole, gold paths join every place, and the southern half is open land for whatever comes next." }
+  ]
+}

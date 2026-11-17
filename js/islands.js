@@ -6,7 +6,7 @@ import { buildCottage } from './house.js';
 import { buildStudio } from './studio.js';
 import { paintFront, CARD_W, CARD_H } from './postcard.js';
 
-const GRASS = { hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
+export const GRASS = { hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
 
 export function islandBase(isl, r, seed) {
   const R = rng(seed);
@@ -30,6 +30,16 @@ export function islandBase(isl, r, seed) {
     mesh(new THREE.ConeGeometry(0.12, 0.45 + R() * 0.4, 4), mat(0x3f6b45), Math.cos(a) * d, 0.2, Math.sin(a) * d, g);
   }
   g.userData.top = top;
+  return g;
+}
+
+// On the tiny planet a place stands on level ground (the planet's flattened cap),
+// so it only needs an invisible pad: Nova's free-spot test and click-to-visit hit it.
+export function placeBase(isl, r) {
+  const g = new THREE.Group();
+  const pad = new THREE.Mesh(new THREE.CircleGeometry(r, 28), new THREE.MeshBasicMaterial({ visible: false }));
+  pad.rotation.x = -Math.PI / 2; pad.position.y = 0.0; pad.userData.pad = true; g.add(pad);
+  g.userData.top = pad;
   return g;
 }
 
@@ -127,12 +137,12 @@ const DECOR = {
     const ups = [];
     lantern(g, 0.6, 0.8, 2.6);
     // Nova's House: a walk-in cottage (js/house.js); clicking it steps inside
-    const house = buildCottage(g, -4.6, -4.2, 0.8); ctx.cottage = house; ups.push(house.update);
+    const house = buildCottage(g, -5.1, -4.7, 0.8); house.group.scale.setScalar(1.5); ctx.cottage = house;   // a bit bigger so it reads from orbit ups.push(house.update);
     const sign = textSprite("Nova's House", { size: 1.6, sub: 'click to step inside' }); sign.material.sizeAttenuation = false; sign.scale.multiplyScalar(0.026 / 1.6); sign.position.set(1.5, 3.3, 1.9); sign.renderOrder = 9; sign.material.depthTest = false; house.group.add(sign);
     ups.push(christmasTree(g, 3.8, -3.0));
     ups.push(thanksgivingTable(g, 3.6, 3.6, -0.5));
     ctx.pond = { x: -3.2, z: 2.6, r: 2.2 }; pond(g, -3.2, 2.6, 2.2);
-    ctx.avoid = [{ x: -4.6, z: -4.2, r: 2.7 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }];
+    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }];
     return (t, dt) => ups.forEach(u => u(t, dt));
   },
   emergence(g, isl) {
