@@ -443,7 +443,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     const beam = mesh(new THREE.CylinderGeometry(2.2, 0.6, 60, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xe8c15a, fog: false, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0, 30, 0, L);
     beam.userData.beam = true;
     const lab = textSprite(p.name, { size: 1.6 }); lab.material.sizeAttenuation = false; lab.material.depthTest = false; lab.material.fog = false; lab.scale.multiplyScalar(0.028 / 1.6); lab.renderOrder = 11;
-    lab.position.y = p.id === 'arcade' ? 24 : 11; L.add(lab);
+    lab.position.y = p.id === 'arcade' ? 24 : 11; L.add(lab); p.lab = lab;
     L.visible = false;
   }
 
@@ -456,7 +456,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
 
   // ---------- per-frame: stream tiles, cull plants, landmarks, fireflies ----------
   const VIEW = 300, LAND = 230;
-  function update(t, dt, cam, { placeVisible } = {}) {
+  function update(t, dt, cam, { placeVisible, occluders: extraOcc } = {}) {
     const cx = cam.x, cz = cam.z;
     const i0 = Math.floor((Math.max(minX, cx - VIEW)) / TS), i1 = Math.floor((Math.min(maxX, cx + VIEW)) / TS), j0 = Math.floor((Math.max(minZ, cz - VIEW)) / TS), j1 = Math.floor((Math.min(maxZ, cz + VIEW)) / TS);
     let built = 0;
@@ -470,6 +470,20 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     for (const m of chunked) { const s = m.boundingSphere.center; m.visible = Math.hypot(s.x - cx, s.z - cz) < m.userData.near + m.boundingSphere.radius; }
     for (const sg of signs) sg.visible = Math.hypot(sg.position.x - cx, sg.position.z - cz) < 140;
     for (const p of P) { const d = Math.hypot(p.pos.x - cx, p.pos.z - cz); p.near = p.near ? d < LAND + 15 : d < LAND - 15; p.landmark.visible = !p.near; if (placeVisible) placeVisible(p.id, p.near); }   // hysteresis: no flicker at the edge
+    // far name tags are drawn through everything, so step them back while a nearby building stands in front of them
+    const occ = [];
+    for (const p of P) if (p.near) occ.push({ x: p.pos.x, z: p.pos.z, r: 8 });
+    for (const o of extraOcc || []) occ.push(o);
+    const front = occ.map(o => ({ ...o, d: Math.hypot(o.x - cx, o.z - cz) })).filter(o => o.d < 70 && o.d > o.r * 0.6);
+    for (const q of P) {
+      if (q.near || !q.lab) continue;
+      const aq = Math.atan2(q.pos.x - cx, q.pos.z - cz); let hid = false;
+      for (const o of front) {
+        let da = Math.abs(Math.atan2(o.x - cx, o.z - cz) - aq); if (da > Math.PI) da = 2 * Math.PI - da;
+        if (da < Math.atan2(o.r, o.d)) { hid = true; break; }
+      }
+      q.lab.visible = !hid;
+    }
     const a = fg.attributes.position;
     ff.forEach((f, i) => { let x = cx + ((f.x - cx) % 120 + 180) % 120 - 60, z = cz + ((f.z - cz) % 120 + 180) % 120 - 60; x += Math.sin(t * f.w + f.ph) * 0.8; z += Math.cos(t * f.w * 0.7 + f.ph) * 0.8; a.setXYZ(i, x, heightAt(x, z) + f.h + Math.sin(t * 1.3 + f.ph) * 0.3, z); });
     a.needsUpdate = true; fireflies.material.opacity = 0.1 + 0.85 * DAY.night;
@@ -513,7 +527,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     ctx.strokeStyle = 'rgba(232,193,90,.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w / 2, hgt / 2, w / 2 - 2, 0, Math.PI * 2); ctx.stroke();
   }
 
-  return { group, places, roads, bounds, heightAt, terrain, roadDist, riverDist, river: riverPts, bridges, biomeAt: (x, z) => pickBiome(x, z, 0.5), update, prewarm, addSolids, collide, solids, pickables, drawMap };
+  return { group, places, roads, bounds, heightAt, terrain, roadDist, riverDist, river: riverPts, bridges, biomeAt: (x, z) => pickBiome(x, z, 0.5), update, prewarm, addSolids, collide, solids, pickables, drawMap, signs };
 }
 
 // =====================================================================

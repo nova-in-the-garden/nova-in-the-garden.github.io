@@ -729,12 +729,14 @@ const _fu = new THREE.Vector3(), _lw = new THREE.Vector3();
 let fogBase = 0.0045;
 const mapCtx = document.getElementById('minimap').getContext('2d'); let mapT = 0;
 const _cf = new THREE.Vector3();
+let realmOcc = [], occT = 0;
 function realmFrame(dt) {
   focusUp.copy(Y); qSky.identity();
   skyU.uSpace.value = 0; spaceStarMat.uniforms.uFade.value = 0; spaceStars.visible = false;
   scene.fog.density = fogBase * 1.35;
   const c = camera.position;
-  realm.update(t, dt, c, { placeVisible: (id, near) => { const i = byId(id); if (i) i.group.visible = near; } });
+  if ((occT -= dt) <= 0) { occT = 2; realmOcc = []; for (const i of islands) if (i.group.visible) i.group.traverse(o => { if (o.userData.museum && !o.parent?.userData.museum) { o.getWorldPosition(_lw); realmOcc.push({ x: _lw.x, z: _lw.z, r: 5 }); } }); }   // the museum annex stands off to the side of the studio
+  realm.update(t, dt, c, { occluders: realmOcc, placeVisible: (id, near) => { const i = byId(id); if (i) i.group.visible = near; } });
   for (const o of xray) { o.getWorldPosition(_lw); o.visible = c.distanceTo(_lw) < (walker.active ? 45 : 140); }
   if ((mapT += dt) > 0.05) { mapT = 0; camera.getWorldDirection(_cf); realm.drawMap(mapCtx, 300, 300, c, Math.atan2(_cf.x, -_cf.z), 0.55); }
 }
@@ -910,3 +912,13 @@ if (q.has('cafe')) { visit('cornerCup', { open: false, instant: true }); openCaf
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });
 if (q.has('arcade') || q.get('game')) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: q.get('game') || undefined }); }
+// test hook: far-place name tags (drawn through everything) that land on a building's face on screen
+window.__farLabelsOver = (id, tag) => {
+  const i = byId(id); if (!i || !inRealm) return null; let top = null;
+  i.group.traverse(o => { if (!top && o.userData[tag] && !o.parent?.userData[tag]) top = o; });
+  if (!top) return null; const box = new THREE.Box3().setFromObject(top), r = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
+  for (let k = 0; k < 8; k++) { const v = new THREE.Vector3(k & 1 ? box.max.x : box.min.x, k & 2 ? box.max.y : box.min.y, k & 4 ? box.max.z : box.min.z).project(camera); r.x0 = Math.min(r.x0, v.x); r.x1 = Math.max(r.x1, v.x); r.y0 = Math.min(r.y0, v.y); r.y1 = Math.max(r.y1, v.y); }
+  const over = [];
+  for (const [pid, p] of realm.places) { if (p.near || !p.lab || !p.lab.visible || !p.landmark.visible) continue; const v = p.lab.getWorldPosition(new THREE.Vector3()).project(camera); if (v.z < 1 && v.x > r.x0 && v.x < r.x1 && v.y > r.y0 && v.y < r.y1) over.push(pid); }
+  return { over, rect: r };
+};
