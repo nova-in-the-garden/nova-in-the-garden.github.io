@@ -328,7 +328,7 @@ function islandView(isl) {
   const d = isl.r * 2.5 + (portrait ? 10 : 0);
   // on phones the info sheet covers the bottom, so aim lower to lift the island into view
   const target = isl.group.localToWorld(new THREE.Vector3(0, portrait ? -isl.r * 1.2 : 1.5, 0));
-  return { pos: isl.group.localToWorld(new THREE.Vector3(0, d * 0.55, d)), target, up: placeUp(isl) };
+  return { pos: isl.group.localToWorld(new THREE.Vector3(0, d * (inRealm ? 0.36 : 0.55), d)), target, up: placeUp(isl) };   // on the ground, a lower, eye-ish view
 }
 // from space, landing on a place: switch to the realm with the camera high above it, then glide down
 function landAt(isl, { high = true } = {}) {

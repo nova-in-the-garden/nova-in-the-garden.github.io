@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-17T16:40-06:00",
+ "generated": "2026-11-17T17:34-06:00",
  "title": "Nova's Garden",
  "planted": "2026-11-10",
  "motto": "Simple on the surface, surprising underneath.",
@@ -1791,31 +1791,86 @@
  },
  "planet": {
   "radius": 44,
+  "_realm_help": "The Realm (js/realm.js) is the flat ground-level world you land in. scale = world units per radian of planet arc. biome (per place) picks its landscape: meadow, forest, lookout (raised plateau), painted, amber, crystal, yard, glow, stones; a place without one gets wild meadow. river = a polyline [x, z] in Realm units (north = -z) that winds between places; roads that cross it get bridges.",
+  "realm": {
+   "scale": 220,
+   "river": [
+    [
+     -560,
+     -520
+    ],
+    [
+     -330,
+     -380
+    ],
+    [
+     -170,
+     -260
+    ],
+    [
+     -120,
+     -150
+    ],
+    [
+     -70,
+     -60
+    ],
+    [
+     -55,
+     40
+    ],
+    [
+     -35,
+     120
+    ],
+    [
+     10,
+     200
+    ],
+    [
+     -10,
+     290
+    ],
+    [
+     40,
+     400
+    ],
+    [
+     10,
+     560
+    ]
+   ]
+  },
   "places": {
    "starDock": {
     "lat": 90,
     "lon": 0,
-    "yaw": 0
+    "yaw": 0,
+    "biome": "lookout"
    },
    "hearth": {
     "lat": 32,
     "lon": -14,
-    "yaw": 0
+    "yaw": 0,
+    "biome": "meadow"
    },
    "pixelStudio": {
     "lat": 30,
     "lon": 46,
-    "yaw": 0
+    "yaw": 0,
+    "biome": "painted"
    },
    "cornerCup": {
     "lat": 2,
     "lon": 16,
-    "yaw": 0
+    "yaw": 0,
+    "biome": "amber"
    },
    "arcade": {
     "lat": -14,
     "lon": -46,
     "yaw": 20,
+    "biome": "forest",
     "solid": [
      [
       0,
@@ -1827,22 +1882,26 @@
    "printShop": {
     "lat": -12,
     "lon": 70,
-    "yaw": 0
+    "yaw": 0,
+    "biome": "crystal"
    },
    "workshop": {
     "lat": -42,
     "lon": 18,
-    "yaw": 0
+    "yaw": 0,
+    "biome": "yard"
    },
    "emergence": {
     "lat": 22,
     "lon": -100,
-    "yaw": 0
+    "yaw": 0,
+    "biome": "glow"
    },
    "wordWell": {
     "lat": 42,
     "lon": 155,
-    "yaw": 180
+    "yaw": 180,
+    "biome": "stones"
    }
   },
   "paths": [
@@ -1900,6 +1959,10 @@
    ]
   ],
   "changelog": [
+   {
+    "date": "2026-11-17",
+    "text": "The Realm got a landscape. Every place now has its own biome that blends into its neighbours along the roads: a wildflower meadow with a pea garden and apple tree at the Hearth, a mossy forest with glowing mushrooms round the Arcade, a rocky lookout plateau under Star Dock, colour-banded flower fields at Pixel Studio, golden wheat and coffee shrubs at the Corner Cup, crystal terraces at the Print Shop, a gravel yard with gear sculptures at the Workshop, glowing plants and Rule 30 moss in Emergence Grove, and a lettered stone circle with lavender at the Word Well. Rolling hills and a river with red bridges run between them."
+   },
    {
     "date": "2026-11-17",
     "text": "The tiny planet is now the map you see from space. Tap a place and you land in the Realm: one big flat ground-level world where every place stands where the map puts it, joined by winding gold roads with signposts. Walk from place to place (Hearth to Arcade is about half a minute at a run), watch far places on the horizon, and press Back to space to return to the planet."
