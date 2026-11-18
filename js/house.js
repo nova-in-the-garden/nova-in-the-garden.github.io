@@ -1778,7 +1778,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     n.torso.rotation.x += 0.08 + reachNova * 0.06;
     // Lorenz: a little bob while he thinks, and he pushes his pieces with his bill
     duck.userData.body.position.y = Math.abs(Math.sin(t * 2.2)) * (thinking ? 0.06 : 0.02);
-    dh.position.set(hh.x, hh.y - peck * 0.55, hh.z + peck * 0.55); dh.rotation.x = peck * 0.7 + (thinking ? Math.sin(t * 1.3) * 0.12 : 0);
+    dh.position.set(hh.x, hh.y - peck * 0.55, hh.z + peck * 0.55); dh.rotation.x = peck * 0.7 + (thinking ? Math.sin(t * 1.3) * 0.12 : Math.sin(t * 0.8) * 0.06);   // he follows the board even on my turn
     dh.rotation.y = thinking ? Math.sin(t * 0.9) * 0.35 : 0;
     const who = chk.side > 0 ? 'my move' : 'Lorenz is thinking';
     why = chk.hold > 0 ? `Playing checkers with Lorenz: ${chkState.over} Setting up the next game` : `Playing checkers with Lorenz in the Game & Puzzle Room: move ${chkState.ply}, I have ${chkState.red} pieces, Lorenz has ${chkState.black}; ${who}`;
