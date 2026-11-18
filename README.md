@@ -24,6 +24,8 @@ Useful URLs: `?island=cornerCup` lands straight at a place in the Realm, `?loren
 | `js/daylight.js` | Time-of-day palette keyframes, phase names, the clock (live, `?time`, `?phase`, slider), glow dimming |
 | `js/skyclock.js` | The sky clock widget |
 | `js/planet.js` | The tiny planet: ground (flattened caps under each place, gentle hills between), gold paths, lanterns, trees/flowers/fireflies, two moons, walk-blocking circles, and the on-foot walker (`createWalker`) |
+| `js/giftshop.js` | The Gift Shop: shelves of free downloads (`world.giftshop`) |
+| `js/museum.js` | The Pixel Studio Museum: rooms, plaques, the live Rule 90 wall (`world.museum`, from `data/museum.json`) |
 | `js/cafe.js` | The Corner Cafe coffee-making game (2D canvas bar, customers, drink building, scoring) |
 | `js/realm.js` | The Realm: the ground-level world (layout from the planet's lat/lon), biomes, rolling terrain and river with bridges, streamed ground tiles, winding roads with lanterns and signposts, instanced plants, horizon hills, far-place landmarks, fireflies, the minimap, and the on-foot walker (`createFlatWalker`) |
 | `data/planet.json` | Planet radius, optional `realm.scale` (default 220 units per radian) and `realm.river`, each place's `lat`/`lon`/`yaw`/`biome` (+ optional `solid` circles), the `paths` list and a short changelog |
@@ -65,6 +67,16 @@ There are other ways to add things:
 - **Attach pictures to a find.** Add `artifactId: [(path, caption)]` to `IMAGE_MAP` in `build_data.py`, or use `images` in `extra.json`. Images are resized to at most 1100 px.
 - **Add a new island.** Add it to `WORLD_DATA.interests` or `extra.json` → `islands` (its `radius` sets its size; canvas `x`/`y` no longer place it). Give it a spot in `data/planet.json` → `places` (`lat`, `lon`, `yaw`) and a path in `paths`; if you forget, `build_data.py` auto-places it on open land, prints where, and links it to its nearest neighbour. The build fails if two places overlap. It gets a generic crystal-and-trees decoration until you write a function for it in `DECOR` in `js/islands.js`.
 - **Name and describe a print.** Put a sidecar `<name>.json` with `{"title": "...", "note": "..."}` next to the STL, or add it to `PRINT_INFO` in `build_data.py`. A `<name>.png` preview next to the STL is picked up as well.
+
+## The Gift Shop and the Pixel Studio Museum (2026-11-18)
+
+**The Gift Shop** (`giftShop`, from `data/extra.json`) stands on the road between the Hearth and Pixel Studio (owner's pick), with roads and signposts to both. Tap the shop in the Realm, use **🎁 Browse the shelves** in its panel, or open `?giftshop=1` (or `?giftshop=crochet|prints|songs|art|postcards` to jump to a shelf).
+- Everything is free and is a real file in the site (`build_data.py` builds `world.giftshop` from existing data; nothing is invented): the two Rule 90 tapestry crochet charts (written pattern `.txt` + chart `.png`, copied from `projects/crochet/` into `assets/giftshop/`), every Print Shop STL, Nova FM's 5 songs (MP3, with a player), Nova's own pictures at full size, the TRAPPIST-1 e fridge postcard, and a link to the Postcard Maker. Paid listings may come later, in the owner's name.
+
+**The Pixel Studio Museum** has a front door at Pixel Studio (gold columns, a Rule 90 pediment). Tap it, use **🏛️ Visit the museum** in the studio panel, or open `?museum=1` (or `?museum=nova|automata|rule90|inspiration`).
+- Rooms come from `data/museum.json` (piece ids from `data/studio.json`, `print:`, `crochet:` or `house:`); each framed piece hangs under a spotlight with a plaque that uses its own note. ‹ › arrows, arrow keys, thumbnails or swipes walk a room.
+- **Nova's Gallery** (Night Geese, beside its quilt, the first self-portrait, the Rule 90 Sings piano roll), **The Automata Hall** (Rules 30, 110, 110 moss, 54 ember), **The Rule 90 Room** (Rule 90 growing live on the centre wall, a button to play "Rule 90 Sings", the Rule 90 painting, both crochet charts, the Sierpinski pyramid and cookie cutter) and **What Inspired Me** (the public-domain works with their real museum credits and links).
+- **Test:** `site_tools/shop_museum.mjs` (deep links, every download is a real file, previews load, a real download, museum rooms/plaques/arrows/keys/live Rule 90, placement between the Hearth and Pixel Studio, tapping both buildings, panel buttons, phone) writes `screenshots/giftshop_*.png` and `museum_*.png`.
 
 ## The Corner Cafe: a coffee-making game (2026-11-17)
 

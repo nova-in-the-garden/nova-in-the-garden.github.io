@@ -395,3 +395,4 @@ body.gs-open #hud-title,body.gs-open #btn-upto,body.gs-open #hint,body.gs-open #
 .mu-thumbs button{flex:0 0 auto;width:72px;height:50px;padding:0;border:2px solid #3a2a0a;border-radius:4px;background:#070b1c;cursor:pointer;overflow:hidden;color:var(--gold);font-size:22px}
 .mu-thumbs button.on{border-color:var(--gold)}.mu-thumbs img{width:100%;height:100%;object-fit:cover}
 @media (max-width:760px){.mu-hall{flex-direction:column;gap:10px;overflow-y:auto;justify-content:flex-start}.mu-wall{max-width:100%;height:auto}.mu-frame img,.mu-frame canvas{max-width:86vw;max-height:42vh}.mu-frame canvas{width:86vw}.mu-plaque{flex:none;width:100%}.mu-arrow{display:none}}
+.mu-frame [hidden]{display:none!important}
