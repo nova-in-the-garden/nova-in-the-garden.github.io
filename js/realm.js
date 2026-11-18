@@ -271,9 +271,10 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     berry: [new THREE.IcosahedronGeometry(0.07, 0), lam(0xc8323a, { emissive: 0x401010 })],
   };
   const items = {}; for (const k in KINDS) items[k] = new Map();
+  const SMALL = new Set(['flower', 'stem', 'tuft', 'berry', 'reed', 'cattail', 'shroomStem', 'shroomCap']);   // little things: smaller cells, shown only nearby
   const Mx = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), V = new THREE.Vector3();
   function add(kind, x, z, s, sy = s, color = null, y = null, rotY = rnd() * 6.28) {
-    const ck = key(Math.floor(x / CS), Math.floor(z / CS)); const m = items[kind]; if (!m.has(ck)) m.set(ck, []);
+    const cs = SMALL.has(kind) ? CS / 2 : CS, ck = key(Math.floor(x / cs), Math.floor(z / cs)); const m = items[kind]; if (!m.has(ck)) m.set(ck, []);
     Q.setFromAxisAngle(Y, rotY); V.set(x, y ?? terrain(x, z), z); S.set(s, sy, s); Mx.compose(V, Q, S); m.get(ck).push({ m: Mx.clone(), color });
   }
   const pine = (x, z, s, tall = 1) => { add('trunk', x, z, s, s * tall); for (const k of ['c0', 'c1', 'c2']) add(k, x, z, s, s * tall); };
@@ -402,7 +403,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
   for (const kind in items) for (const [ck, list] of items[kind]) {
     const [g, m] = KINDS[kind]; const im = new THREE.InstancedMesh(g, m, list.length);
     list.forEach((it, k) => { im.setMatrixAt(k, it.m); im.setColorAt(k, c.setHex(it.color ?? 0xffffff)); });
-    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.computeBoundingSphere();
+    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.computeBoundingSphere(); im.userData.near = SMALL.has(kind) ? 120 : 255;   // VIEW * 0.85
     group.add(im); chunked.push(im);
   }
 
@@ -466,7 +467,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
       if (built++ < 1 || !ready) tiles.set(k, buildTile(i, j));   // a few per frame once running, all at once the first time
     }
     for (const m of tiles.values()) { const s = m.geometry.boundingSphere.center; m.visible = Math.hypot(s.x - cx, s.z - cz) < VIEW + TS; }
-    for (const m of chunked) { const s = m.boundingSphere.center; m.visible = Math.hypot(s.x - cx, s.z - cz) < VIEW * 0.85 + m.boundingSphere.radius; }
+    for (const m of chunked) { const s = m.boundingSphere.center; m.visible = Math.hypot(s.x - cx, s.z - cz) < m.userData.near + m.boundingSphere.radius; }
     for (const sg of signs) sg.visible = Math.hypot(sg.position.x - cx, sg.position.z - cz) < 140;
     for (const p of P) { const d = Math.hypot(p.pos.x - cx, p.pos.z - cz); p.near = p.near ? d < LAND + 15 : d < LAND - 15; p.landmark.visible = !p.near; if (placeVisible) placeVisible(p.id, p.near); }   // hysteresis: no flicker at the edge
     const a = fg.attributes.position;
