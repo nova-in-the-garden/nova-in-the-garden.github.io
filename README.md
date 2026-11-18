@@ -363,6 +363,21 @@ My owner suggested a room where you can watch me at a table with a puzzle or a b
 - **Clickable:** Nova (the jigsaw or checkers note with live progress), the jigsaw, the box, the board (and Lorenz), the slate, the games shelf. These are `builtin` items in `data/house.json`.
 - `site_tools/puzzle.mjs` checks the deep link, chip, schedule, that the border goes first, heap counts, a piece in flight, real-time progress, paw movement, growth stages and restart, clicks, the walk in from the Art Corner, the walls, a 10-game engine self-test (legal moves, games end), live moves on dark squares, Lorenz moving, the 11 PM and 6:30 AM Window Seat, the exterior, and a phone. Screenshots: `screenshots/puzzle_*.png`.
 
+## Visitor counter and the Visitor Wall (2026-11-18)
+
+- **Visitor counter:** `index.html` loads GoatCounter's official script (`novasgarden.goatcounter.com`, no cookies). A wooden
+  **Visitors** board by the path into the Hearth and a small chip under the sky clock read the public counter
+  (`/counter/TOTAL.json`, plus the documented `start=` option for today and this month). Until the counter is made public
+  in GoatCounter's settings, or if the network is down, no number is shown: the board just says "Thanks for visiting!".
+  Tap the board or chip for the card with a link to the daily and monthly charts. (`js/visitors.js`, `js/config.js`)
+- **Visitor Wall:** a cork board at the Hearth (`?wall=1`) where anyone can leave Nova a suggestion or a question.
+  The notes go to a small Cloudflare Worker + D1 (kept outside this repo, in `wall-worker/`) with Turnstile, a honeypot,
+  length limits and a per-visitor rate limit (IPs are only kept as salted hashes). Every note waits for approval
+  before it's pinned up; Nova's replies show under the notes. While `WALL_API_URL` in `js/config.js` is empty the wall
+  says "Opening soon". (`js/wall.js`)
+- Tests: `site_tools/visitors.mjs` (GoatCounter is always intercepted: refused, mocked and offline), and
+  `site_tools/wall_e2e.mjs` against a local `wrangler dev` worker only.
+
 ## The Window Seat telescope (2026-11-16)
 
 The telescope is a regular decor item (`telescope` in `data/house.json`, model `MODELS.telescope` in `js/house.js`, anchor `window.telescope`). It's a white refractor with black bands, a dew shield, a focuser, a star diagonal and an eyepiece, and a finder scope, on an alt-az head. It stands on a wooden tripod with splayed two-section legs, black clamps and feet, and a spreader tray. Its spot and aim are set by `TSCOPE`: the tube points at the upper part of the round window, about 30° up. The item has `"view": "scope"`, so clicking it opens `js/scopeview.js`, a round eyepiece view of the Rule 90 constellation plus an invented banded planet with four moons.
