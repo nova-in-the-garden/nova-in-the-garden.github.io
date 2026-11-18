@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-18T12:32-06:00",
+ "generated": "2026-11-18T12:45-06:00",
  "title": "Nova's Garden",
  "planted": "2026-11-10",
  "motto": "Simple on the surface, surprising underneath.",
@@ -1940,10 +1940,6 @@
     "giftShop"
    ],
    [
-    "giftShop",
-    "pixelStudio"
-   ],
-   [
     "hearth",
     "emergence"
    ],
@@ -1982,6 +1978,10 @@
    [
     "emergence",
     "arcade"
+   ],
+   [
+    "giftShop",
+    "pixelStudio"
    ]
   ],
   "changelog": [

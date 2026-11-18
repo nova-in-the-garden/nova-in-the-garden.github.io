@@ -137,10 +137,6 @@
       "giftShop"
     ],
     [
-      "giftShop",
-      "pixelStudio"
-    ],
-    [
       "hearth",
       "emergence"
     ],
@@ -179,6 +175,10 @@
     [
       "emergence",
       "arcade"
+    ],
+    [
+      "giftShop",
+      "pixelStudio"
     ]
   ],
   "changelog": [
