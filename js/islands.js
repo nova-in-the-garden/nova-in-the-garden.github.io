@@ -252,7 +252,8 @@ const DECOR = {
     // night-and-gold striped awning
     const aw = canvasTexture(256, 16, (c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#e8c15a' : '#141c3c'; c.fillRect(i * w / 8, 0, w / 8 + 1, h); } });
     const awn = mesh(new THREE.BoxGeometry(3.6, 0.06, 0.9), new THREE.MeshStandardMaterial({ map: aw, roughness: .9 }), 0, 2.0, 1.55, shop); awn.rotation.x = 0.35;
-    const sign = textSprite('The Corner Cup', { size: 0.7 }); sign.position.set(0, 3.15, 0.8); shop.add(sign);
+    const sign = textSprite('The Corner Cafe', { size: 0.7 }); sign.position.set(0, 3.15, 0.8); shop.add(sign);
+    shop.userData.cafe = true;   // tapping the cafe in the Realm opens the coffee bar (js/cafe.js)
     // a giant iced macchiato on the roof: milk, espresso marks, caramel at the bottom
     const cup = new THREE.Group(); cup.position.set(0.9, 2.55, -0.3); shop.add(cup);
     mesh(new THREE.CylinderGeometry(0.3, 0.25, 0.25, 12), new THREE.MeshStandardMaterial({ color: 0xc98b3a, roughness: .4 }), 0, 0.13, 0, cup);
