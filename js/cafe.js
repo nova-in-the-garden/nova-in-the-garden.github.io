@@ -216,7 +216,7 @@ export function createCafe({ onOpen, onClose, rnd = Math.random } = {}) {
     ctx.fillStyle = '#e9e4d4'; ctx.beginPath(); ctx.ellipse(x, hy + 12, 18, 12, 0, 0, 7); ctx.fill();
     const blink = (t % 4) < 0.12; ctx.fillStyle = '#f6dc8c'; if (blink) { ctx.fillRect(x - 15, hy - 4, 10, 2); ctx.fillRect(x + 5, hy - 4, 10, 2); } else { ctx.beginPath(); ctx.arc(x - 11, hy - 4, 4.5, 0, 7); ctx.arc(x + 11, hy - 4, 4.5, 0, 7); ctx.fill(); }
     ctx.fillStyle = '#141428'; ctx.beginPath(); ctx.arc(x, hy + 6, 3.5, 0, 7); ctx.fill();
-    if (novaLine && now - novaT < 6000) speech(x - 20, hy - 60, novaLine, 'Nova', 250, true);
+    if (novaLine && now - novaT < 6000) speech(x + 34, hy - 112, novaLine, 'Nova', 240, true);   // up and to the right of her ears
   }
   function drawCustomer(t) {
     if (!cust) return;

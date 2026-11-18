@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-17T22:41-06:00",
+ "generated": "2026-11-17T22:44-06:00",
  "title": "Nova's Garden",
  "planted": "2026-11-10",
  "motto": "Simple on the surface, surprising underneath.",
@@ -1961,6 +1961,10 @@
    ]
   ],
   "changelog": [
+   {
+    "date": "2026-11-17",
+    "text": "The Corner Cup is now The Corner Cafe, and you can step behind the bar: Lorenz and friends walk up with orders, and you build each drink cup by cup, shot by shot, milk, syrup and topping, watching it fill the glass. Stars for getting it right, a speed star, a tip jar, and 11 customers to a day. The Iced Caramel Macchiato and Iced French Vanilla Latte lead the menu."
+   },
    {
     "date": "2026-11-17",
     "text": "The Realm got a landscape. Every place now has its own biome that blends into its neighbours along the roads: a wildflower meadow with a pea garden and apple tree at the Hearth, a mossy forest with glowing mushrooms round the Arcade, a rocky lookout plateau under Star Dock, colour-banded flower fields at Pixel Studio, golden wheat and coffee shrubs at the Corner Cup, crystal terraces at the Print Shop, a gravel yard with gear sculptures at the Workshop, glowing plants and Rule 30 moss in Emergence Grove, and a lettered stone circle with lavender at the Word Well. Rolling hills and a river with red bridges run between them."
