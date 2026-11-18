@@ -19,6 +19,8 @@ import { createPostcardMaker } from './postcard.js';
 import { createScopeView } from './scopeview.js';
 import { createCafe } from './cafe.js';
 import { createGiftShop } from './giftshop.js';
+import { createVisitorCounter, visitorChip } from './visitors.js';
+import { createWall } from './wall.js';
 import { createMuseum } from './museum.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA island radius px -> world units
@@ -196,7 +198,7 @@ world.islands.forEach((isl, idx) => {
   const up = decorate(g, isl, ctx); if (up) updaters.push(up);
   if (isl.id === 'hearth' && ctx.cottage) {   // the cottage gets exact blockers so you can walk up to the door
     const cg = ctx.cottage.group; cg.userData.noSolid = true; cg.updateMatrixWorld(true);
-    ctx.cottageSolids = [[0, 0, 2.0], [2.5, -0.5, 1.0]].map(([x, z, rr]) => { const v = cg.localToWorld(new THREE.Vector3(x, 0, z)); return [v.x, v.z, rr * cg.scale.x]; });
+    ctx.cottageSolids = [[0, 0, 2.0], [2.5, -0.5, 1.0], [2.5, 1.0, 0.75]].map(([x, z, rr]) => { const v = cg.localToWorld(new THREE.Vector3(x, 0, z)); return [v.x, v.z, rr * cg.scale.x]; });
   }
   const pl = setOnPlanet(isl.id, g, r, [...(world.planet?.places?.[isl.id]?.solid || []), ...(isl.id === 'hearth' ? ctx.cottageSolids || [] : [])]);
   const label = textSprite(isl.name, { size: 1.6, sub: `${isl.interest} · ${'★'.repeat(isl.level)}${'☆'.repeat(Math.max(0, (world.maxLevel || 5) - isl.level))}` });
@@ -415,6 +417,8 @@ canvas.addEventListener('pointerup', e => {
   if (hit?.object.userData.postcards) return openPostcards();
   if (inRealm && hasAncestor(hit?.object, o => o.userData.cafe)) return openCafe();
   if (inRealm && hit?.object.userData.giftshop) return openGiftShop();
+  if (inRealm && hit?.object.userData.visits) return visitorUI.open();
+  if (inRealm && hit?.object.userData.wall) return openWall();
   if (inRealm && hit?.object.userData.museum) return openMuseum();
   if (hit?.object.userData.signpost) return signpostTravel(hit.object.userData.signpost);
   if (hit && walker.active) { openPanel(hit.object.userData.islandId); setChip(hit.object.userData.islandId); return; }   // walking: read about it, stay on foot
@@ -632,6 +636,10 @@ const hasAncestor = (o, f) => { for (; o; o = o.parent) if (f(o)) return true; r
 const overlayHooks = what => ({ onOpen: () => { leaveStudio('opened the ' + what); closeSheets(); walker.state?.keys?.clear?.(); }, onClose: () => resumeLoop() });
 const giftShop = createGiftShop(world.giftshop, overlayHooks('gift shop'));
 const museum = createMuseum(world.museum, { song: world.radio?.tracks?.find(t => t.id === 'rule90-sings'), ...overlayHooks('museum') });
+const visitors = createVisitorCounter(), visitorUI = visitorChip(visitors);
+visitors.onChange(st => ctx.visitorBoard?.draw(st));
+const wall = createWall({ ...overlayHooks('visitor wall'), onNotes: (n, o) => ctx.corkWall?.setNotes(n, o) });
+function openWall() { if (inArcade || inside) return false; wall.open(); return true; }
 function openGiftShop(shelf) { if (!giftShop || inArcade || inside) return false; giftShop.open(shelf); return true; }
 function openMuseum(room) { if (!museum || inArcade || inside) return false; museum.open(room); return true; }
 function panelButton(cls, html, onclick) {
@@ -825,7 +833,7 @@ skyTick(performance.now(), true);
 let last = performance.now(), t = 0;
 function frame() {
   const now = performance.now(); const rawDt = Math.min((now - last) / 1000, 0.25), dt = Math.min(rawDt, 0.05); last = now; t += dt;
-  if (player.isOpen || postcards?.isOpen || cafe.isOpen || giftShop?.isOpen || museum?.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game or the postcard maker is open
+  if (player.isOpen || postcards?.isOpen || cafe.isOpen || giftShop?.isOpen || museum?.isOpen || wall.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game or the postcard maker is open
   skyTick(now); skyU.uTime.value = t;
   if (inArcade) {
     arcade.update(dt, t);
@@ -872,7 +880,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;
@@ -898,6 +906,7 @@ window.__kioskScreen = () => { const isl = byId('starDock'); let k = null; isl?.
 window.__kioskView = (dur = 0.01) => { const isl = byId('starDock'); let k = null; isl?.group.traverse(o => { if (!k && o.isGroup && o.userData.postcards) k = o; }); if (!k) return; landAt(isl, { high: false }); follow = null; const c = k.localToWorld(new THREE.Vector3(0, 1.5, 0)); flyTo(k.localToWorld(new THREE.Vector3(0, 3.2, 7.5)), c, dur); };
 window.__tagWorld = (id, tag) => { const i = byId(id); let m = null; i?.group.traverse(o => { if (!m && o.isMesh && o.userData[tag] && o.geometry?.type === 'BoxGeometry') m = o; }); if (!m) return null; m.updateMatrixWorld(true); const c = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()); let f = new THREE.Vector3(0, 0, 1); let g = m.parent; while (g && !g.userData.museum && !g.userData.giftshop) g = g.parent; const top = (function up(o) { return o.parent && o.parent.userData[tag] ? up(o.parent) : o; })(m); f.applyQuaternion(top.getWorldQuaternion(new THREE.Quaternion())); return { x: c.x, y: c.y, z: c.z, fx: f.x, fz: f.z }; };
 window.__tagScreen = (id, tag) => { const i = byId(id); let m = null; i?.group.traverse(o => { if (!m && o.isMesh && o.userData[tag] && o.geometry?.type === 'BoxGeometry') m = o; }); if (!m) return null; m.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(m), c = b.getCenter(new THREE.Vector3()); return toScreen(c); };
+window.__hearthThing = (which, screen) => { const t = which === 'wall' ? ctx.corkWall?.group : ctx.visitorBoard?.group; if (!t) return null; t.updateMatrixWorld(true); const c = t.localToWorld(new THREE.Vector3(0, 1.55, 0.06)), f = t.localToWorld(new THREE.Vector3(0, 1.55, 1)).sub(c); return screen ? toScreen(c) : { x: c.x, y: c.y, z: c.z, fx: f.x, fy: f.y, fz: f.z }; };
 window.__placeScreen = id => { const i = byId(id); return i ? toScreen(i.group.localToWorld(new THREE.Vector3(0, 1, 0))) : null; };
 window.__paintingScreen = id => studio ? toScreen(studio.paintingWorld(id)) : null;
 const q = new URLSearchParams(location.search);
@@ -906,6 +915,7 @@ if (q.has('lorenz')) meetLorenz();
 if (q.has('studio')) visit('pixelStudio', { instant: true });
 if (q.get('painting')) openPainting(q.get('painting'));
 if (q.has('postcard') || q.get('planet')) { visit('starDock', { open: false, instant: true }); openPostcards(q.get('planet') || undefined); }
+if (q.has('wall')) { visit('hearth', { open: false, instant: true }); openWall(); }
 if (q.has('giftshop')) { visit('giftShop', { open: false, instant: true }); const v = q.get('giftshop'); openGiftShop(v && v !== '1' ? v : undefined); }
 if (q.has('museum')) { visit('pixelStudio', { open: false, instant: true }); const v = q.get('museum'); openMuseum(v && v !== '1' ? v : undefined); }
 if (q.has('cafe')) { visit('cornerCup', { open: false, instant: true }); openCafe(); }

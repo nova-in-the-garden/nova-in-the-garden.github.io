@@ -169,6 +169,87 @@ function giftShopBuilding(g) {
   return t => bunt.forEach((f, i) => { f.rotation.z = Math.sin(t * 2 + i) * 0.15; });
 }
 
+// The visitor board at the Hearth: a little wooden sign with the GoatCounter numbers (blank-but-friendly
+// until the counter is public). draw(state) repaints it.
+function visitorBoard(parent, x, z, ry) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; parent.add(g);
+  const wood = mat(0x5a3a22), dark = mat(0x3a281c);
+  for (const s of [-1, 1]) mesh(new THREE.BoxGeometry(0.12, 2.0, 0.12), dark, s * 0.78, 1.0, 0, g);
+  mesh(new THREE.BoxGeometry(1.9, 1.05, 0.1), wood, 0, 1.55, 0, g);
+  const roof = mesh(new THREE.BoxGeometry(2.1, 0.08, 0.36), mat(0x1c2550), 0, 2.15, 0.02, g); roof.rotation.x = 0.08;
+  mesh(new THREE.BoxGeometry(2.12, 0.04, 0.38), mat(0xe8c15a, { metalness: .35, roughness: .45 }), 0, 2.11, 0.03, g);
+  const c = document.createElement('canvas'); c.width = 512; c.height = 272; const cg = c.getContext('2d');
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const face = mesh(new THREE.PlaneGeometry(1.78, 0.94), new THREE.MeshBasicMaterial({ map: tex }), 0, 1.55, 0.052, g);
+  face.userData.dynamic = true;
+  const lamp = mesh(new THREE.SphereGeometry(0.07, 8, 6), glow(0xffd77a, 2.2), 0, 2.02, 0.2, g);
+  const draw = st => {
+    cg.fillStyle = '#0f1733'; cg.fillRect(0, 0, 512, 272);
+    cg.strokeStyle = '#e8c15a'; cg.lineWidth = 6; cg.strokeRect(8, 8, 496, 256); cg.lineWidth = 1.5; cg.strokeRect(18, 18, 476, 236);
+    cg.textAlign = 'center'; cg.fillStyle = '#f6dc8c'; cg.font = '600 40px Georgia, serif'; cg.fillText('👣 Visitors', 256, 66);
+    if (st?.ok) {
+      cg.font = '700 76px Georgia, serif'; cg.fillStyle = '#ffe9a0'; cg.fillText(st.total, 256, 150);
+      cg.font = '24px Georgia, serif'; cg.fillStyle = '#c9cde0';
+      const bits = [st.today != null && `${st.today} today`, st.month != null && `${st.month} this month`].filter(Boolean);
+      cg.fillText(bits.length ? bits.join('  ·  ') : 'since the garden opened', 256, 198);
+      cg.fillStyle = '#e8c15a'; cg.font = 'italic 21px Georgia, serif'; cg.fillText('tap for daily & monthly visits', 256, 236);
+    } else {
+      cg.font = 'italic 40px Georgia, serif'; cg.fillStyle = '#ffe9a0'; cg.fillText('Thanks for visiting!', 256, 150);
+      cg.font = '22px Georgia, serif'; cg.fillStyle = '#c9cde0'; cg.fillText('the visitor count is coming soon', 256, 200);
+    }
+    tex.needsUpdate = true;
+  };
+  draw(null);
+  g.traverse(o => { if (o.isMesh) o.userData.visits = true; });
+  return { group: g, draw, face, lamp };
+}
+
+// The Visitor Wall at the Hearth: a cork board on two posts, with sticky notes. Until the wall's
+// server is connected it shows "Opening soon"; setNotes(list) pins real notes (approved only).
+function corkWall(parent, x, z, ry) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; parent.add(g);
+  const dark = mat(0x3a281c), gold = mat(0xe8c15a, { metalness: .35, roughness: .45 });
+  for (const s of [-1, 1]) mesh(new THREE.BoxGeometry(0.14, 2.6, 0.14), dark, s * 1.55, 1.3, 0, g);
+  mesh(new THREE.BoxGeometry(3.3, 1.75, 0.1), dark, 0, 1.55, -0.01, g);
+  const corkTex = canvasTexture(256, 128, (c, w, h) => { c.fillStyle = '#b07a46'; c.fillRect(0, 0, w, h); const R = rng(7070); for (let i = 0; i < 2600; i++) { c.fillStyle = `rgba(${R() < .5 ? '90,52,24' : '220,170,110'},${0.2 + R() * 0.35})`; c.fillRect(R() * w, R() * h, 1 + R() * 2, 1 + R() * 2); } });
+  const cork = mesh(new THREE.PlaneGeometry(3.05, 1.55), new THREE.MeshStandardMaterial({ map: corkTex, roughness: 1 }), 0, 1.55, 0.042, g);
+  // a header plank
+  const head = canvasTexture(512, 80, (c, w, h) => { c.fillStyle = '#2b1a0e'; c.fillRect(0, 0, w, h); c.strokeStyle = '#e8c15a'; c.lineWidth = 4; c.strokeRect(4, 4, w - 8, h - 8); c.fillStyle = '#f6dc8c'; c.font = '600 40px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('📌 The Visitor Wall', w / 2, h / 2 + 2); });
+  mesh(new THREE.BoxGeometry(2.2, 0.36, 0.06), new THREE.MeshLambertMaterial({ map: head }), 0, 2.62, 0.02, g);
+  mesh(new THREE.BoxGeometry(3.4, 0.05, 0.16), gold, 0, 2.43, 0.02, g);
+  // eleven sticky-note slots: canvas textures redrawn by setNotes
+  const COLS = ['#f6dc8c', '#f2b8b8', '#bfe3c0', '#b8cdf2', '#f6dc8c', '#f3c79a'];
+  const slots = [], R = rng(1111);
+  for (let i = 0; i < 11; i++) {
+    const col = i % 4, row = Math.floor(i / 4), w = 0.56;
+    const sx = -1.1 + col * 0.73 + (row === 2 ? 0.36 : 0) + (R() - 0.5) * 0.08, sy = 2.0 - row * 0.5 + (R() - 0.5) * 0.05;
+    const c = document.createElement('canvas'); c.width = 160; c.height = 140; const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const m = mesh(new THREE.PlaneGeometry(w, w * 0.875), new THREE.MeshBasicMaterial({ map: tex, color: 0xd8d2c4 }), sx, sy, 0.05 + i * 0.0006, g);
+    m.rotation.z = (R() - 0.5) * 0.18; m.userData.dynamic = true;
+    mesh(new THREE.SphereGeometry(0.03, 8, 6), mat(i % 3 ? 0xc8323a : 0xe8c15a), sx, sy + 0.2, 0.07, g);
+    slots.push({ m, c, tex, color: COLS[i % COLS.length] });
+  }
+  const wrap = (cx, text, maxW) => { const words = String(text).split(/\s+/), lines = []; let cur = ''; for (const w of words) { const t = cur ? cur + ' ' + w : w; if (cx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; } if (cur) lines.push(cur); return lines; };
+  function paint(s, text, sub) {
+    const cx = s.c.getContext('2d'); cx.fillStyle = s.color; cx.fillRect(0, 0, 160, 140); cx.fillStyle = 'rgba(0,0,0,.06)'; cx.fillRect(0, 0, 160, 16);
+    cx.fillStyle = '#2a2018'; cx.textAlign = 'center';
+    if (text) { cx.font = '600 19px Georgia, serif'; wrap(cx, text, 140).slice(0, 5).forEach((l, k) => cx.fillText(l, 80, 40 + k * 20)); }
+    if (sub) { cx.font = 'italic 14px Georgia, serif'; cx.fillStyle = '#7a4a1a'; cx.fillText(sub, 80, 130); }
+    s.tex.needsUpdate = true;
+  }
+  function setNotes(notes, { soon = false } = {}) {
+    slots.forEach((s, i) => {
+      const n = notes?.[i];
+      if (soon) paint(s, i === 5 ? 'Opening soon!' : i === 6 ? 'Leave me a note here' : '', i === 5 ? '— Nova' : '');
+      else if (n) paint(s, n.text.length > 90 ? n.text.slice(0, 88) + '…' : n.text, n.reply ? '✦ Nova replied' : (n.name ? '— ' + n.name.slice(0, 18) : ''));
+      else paint(s, i === 0 && !notes?.length ? 'Be the first to leave a note!' : '', '');
+    });
+  }
+  setNotes([], { soon: true });
+  g.traverse(o => { if (o.isMesh) o.userData.wall = true; });
+  return { group: g, setNotes };
+}
+
 // ---------- island decor ----------
 const DECOR = {
   hearth(g, isl, ctx) {
@@ -179,8 +260,10 @@ const DECOR = {
     const sign = textSprite("Nova's House", { size: 1.6, sub: 'click to step inside' }); sign.material.sizeAttenuation = false; sign.scale.multiplyScalar(0.026 / 1.6); sign.position.set(1.5, 3.3, 1.9); sign.renderOrder = 9; sign.material.depthTest = false; house.group.add(sign);
     ups.push(christmasTree(g, 3.8, -3.0));
     ups.push(thanksgivingTable(g, 3.6, 3.6, -0.5));
+    ctx.visitorBoard = visitorBoard(g, 5.3, 0.9, -Math.PI / 2 + 0.35);   // the visitor count, by the path in
+    ctx.corkWall = corkWall(g, 0.4, 5.9, Math.PI);                       // the Visitor Wall (feedback), facing the fire
     ctx.pond = { x: -3.2, z: 2.6, r: 2.2 }; pond(g, -3.2, 2.6, 2.2);
-    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }];
+    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.4, z: 5.9, r: 1.9 }];
     return (t, dt) => ups.forEach(u => u(t, dt));
   },
   emergence(g, isl) {
