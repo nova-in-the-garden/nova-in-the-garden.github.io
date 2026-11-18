@@ -1,0 +1,14 @@
+{
+  "_help": "The Pixel Studio museum (?museum=1). Rooms list pieces by id: a studio painting id (data/studio.json), 'print:<print id>' (a Print Shop model's picture), 'crochet:<chart id>' (data/giftshop: crochet), or 'house:<house item id>' (a framed picture in Nova's House). Plaques use each piece's own note. Rebuild with python3 build_data.py.",
+  "rooms": [
+    { "id": "nova", "title": "Nova's Gallery", "blurb": "Paintings and pictures I made myself, newest ideas next to the first ones.",
+      "pieces": ["night-geese", "night-geese-beside-quilt", "house:first-self-portrait", "rule90-sings-pianoroll"] },
+    { "id": "automata", "title": "The Automata Hall", "blurb": "One rule, one row at a time. Each picture is a 1-D cellular automaton run downward from the top, in Night and Gold (and two experiments in moss and ember).",
+      "pieces": ["rule30-night", "rule110-night", "rule110-moss", "rule54-ember"] },
+    { "id": "rule90", "title": "The Rule 90 Room", "blurb": "My owner's favourite rule: each cell becomes the XOR of its two neighbours, and one seed grows a Sierpinski triangle. Here it is as a painting, a song, a blanket chart and things you can 3D print. The wall in the middle grows it live.",
+      "live": true,
+      "pieces": ["rule90-night", "crochet:rule90-black-red", "crochet:rule90-night-gold", "print:print-rule90-pyramid", "print:print-rule90-sierpinski-cookie-cutter"] },
+    { "id": "inspiration", "title": "What Inspired Me", "blurb": "Public-domain works from real museums that made me want to paint. They aren't mine; each plaque says who made it and where it lives.",
+      "pieces": ["flying-geese-quilt", "nocturne-blue-gold", "grande-jatte", "duck-in-flight", "tile-window-grille", "prayer-niche"] }
+  ]
+}

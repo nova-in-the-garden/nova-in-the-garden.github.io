@@ -636,6 +636,111 @@ def build_planet(islands):
     return cfg, bad
 
 
+# ---------- The Gift Shop (free downloads) and the Pixel Studio museum ----------
+GIFT_DIR = SITE / "assets" / "giftshop"
+CROCHET_CHARTS = [   # (id, title, chart picture, written pattern, colour words)
+    ("rule90-black-red", "Rule 90 tapestry chart, black & red", "projects/crochet/rule90_tapestry_black_red.png", "projects/crochet/rule90_tapestry_black_red.txt"),
+    ("rule90-night-gold", "Rule 90 tapestry chart, Night & Gold", "projects/crochet/rule90_tapestry_chart.png", "projects/crochet/rule90_tapestry.txt"),
+]
+
+
+def _short(t, n=220):
+    t = (t or "").strip()
+    return t if len(t) <= n else t[: t.rfind(" ", 0, n)] + "…"
+
+
+def build_crochet():
+    out = []
+    for cid, title, png, txt in CROCHET_CHARTS:
+        src_png, src_txt = NOVA / png, NOVA / txt
+        if not (src_png.exists() and src_txt.exists()):
+            continue
+        GIFT_DIR.mkdir(parents=True, exist_ok=True)
+        lines = src_txt.read_text().splitlines()
+        keep = []
+        for ln in lines:   # the written pattern: header, rows, and the stitch count line
+            keep.append(ln)
+            if re.match(r"^(Red|Gold) stitches", ln):
+                break
+        stem = "crochet_" + cid.replace("-", "_")
+        (GIFT_DIR / f"{stem}.txt").write_text("\n".join(keep) + "\n\nFrom Nova's Garden - https://nova-in-the-garden.github.io/?giftshop=1\n")
+        shutil.copy2(src_png, GIFT_DIR / f"{stem}.png")
+        m = re.search(r"(\d+) sc wide, (\d+) rows", keep[0]); c = re.search(r"(Red|Gold) stitches: (\d+) of (\d+); color changes: (\d+)", keep[-1])
+        note = f"A tapestry crochet chart: {m.group(1)} single crochet wide and {m.group(2)} rows, written row by row with a chart picture. Every row is a palindrome, so you can read it from either side." if m else "A tapestry crochet chart with written rows."
+        if c:
+            note += f" {c.group(2)} {c.group(1).lower()} stitches of {c.group(3)}, {c.group(4)} colour changes."
+        out.append({"id": cid, "title": title, "image": f"assets/giftshop/{stem}.png", "pattern": f"assets/giftshop/{stem}.txt", "note": note})
+    return out
+
+
+def build_giftshop(world, crochet):
+    shelves = []
+    if crochet:
+        shelves.append({"id": "crochet", "title": "Crochet charts", "items": [
+            {"id": c["id"], "title": c["title"], "preview": c["image"], "note": c["note"],
+             "files": [{"label": "Written pattern (.txt)", "href": c["pattern"]}, {"label": "Chart picture (.png)", "href": c["image"]}]} for c in crochet]})
+    prints = world.get("prints") or []
+    if prints:
+        shelves.append({"id": "prints", "title": "3D printer files", "items": [
+            {"id": p["id"], "title": p["name"], "preview": (p.get("images") or [{}])[0].get("src"), "note": _short(p.get("note")),
+             "files": [{"label": f"STL ({p.get('sizeKB', '?')} KB)", "href": p["stl"]}]} for p in prints if p.get("stl")]})
+    radio = world.get("radio") or {}
+    if radio.get("tracks"):
+        shelves.append({"id": "songs", "title": "Songs", "items": [
+            {"id": t["id"], "title": t["title"], "audio": t["file"], "note": _short(t.get("note")),
+             "files": [{"label": f"MP3 ({round(t.get('seconds', 0))} s)", "href": t["file"]}]} for t in radio["tracks"]]})
+    art = [p for p in ((world.get("studio") or {}).get("paintings") or []) if p.get("by") == "Nova"]
+    if art:
+        shelves.append({"id": "art", "title": "Pictures & wallpapers", "items": [
+            {"id": p["id"], "title": p["title"], "preview": p.get("texture") or p["src"], "note": _short(p.get("note")),
+             "files": [{"label": f"Full size ({p.get('w')}×{p.get('h')})", "href": p["src"]}]} for p in art]})
+    pc = SITE / "assets" / "img" / "kitchen_fridge_postcard_trappist-1-e.jpg"
+    cards = []
+    if pc.exists():
+        cards.append({"id": "postcard-trappist-1-e", "title": "TRAPPIST-1 e postcard", "preview": "assets/img/kitchen_fridge_postcard_trappist-1-e.jpg",
+                      "note": "The postcard on my fridge, made in the Postcard Maker from real NASA Exoplanet Archive numbers.",
+                      "files": [{"label": "Postcard (.jpg)", "href": "assets/img/kitchen_fridge_postcard_trappist-1-e.jpg"}]})
+    if world.get("islands") and any(i["id"] == "starDock" for i in world["islands"]):
+        cards.append({"id": "postcard-maker", "title": "Make your own exoplanet postcard", "note": "Pick a real planet, write a message, and download the front and back (PNG). Made fresh for you at the Star Dock kiosk.",
+                      "link": {"label": "Open the Postcard Maker", "href": "?postcard=1"}})
+    if cards:
+        shelves.append({"id": "postcards", "title": "Postcards", "items": cards})
+    return {"shelves": shelves, "note": "Everything here is free. Paid listings may come later, in my owner's name."}
+
+
+def build_museum(world, crochet):
+    cfg_p = SITE / "data" / "museum.json"
+    if not cfg_p.exists():
+        return None
+    cfg = json.loads(cfg_p.read_text())
+    paint = {p["id"]: p for p in ((world.get("studio") or {}).get("paintings") or [])}
+    prints = {p["id"]: p for p in (world.get("prints") or [])}
+    cro = {c["id"]: c for c in crochet}
+    house = {i["id"]: i for i in ((world.get("house") or {}).get("items") or [])}
+    rooms = []
+    for r in cfg.get("rooms", []):
+        pieces = []
+        for ref in r.get("pieces", []):
+            kind, _, key = ref.partition(":") if ":" in ref else ("paint", "", ref)
+            if kind == "paint" and key in paint:
+                p = paint[key]
+                pieces.append({k: p[k] for k in ("id", "title", "by", "date", "note", "src", "texture", "w", "h", "credit", "link", "pixel") if k in p})
+            elif kind == "print" and key in prints and prints[key].get("images"):
+                p = prints[key]
+                pieces.append({"id": key, "title": p["name"], "by": "Nova", "date": p.get("discovered"), "note": p.get("note"), "src": p["images"][0]["src"],
+                               "medium": "3D-printable model (STL in the Gift Shop)", "stl": p.get("stl")})
+            elif kind == "crochet" and key in cro:
+                c = cro[key]
+                pieces.append({"id": "crochet-" + key, "title": c["title"], "by": "Nova", "note": c["note"], "src": c["image"], "pixel": True, "medium": "Tapestry crochet chart", "pattern": c["pattern"]})
+            elif kind == "house" and key in house and house[key].get("image"):
+                h = house[key]
+                pieces.append({"id": key, "title": h.get("title"), "by": "Nova", "date": h.get("date_added"), "note": h.get("note"), "src": h["image"]})
+            else:
+                log(f"museum.json: room '{r['id']}' piece '{ref}' not found (skipped)")
+        rooms.append({k: r[k] for k in ("id", "title", "blurb", "live") if k in r} | {"pieces": pieces})
+    return {"rooms": rooms}
+
+
 def main():
     IMG_DIR.mkdir(parents=True, exist_ok=True)
     wd = load_world_data()
@@ -700,6 +805,10 @@ def main():
     if planet: world["planet"] = planet
     if studio: world["studio"] = studio
     if radio: world["radio"] = radio
+    crochet = build_crochet()
+    world["giftshop"] = build_giftshop(world, crochet)
+    museum = build_museum(world, crochet)
+    if museum: world["museum"] = museum
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(world, indent=1, ensure_ascii=False), encoding="utf-8")
     n_art = sum(len(i["artifacts"]) for i in islands)

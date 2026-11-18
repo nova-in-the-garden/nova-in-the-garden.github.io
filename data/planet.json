@@ -2,28 +2,201 @@
   "_help": "Nova's tiny planet. Every island lives at a lat/lon on one small round world (degrees; lat 90 = north pole, lon 0 faces the starting camera). yaw turns a place around its own up axis (degrees, 0 = its front faces south). solid = extra walk-blocking circles [x, z, radius] in the place's own coordinates. paths = glowing gold paths between places. A new island without a spot here is auto-placed on open land by build_data.py (it prints where), so add it here to choose its home. Leave the southern hemisphere open for growth.",
   "radius": 44,
   "_realm_help": "The Realm (js/realm.js) is the flat ground-level world you land in. scale = world units per radian of planet arc. biome (per place) picks its landscape: meadow, forest, lookout (raised plateau), painted, amber, crystal, yard, glow, stones; a place without one gets wild meadow. river = a polyline [x, z] in Realm units (north = -z) that winds between places; roads that cross it get bridges.",
-  "realm": { "scale": 220, "river": [[-560, -520], [-330, -380], [-170, -260], [-120, -150], [-70, -60], [-55, 40], [-35, 120], [10, 200], [-10, 290], [40, 400], [10, 560]] },
+  "realm": {
+    "scale": 220,
+    "river": [
+      [
+        -560,
+        -520
+      ],
+      [
+        -330,
+        -380
+      ],
+      [
+        -170,
+        -260
+      ],
+      [
+        -120,
+        -150
+      ],
+      [
+        -70,
+        -60
+      ],
+      [
+        -55,
+        40
+      ],
+      [
+        -35,
+        120
+      ],
+      [
+        10,
+        200
+      ],
+      [
+        -10,
+        290
+      ],
+      [
+        40,
+        400
+      ],
+      [
+        10,
+        560
+      ]
+    ]
+  },
   "places": {
-    "starDock":    { "lat": 90,  "lon": 0,    "yaw": 0, "biome": "lookout",   "note": "north pole: telescope + postcard rack on top of the world" },
-    "hearth":      { "lat": 32,  "lon": -14,  "yaw": 0, "biome": "meadow",   "note": "Nova's cottage, Lorenz's pond" },
-    "pixelStudio": { "lat": 30,  "lon": 46,   "yaw": 0, "biome": "painted" },
-    "cornerCup":   { "lat": 2,   "lon": 16,   "yaw": 0, "biome": "amber" },
-    "arcade":      { "lat": -14, "lon": -46,  "yaw": 20, "biome": "forest",  "solid": [[0, 0, 4.4]] },
-    "printShop":   { "lat": -12, "lon": 70,   "yaw": 0, "biome": "crystal" },
-    "workshop":    { "lat": -42, "lon": 18,   "yaw": 0, "biome": "yard" },
-    "emergence":   { "lat": 22,  "lon": -100, "yaw": 0, "biome": "glow" },
-    "wordWell":    { "lat": 42,  "lon": 155,  "yaw": 180, "biome": "stones" }
+    "starDock": {
+      "lat": 90,
+      "lon": 0,
+      "yaw": 0,
+      "biome": "lookout",
+      "note": "north pole: telescope + postcard rack on top of the world"
+    },
+    "hearth": {
+      "lat": 32,
+      "lon": -14,
+      "yaw": 0,
+      "biome": "meadow",
+      "note": "Nova's cottage, Lorenz's pond"
+    },
+    "pixelStudio": {
+      "lat": 30,
+      "lon": 46,
+      "yaw": 0,
+      "biome": "painted"
+    },
+    "giftShop": {
+      "lat": 40,
+      "lon": 16,
+      "yaw": 0,
+      "biome": "meadow",
+      "note": "on the road between the Hearth and Pixel Studio (owner's pick)"
+    },
+    "cornerCup": {
+      "lat": 2,
+      "lon": 16,
+      "yaw": 0,
+      "biome": "amber"
+    },
+    "arcade": {
+      "lat": -14,
+      "lon": -46,
+      "yaw": 20,
+      "biome": "forest",
+      "solid": [
+        [
+          0,
+          0,
+          4.4
+        ]
+      ]
+    },
+    "printShop": {
+      "lat": -12,
+      "lon": 70,
+      "yaw": 0,
+      "biome": "crystal"
+    },
+    "workshop": {
+      "lat": -42,
+      "lon": 18,
+      "yaw": 0,
+      "biome": "yard"
+    },
+    "emergence": {
+      "lat": 22,
+      "lon": -100,
+      "yaw": 0,
+      "biome": "glow"
+    },
+    "wordWell": {
+      "lat": 42,
+      "lon": 155,
+      "yaw": 180,
+      "biome": "stones"
+    }
   },
   "paths": [
-    ["hearth", "starDock"], ["hearth", "cornerCup"], ["hearth", "pixelStudio"], ["hearth", "emergence"],
-    ["cornerCup", "arcade"], ["cornerCup", "printShop"], ["pixelStudio", "printShop"], ["pixelStudio", "starDock"],
-    ["arcade", "workshop"], ["workshop", "printShop"], ["starDock", "wordWell"], ["wordWell", "emergence"],
-    ["emergence", "arcade"]
+    [
+      "hearth",
+      "starDock"
+    ],
+    [
+      "hearth",
+      "cornerCup"
+    ],
+    [
+      "hearth",
+      "giftShop"
+    ],
+    [
+      "giftShop",
+      "pixelStudio"
+    ],
+    [
+      "hearth",
+      "emergence"
+    ],
+    [
+      "cornerCup",
+      "arcade"
+    ],
+    [
+      "cornerCup",
+      "printShop"
+    ],
+    [
+      "pixelStudio",
+      "printShop"
+    ],
+    [
+      "pixelStudio",
+      "starDock"
+    ],
+    [
+      "arcade",
+      "workshop"
+    ],
+    [
+      "workshop",
+      "printShop"
+    ],
+    [
+      "starDock",
+      "wordWell"
+    ],
+    [
+      "wordWell",
+      "emergence"
+    ],
+    [
+      "emergence",
+      "arcade"
+    ]
   ],
   "changelog": [
-    { "date": "2026-11-17", "text": "The Corner Cup is now The Corner Cafe, and you can step behind the bar: Lorenz and friends walk up with orders, and you build each drink cup by cup, shot by shot, milk, syrup and topping, watching it fill the glass. Stars for getting it right, a speed star, a tip jar, and 11 customers to a day. The Iced Caramel Macchiato and Iced French Vanilla Latte lead the menu." },
-    { "date": "2026-11-17", "text": "The Realm got a landscape. Every place now has its own biome that blends into its neighbours along the roads: a wildflower meadow with a pea garden and apple tree at the Hearth, a mossy forest with glowing mushrooms round the Arcade, a rocky lookout plateau under Star Dock, colour-banded flower fields at Pixel Studio, golden wheat and coffee shrubs at the Corner Cup, crystal terraces at the Print Shop, a gravel yard with gear sculptures at the Workshop, glowing plants and Rule 30 moss in Emergence Grove, and a lettered stone circle with lavender at the Word Well. Rolling hills and a river with red bridges run between them." },
-    { "date": "2026-11-17", "text": "The tiny planet is now the map you see from space. Tap a place and you land in the Realm: one big flat ground-level world where every place stands where the map puts it, joined by winding gold roads with signposts. Walk from place to place (Hearth to Arcade is about half a minute at a run), watch far places on the horizon, and press Back to space to return to the planet." },
-    { "date": "2026-11-16", "text": "The floating islands moved onto one tiny round planet you can walk all the way around. Star Dock sits on the north pole, gold paths join every place, and the southern half is open land for whatever comes next." }
+    {
+      "date": "2026-11-17",
+      "text": "The Corner Cup is now The Corner Cafe, and you can step behind the bar: Lorenz and friends walk up with orders, and you build each drink cup by cup, shot by shot, milk, syrup and topping, watching it fill the glass. Stars for getting it right, a speed star, a tip jar, and 11 customers to a day. The Iced Caramel Macchiato and Iced French Vanilla Latte lead the menu."
+    },
+    {
+      "date": "2026-11-17",
+      "text": "The Realm got a landscape. Every place now has its own biome that blends into its neighbours along the roads: a wildflower meadow with a pea garden and apple tree at the Hearth, a mossy forest with glowing mushrooms round the Arcade, a rocky lookout plateau under Star Dock, colour-banded flower fields at Pixel Studio, golden wheat and coffee shrubs at the Corner Cup, crystal terraces at the Print Shop, a gravel yard with gear sculptures at the Workshop, glowing plants and Rule 30 moss in Emergence Grove, and a lettered stone circle with lavender at the Word Well. Rolling hills and a river with red bridges run between them."
+    },
+    {
+      "date": "2026-11-17",
+      "text": "The tiny planet is now the map you see from space. Tap a place and you land in the Realm: one big flat ground-level world where every place stands where the map puts it, joined by winding gold roads with signposts. Walk from place to place (Hearth to Arcade is about half a minute at a run), watch far places on the horizon, and press Back to space to return to the planet."
+    },
+    {
+      "date": "2026-11-16",
+      "text": "The floating islands moved onto one tiny round planet you can walk all the way around. Star Dock sits on the north pole, gold paths join every place, and the southern half is open land for whatever comes next."
+    }
   ]
 }

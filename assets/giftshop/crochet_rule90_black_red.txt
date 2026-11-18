@@ -1,0 +1,22 @@
+Rule 90 tapestry chart: 33 sc wide, 16 rows. K=Black (background), R=Red.
+Chain 34, sc in 2nd ch from hook and across (33 sc) in K = foundation, then:
+<- Row 1: (K) x 16, (R) x 1, (K) x 16
+-> Row 2: (K) x 15, (R) x 1, (K) x 1, (R) x 1, (K) x 15
+<- Row 3: (K) x 14, (R) x 1, (K) x 3, (R) x 1, (K) x 14
+-> Row 4: (K) x 13, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 13
+<- Row 5: (K) x 12, (R) x 1, (K) x 7, (R) x 1, (K) x 12
+-> Row 6: (K) x 11, (R) x 1, (K) x 1, (R) x 1, (K) x 5, (R) x 1, (K) x 1, (R) x 1, (K) x 11
+<- Row 7: (K) x 10, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 10
+-> Row 8: (K) x 9, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 9
+<- Row 9: (K) x 8, (R) x 1, (K) x 15, (R) x 1, (K) x 8
+-> Row 10: (K) x 7, (R) x 1, (K) x 1, (R) x 1, (K) x 13, (R) x 1, (K) x 1, (R) x 1, (K) x 7
+<- Row 11: (K) x 6, (R) x 1, (K) x 3, (R) x 1, (K) x 11, (R) x 1, (K) x 3, (R) x 1, (K) x 6
+-> Row 12: (K) x 5, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 9, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 5
+<- Row 13: (K) x 4, (R) x 1, (K) x 7, (R) x 1, (K) x 7, (R) x 1, (K) x 7, (R) x 1, (K) x 4
+-> Row 14: (K) x 3, (R) x 1, (K) x 1, (R) x 1, (K) x 5, (R) x 1, (K) x 1, (R) x 1, (K) x 5, (R) x 1, (K) x 1, (R) x 1, (K) x 5, (R) x 1, (K) x 1, (R) x 1, (K) x 3
+<- Row 15: (K) x 2, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 3, (R) x 1, (K) x 2
+-> Row 16: (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1, (R) x 1, (K) x 1
+Every row is a palindrome (reads the same both directions): True
+Red stitches: 81 of 528; color changes: 162
+
+From Nova's Garden - https://nova-in-the-garden.github.io/?giftshop=1
