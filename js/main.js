@@ -18,6 +18,8 @@ import { createArcadePlayer } from './arcadeplayer.js';
 import { createPostcardMaker } from './postcard.js';
 import { createScopeView } from './scopeview.js';
 import { createCafe } from './cafe.js';
+import { createGiftShop } from './giftshop.js';
+import { createMuseum } from './museum.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA island radius px -> world units
 const world = await fetch('data/world.json').then(r => { if (!r.ok) throw new Error('world.json ' + r.status); return r.json(); });
@@ -351,7 +353,9 @@ function visit(id, { open = true, instant = false } = {}) {
 function openPanel(id) {
   const isl = byId(id); if (!isl) return;
   if (isl.data.arcade) renderArcadePanel(arcadeData, { onEnter: () => enterArcade(), onPlay: gm => enterArcade(undefined, { game: gm.id }), onWing: w => enterArcade(w) });
-  else { renderPanel(isl.data, world, { onView: viewPrint }); if (id === 'pixelStudio' && studio) renderStudioBox(world, { radio, onPainting: i => openPainting(i) }); if (id === 'starDock') postcardButton(); if (id === 'cornerCup') cafeButton(); }
+  else { renderPanel(isl.data, world, { onView: viewPrint }); if (id === 'pixelStudio' && studio) renderStudioBox(world, { radio, onPainting: i => openPainting(i) }); if (id === 'starDock') postcardButton(); if (id === 'cornerCup') cafeButton();
+    if (id === 'giftShop' && giftShop) panelButton('gs-open-btn', `<button class="pill gold">🎁 Browse the shelves</button><p style="margin:6px 0 0;color:var(--muted);font-size:13px">${giftShop.data.shelves.reduce((n, x) => n + x.items.length, 0)} free downloads: crochet charts, 3D-printer files, songs, pictures and postcards. Or tap the shop.</p>`, () => openGiftShop());
+    if (id === 'pixelStudio' && museum) panelButton('mu-open-btn', `<button class="pill gold">🏛️ Visit the museum</button><p style="margin:6px 0 0;color:var(--muted);font-size:13px">${museum.rooms.length} rooms with a plaque for every piece, including the Rule 90 Room. Or tap the museum's gold columns.</p>`, () => openMuseum()); }
   openSheet('panel');
 }
 function arcadeView() {
@@ -410,6 +414,8 @@ canvas.addEventListener('pointerup', e => {
   if (hit?.object.userData.arcadeDoor) return enterArcade();
   if (hit?.object.userData.postcards) return openPostcards();
   if (inRealm && hasAncestor(hit?.object, o => o.userData.cafe)) return openCafe();
+  if (inRealm && hit?.object.userData.giftshop) return openGiftShop();
+  if (inRealm && hit?.object.userData.museum) return openMuseum();
   if (hit?.object.userData.signpost) return signpostTravel(hit.object.userData.signpost);
   if (hit && walker.active) { openPanel(hit.object.userData.islandId); setChip(hit.object.userData.islandId); return; }   // walking: read about it, stay on foot
   if (hit) visit(hit.object.userData.islandId);
@@ -622,6 +628,17 @@ async function exitArcade() {
 // ---------- Exoplanet Postcard Maker: a kiosk on Star Dock (js/postcard.js) ----------
 const postcards = postcardData ? createPostcardMaker(postcardData, { onOpen: () => { leaveStudio('opened the postcards'); closeSheets(); }, onClose: () => resumeLoop() }) : null;
 const hasAncestor = (o, f) => { for (; o; o = o.parent) if (f(o)) return true; return false; };
+// ---------- The Gift Shop (free downloads) and the Pixel Studio Museum ----------
+const overlayHooks = what => ({ onOpen: () => { leaveStudio('opened the ' + what); closeSheets(); walker.state?.keys?.clear?.(); }, onClose: () => resumeLoop() });
+const giftShop = createGiftShop(world.giftshop, overlayHooks('gift shop'));
+const museum = createMuseum(world.museum, { song: world.radio?.tracks?.find(t => t.id === 'rule90-sings'), ...overlayHooks('museum') });
+function openGiftShop(shelf) { if (!giftShop || inArcade || inside) return false; giftShop.open(shelf); return true; }
+function openMuseum(room) { if (!museum || inArcade || inside) return false; museum.open(room); return true; }
+function panelButton(cls, html, onclick) {
+  const body = document.querySelector('#panel .sheet-body'); if (!body || body.querySelector('.' + cls)) return;
+  const box = document.createElement('div'); box.className = 'studio-box ' + cls; box.innerHTML = html;
+  box.querySelector('button').onclick = onclick; const h = body.querySelector('h2'); h ? h.after(box) : body.prepend(box);
+}
 // ---------- The Corner Cafe: the coffee-making game (js/cafe.js) ----------
 const cafe = createCafe({ onOpen: () => { leaveStudio('opened the cafe'); closeSheets(); walker.state?.keys?.clear?.(); }, onClose: () => resumeLoop() });
 function openCafe() { if (inArcade || inside) return false; cafe.open(); return true; }
@@ -806,7 +823,7 @@ skyTick(performance.now(), true);
 let last = performance.now(), t = 0;
 function frame() {
   const now = performance.now(); const rawDt = Math.min((now - last) / 1000, 0.25), dt = Math.min(rawDt, 0.05); last = now; t += dt;
-  if (player.isOpen || postcards?.isOpen || cafe.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game or the postcard maker is open
+  if (player.isOpen || postcards?.isOpen || cafe.isOpen || giftShop?.isOpen || museum?.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game or the postcard maker is open
   skyTick(now); skyU.uTime.value = t;
   if (inArcade) {
     arcade.update(dt, t);
@@ -853,7 +870,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), live: clock.live }; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;
@@ -885,6 +902,8 @@ if (q.has('lorenz')) meetLorenz();
 if (q.has('studio')) visit('pixelStudio', { instant: true });
 if (q.get('painting')) openPainting(q.get('painting'));
 if (q.has('postcard') || q.get('planet')) { visit('starDock', { open: false, instant: true }); openPostcards(q.get('planet') || undefined); }
+if (q.has('giftshop')) { visit('giftShop', { open: false, instant: true }); const v = q.get('giftshop'); openGiftShop(v && v !== '1' ? v : undefined); }
+if (q.has('museum')) { visit('pixelStudio', { open: false, instant: true }); const v = q.get('museum'); openMuseum(v && v !== '1' ? v : undefined); }
 if (q.has('cafe')) { visit('cornerCup', { open: false, instant: true }); openCafe(); }
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });

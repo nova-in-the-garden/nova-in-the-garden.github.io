@@ -6,7 +6,7 @@ import { buildCottage } from './house.js';
 import { buildStudio } from './studio.js';
 import { paintFront, CARD_W, CARD_H } from './postcard.js';
 
-export const GRASS = { hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
+export const GRASS = { giftShop: 0x2a3a2e, hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
 
 export function islandBase(isl, r, seed) {
   const R = rng(seed);
@@ -131,6 +131,44 @@ function pond(parent, x, z, r) {
   return water;
 }
 
+// ---------- the Pixel Studio Museum's front door (tap it: js/museum.js) ----------
+function museumAnnex(parent) {
+  const m = new THREE.Group(); m.position.set(-6.3, 0, 4.4); m.rotation.y = 0.75; parent.add(m);
+  const stone = mat(0x2a3050, { roughness: 0.8 }), gold = mat(0xc99a2e, { metalness: 0.6, roughness: 0.35 });
+  mesh(new THREE.BoxGeometry(4.2, 0.3, 3.2), mat(0x3a4060), 0, 0.15, 0, m);              // plinth
+  mesh(new THREE.BoxGeometry(4.6, 0.16, 3.6), mat(0x4a5070), 0, 0.02, 0.1, m);
+  mesh(new THREE.BoxGeometry(3.6, 2.6, 2.4), stone, 0, 1.6, -0.3, m);                    // hall
+  for (const x of [-1.5, -0.5, 0.5, 1.5]) mesh(new THREE.CylinderGeometry(0.14, 0.17, 2.5, 10), gold, x, 1.55, 1.15, m);   // gold columns
+  mesh(new THREE.BoxGeometry(4.0, 0.22, 2.9), gold, 0, 2.9, 0, m);
+  const ped = new THREE.Shape(); ped.moveTo(-2.05, 0); ped.lineTo(2.05, 0); ped.lineTo(0, 0.85); ped.lineTo(-2.05, 0);
+  mesh(new THREE.ExtrudeGeometry(ped, { depth: 2.9, bevelEnabled: false }), stone, 0, 3.0, -1.45, m);   // pediment
+  mesh(new THREE.BoxGeometry(1.0, 1.7, 0.05), glow(0xffc87a, 1.1), 0, 1.15, 0.91, m);   // the lit doorway
+  const sq = canvasTexture(128, 64, (c, w, h) => { c.fillStyle = '#070b1c'; c.fillRect(0, 0, w, h); let r = new Array(w / 4).fill(0); r[r.length >> 1] = 1;
+    for (let y = 0; y < h / 4; y++) { r.forEach((v, x) => { if (v) { c.fillStyle = '#e8c15a'; c.fillRect(x * 4, y * 4, 4, 4); } }); r = r.map((_, x) => (r[x - 1] || 0) ^ (r[x + 1] || 0)); } });
+  mesh(new THREE.PlaneGeometry(1.3, 0.62), new THREE.MeshBasicMaterial({ map: sq }), 0, 3.28, 1.46, m);   // a Rule 90 tympanum
+  const sign = textSprite('Museum', { size: 0.6 }); sign.position.set(0, 4.35, 0.9); m.add(sign);
+  m.traverse(o => { o.userData.museum = true; });
+  return m;
+}
+
+// ---------- the Gift Shop (tap it: js/giftshop.js) ----------
+function giftShopBuilding(g) {
+  const s = new THREE.Group(); s.position.set(0, 0, -0.6); g.add(s);
+  mesh(new THREE.BoxGeometry(3.6, 2.3, 2.6), mat(0x1c2550), 0, 1.15, 0, s);              // navy walls
+  mesh(new THREE.BoxGeometry(3.8, 0.14, 2.8), mat(0xc99a2e, { metalness: .5, roughness: .4 }), 0, 2.32, 0, s);
+  const roof = mesh(new THREE.ConeGeometry(2.75, 1.5, 4), mat(0x8c1f26), 0, 3.12, 0, s); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.78);
+  mesh(new THREE.BoxGeometry(0.75, 1.5, 0.06), mat(0xc8323a), 1.05, 0.75, 1.31, s);      // red door
+  mesh(new THREE.SphereGeometry(0.05, 6, 4), mat(0xe8c15a), 1.3, 0.75, 1.36, s);
+  mesh(new THREE.BoxGeometry(1.7, 1.05, 0.05), glow(0xffd28a, 1.0), -0.6, 1.25, 1.31, s);  // shop window
+  const box = (x, y, z, w, col, rib) => { mesh(new THREE.BoxGeometry(w, w * 0.8, w), mat(col), x, y + w * 0.4, z, s); mesh(new THREE.BoxGeometry(w + 0.02, w * 0.82, w * 0.16), mat(rib), x, y + w * 0.4, z, s); mesh(new THREE.BoxGeometry(w * 0.16, w * 0.82, w + 0.02), mat(rib), x, y + w * 0.4, z, s); };
+  box(-1.05, 0.72, 1.36, 0.36, 0xc8323a, 0xe8c15a); box(-0.55, 0.72, 1.36, 0.3, 0xe8c15a, 0xc8323a); box(-0.15, 0.72, 1.36, 0.26, 0x141c3c, 0xe8c15a);
+  box(-2.3, 0, 1.0, 0.6, 0xc8323a, 0xe8c15a); box(-2.25, 0.48, 1.0, 0.4, 0xe8c15a, 0xc8323a); box(2.35, 0, 1.2, 0.5, 0x141c3c, 0xe8c15a);
+  const sign = textSprite('The Gift Shop', { size: 0.62 }); sign.position.set(0, 4.25, 1.0); s.add(sign);
+  const bunt = []; for (let i = 0; i < 11; i++) { const f = mesh(new THREE.ConeGeometry(0.12, 0.26, 3), mat(i % 2 ? 0xe8c15a : 0xc8323a), -1.75 + i * 0.35, 2.12 - Math.sin(i / 10 * Math.PI) * 0.18, 1.42, s); f.rotation.x = Math.PI; bunt.push(f); }
+  s.traverse(o => { o.userData.giftshop = true; });
+  return t => bunt.forEach((f, i) => { f.rotation.z = Math.sin(t * 2 + i) * 0.15; });
+}
+
 // ---------- island decor ----------
 const DECOR = {
   hearth(g, isl, ctx) {
@@ -192,7 +230,7 @@ const DECOR = {
   },
   pixelStudio(g, isl, ctx) {
     // interactive studio (gallery wall, easels, radio) when data/studio.json or data/radio.json exist
-    if (ctx.world.studio || ctx.world.radio) { const st = buildStudio(g, isl, ctx); ctx.studio = st; return (t, dt) => st.update(t, dt, ctx.radioLevel ? ctx.radioLevel() : 0); }
+    if (ctx.world.studio || ctx.world.radio) { const st = buildStudio(g, isl, ctx); ctx.studio = st; if (ctx.world.museum) museumAnnex(st.group); return (t, dt) => st.update(t, dt, ctx.radioLevel ? ctx.radioLevel() : 0); }
     const loader = new THREE.TextureLoader();
     const imgs = ctx.world.easels || [];
     const spots = [[-3, -1.5, 0.5], [0, -3.2, 0], [3, -1.5, -0.5], [-0.5, 2.5, Math.PI - .3]];
@@ -243,6 +281,7 @@ const DECOR = {
     tree(g, 2.6, -2.4, 0.9);
     return t => { gear.rotation.z = t * 0.5; b.rotation.z = Math.sin(t * 2) * 0.15; ruffle.rotation.y = t * 0.2; };
   },
+  giftShop(g) { tree(g, -2.8, -2.4, 0.8); tree(g, 2.9, -2.2, 0.7); return giftShopBuilding(g); },
   cornerCup(g) {
     const shop = new THREE.Group(); shop.position.set(0, 0, -0.8); g.add(shop);
     mesh(new THREE.BoxGeometry(3.4, 2.4, 2.4), mat(0x7a4b34), 0, 1.2, 0, shop);
