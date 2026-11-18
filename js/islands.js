@@ -261,9 +261,9 @@ const DECOR = {
     ups.push(christmasTree(g, 3.8, -3.0));
     ups.push(thanksgivingTable(g, 3.6, 3.6, -0.5));
     ctx.visitorBoard = visitorBoard(g, 5.3, 0.9, -Math.PI / 2 + 0.35);   // the visitor count, by the path in
-    ctx.corkWall = corkWall(g, 0.4, 5.9, Math.PI);                       // the Visitor Wall (feedback), facing the fire
+    ctx.corkWall = corkWall(g, 0.8, -6.1, 0.12);                        // the Visitor Wall (feedback), behind the fire, facing it
     ctx.pond = { x: -3.2, z: 2.6, r: 2.2 }; pond(g, -3.2, 2.6, 2.2);
-    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.4, z: 5.9, r: 1.9 }];
+    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.8, z: -6.1, r: 1.9 }];
     return (t, dt) => ups.forEach(u => u(t, dt));
   },
   emergence(g, isl) {
