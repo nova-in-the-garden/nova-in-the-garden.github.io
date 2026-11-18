@@ -277,7 +277,7 @@ def collect_prints() -> list[dict]:
 
 
 # ---------- Nova's House ----------
-HOUSE_ROOMS = {"study", "art", "window", "nook", "kitchen"}
+HOUSE_ROOMS = {"study", "art", "window", "nook", "kitchen", "puzzle"}
 HOUSE_TYPES = {"frame", "print", "object"}
 HOUSE_MODELS = {"macchiato", "journal", "plant", "blanket", "scarf", "candle", "books", "crystal", "yarn", "mug", "telescope",
                 "vanillalatte", "waffleiron", "breakfast", "oreopie", "cookiejar", "peabowl"}
@@ -289,7 +289,8 @@ HOUSE_ANCHORS = {
 }
 HOUSE_BUILTINS = {"crochet-wip", "crochet-chair", "yarn-basket",
                   "kitchen-stove", "kitchen-window", "kitchen-espresso", "kitchen-fridge", "kitchen-pot-rack",
-                  "kitchen-magnet-rule90", "kitchen-magnet-postcard", "kitchen-magnet-duck", "kitchen-thanksgiving-note"}
+                  "kitchen-magnet-rule90", "kitchen-magnet-postcard", "kitchen-magnet-duck", "kitchen-thanksgiving-note",
+                  "puzzle-jigsaw", "puzzle-box", "checkers-board", "checkers-slate", "game-shelf"}
 
 
 def resolve_asset(path: str, kind: str) -> str | None:

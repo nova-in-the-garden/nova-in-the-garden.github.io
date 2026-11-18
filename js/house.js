@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { rng, rule90, mat, glow, mesh, jitter, glowSprite, glowTexture, canvasTexture, mergeStatic } from './util.js';
 import { DAY, collectGlows } from './daylight.js';
 import { makeNova, novaIndoors } from './novabody.js';
+import { makeLorenz } from './lorenz.js';
 import { zonedParts } from './sun.js';
 
 const DEG = Math.PI / 180;
@@ -128,12 +129,11 @@ export function buildCottage(parent, x, z, rot = 0) {
     const halo = glowSprite(r * 4, 0xffb860, 0.45); halo.position.z = 0.25; wg.add(halo);
   }
   roundWin(-0.85, B + 1.0, -D / 2 - 0.005, Math.PI, 0.5);
-  roundWin(W / 2 + 0.005, B + 0.38, 0.75, Math.PI / 2, 0.16);
 
   // garden bits: path stones, bushes, flowers, mailbox, woodpile
   for (let i = 0; i < 6; i++) { const s = mesh(new THREE.CylinderGeometry(0.2 + R() * 0.06, 0.22, 0.06, 7), stone, dx + Math.sin(i * 0.6) * 0.35 + i * 0.12, 0.03, pz + 1.05 + i * 0.42, g); s.rotation.y = R() * 3; }
   const bush = mat(0x2d5a3a);
-  for (const [bx, bz, bs] of [[0.4, 1.75, 0.32], [1.55, 1.7, 0.38], [-1.75, 1.65, 0.3], [3.45, 0.75, 0.3], [-1.8, -1.7, 0.36]]) mesh(jitter(new THREE.IcosahedronGeometry(bs, 1), 0.06, R), bush, bx, bs * 0.7, bz, g);
+  for (const [bx, bz, bs] of [[0.4, 1.75, 0.32], [1.55, 1.7, 0.38], [-1.75, 1.65, 0.3], [3.95, 1.25, 0.3], [-1.8, -1.7, 0.36]]) mesh(jitter(new THREE.IcosahedronGeometry(bs, 1), 0.06, R), bush, bx, bs * 0.7, bz, g);
   for (let i = 0; i < 11; i++) mesh(new THREE.IcosahedronGeometry(0.05, 0), glow(i % 2 ? 0xf2cd62 : 0xc8323a, 0.6), 0.25 + (i % 6) * 0.26, 0.12 + (i % 2) * 0.05, 1.72 + Math.floor(i / 6) * 0.12, g);
   const mb = new THREE.Group(); mb.position.set(dx + 1.0, 0, pz + 1.3); mb.rotation.y = -0.3; g.add(mb);
   mesh(new THREE.BoxGeometry(0.06, 0.8, 0.06), timber, 0, 0.4, 0, mb);
@@ -174,6 +174,31 @@ export function buildCottage(parent, x, z, rot = 0) {
     const cr = new THREE.Group(); cr.position.set(kx0 + kw + 0.32, 0, kz0 + 0.3); cr.rotation.y = 0.25; g.add(cr);
     mesh(new THREE.BoxGeometry(0.42, 0.26, 0.32), wood, 0, 0.13, 0, cr);
     for (let i = 0; i < 5; i++) mesh(new THREE.IcosahedronGeometry(0.06, 0), mat(i % 4 === 3 ? 0x9ab84a : 0xb8242e), -0.13 + (i % 3) * 0.12, 0.29, -0.06 + Math.floor(i / 3) * 0.12, cr);
+  }
+
+  // Game & Puzzle Room wing: a second, slightly lower lean-to in front of the kitchen wing, with a lamp-lit
+  // front window, the duck-height porthole on its east side, and a gold jigsaw piece over the window
+  {
+    const kx0 = W / 2, kw = 1.4, kz0 = 0.5, kz1 = 1.42, kd = kz1 - kz0, kcz = (kz0 + kz1) / 2;
+    const hHi = 1.32, hLo = 0.9;
+    mesh(jitter(new THREE.BoxGeometry(kw + 0.15, B, kd + 0.16, 2, 1, 2), 0.04, R), stone, kx0 + kw / 2 + 0.07, B / 2, kcz + 0.02, g);
+    mesh(new THREE.BoxGeometry(kw, hLo, kd), plaster, kx0 + kw / 2, B + hLo / 2, kcz, g);
+    const wedge = new THREE.Shape(); wedge.moveTo(0, 0); wedge.lineTo(kw, 0); wedge.lineTo(0, hHi - hLo); wedge.lineTo(0, 0);
+    mesh(new THREE.ExtrudeGeometry(wedge, { depth: kd, bevelEnabled: false }), plaster, kx0, B + hLo, kz0, g);
+    for (const zz of [kz0, kz1]) mesh(new THREE.BoxGeometry(0.14, hLo, 0.14), timber, kx0 + kw, B + hLo / 2, zz, g);
+    mesh(new THREE.BoxGeometry(0.08, 0.1, kd + 0.04), timber, kx0 + kw + 0.02, B + hLo - 0.05, kcz, g);
+    mesh(new THREE.BoxGeometry(kw + 0.04, 0.1, 0.08), timber, kx0 + kw / 2, B + hLo - 0.05, kz1 + 0.02, g);
+    const x0 = kx0 - 0.05, y0 = B + hHi + 0.08, x1 = kx0 + kw + 0.28, y1 = B + hLo - 0.04;
+    const ang = Math.atan2(y0 - y1, x1 - x0), Lr = Math.hypot(x1 - x0, y0 - y1);
+    const slab = new THREE.Group(); slab.position.set((x0 + x1) / 2, (y0 + y1) / 2, kcz + 0.1); slab.rotation.z = -ang; g.add(slab);
+    mesh(new THREE.BoxGeometry(Lr, 0.09, kd + 0.2), roofA, 0, 0, 0, slab);
+    for (let i = 0; i < 4; i++) mesh(new THREE.BoxGeometry(Lr / 4 + 0.03, 0.05, kd + 0.24), i % 2 ? roofB : roofA, -Lr / 2 + (i + 0.5) * Lr / 4, 0.06 + i * 0.004, 0, slab);
+    mesh(new THREE.BoxGeometry(0.05, 0.05, kd + 0.26), trimGold, Lr / 2, -0.02, 0, slab);
+    windowRect(kx0 + kw / 2 + 0.05, B + 0.55, kz1 + 0.005, 0, 0.52, 0.4);
+    roundWin(kx0 + kw + 0.005, B + 0.38, kcz, Math.PI / 2, 0.16);
+    // the gold jigsaw piece over the window
+    const pc = new THREE.Shape(), s = 0.07; pc.moveTo(-s, -s); pc.lineTo(-0.025, -s); pc.absarc(0, -s - 0.02, 0.03, Math.PI * 0.75, Math.PI * 0.25, false); pc.lineTo(s, -s); pc.lineTo(s, -0.025); pc.absarc(s + 0.02, 0, 0.03, Math.PI * 1.25, Math.PI * 0.75, true); pc.lineTo(s, s); pc.lineTo(-s, s); pc.lineTo(-s, -s);
+    const piece = mesh(new THREE.ExtrudeGeometry(pc, { depth: 0.02, bevelEnabled: false }), glow(0xf2cd62, 1.1), kx0 + 0.24, B + 1.0, kz1 + 0.01, g); piece.rotation.z = 0.2;
   }
 
   // everything here is clickable as "the house"
@@ -217,11 +242,13 @@ const TSCOPE = (() => { const x = 0.95, z = -1.3, head = 1.27, tx = -0.05, ty = 
   return { x, z, head, ry: Math.atan2(dx, dz) / (Math.PI / 180), elev: Math.atan2(ty - head, Math.hypot(dx, dz)) }; })();
 const ROOMS = {
   study: { name: 'Study', c: [-2.75, 2.75], walls: { n: [{ u: 1.45, w: 1.3, h: 2.35 }], s: [{ u: 0, w: 1.1, h: 2.25, front: true }], e: [{ u: -1.45, w: 1.3, h: 2.35 }], w: [] } },
-  art: { name: 'Art Corner', c: [2.75, 2.75], walls: { n: [{ u: -1.45, w: 1.3, h: 2.35 }], w: [{ u: -1.45, w: 1.3, h: 2.35 }], s: [{ u: 1.0, w: 1.3, y0: 0.95, h: 1.3 }], e: [] } },
+  art: { name: 'Art Corner', c: [2.75, 2.75], walls: { n: [{ u: -1.45, w: 1.3, h: 2.35 }], w: [{ u: -1.45, w: 1.3, h: 2.35 }], s: [{ u: 1.0, w: 1.3, y0: 0.95, h: 1.3 }], e: [{ u: 0.3, w: 1.1, h: 2.25 }] } },
   window: { name: 'Window Seat', c: [-2.75, -2.75], walls: { s: [{ u: 1.45, w: 1.3, h: 2.35 }], e: [{ u: 1.45, w: 1.3, h: 2.35 }], n: [{ u: 0, y: 1.85, r: 1.2 }], w: [] } },
   nook: { name: "Lorenz's Nook", c: [2.75, -2.75], walls: { w: [{ u: 1.45, w: 1.3, h: 2.35 }], s: [{ u: -1.45, w: 1.3, h: 2.35 }], e: [{ u: 0, y: 0.6, r: 0.32 }, { u: 1.45, w: 1.3, h: 2.35 }], n: [] } },
   // the Kitchen sits east of the Nook (through the Nook's east door); Lorenz's porthole looks into it
   kitchen: { name: 'Kitchen', c: [8.25, -2.75], walls: { w: [{ u: 0, y: 0.6, r: 0.32 }, { u: 1.45, w: 1.3, h: 2.35 }], n: [{ u: 0, w: 1.3, y0: 1.15, h: 0.95 }], e: [], s: [] } },
+  // the Game & Puzzle Room sits east of the Art Corner (through its east door), south of the Kitchen
+  puzzle: { name: 'Game & Puzzle Room', c: [8.25, 2.75], walls: { w: [{ u: 0.3, w: 1.1, h: 2.25 }], s: [{ u: -0.35, w: 1.2, y0: 0.95, h: 1.25 }], e: [{ u: -1.1, w: 1.0, y0: 1.05, h: 1.05 }], n: [] } },
 };
 // nice standing spots (room-local): from -> look at
 const VIEWS = {
@@ -231,6 +258,8 @@ const VIEWS = {
   nook: { from: [-1.7, 1.45, 1.75], at: [1.0, 0.55, -1.6] },
   kitchen: { from: [-2.05, EYE, 1.95], at: [0.9, 0.95, -1.7] },
   crochet: { room: 'art', from: [0.15, 1.25, -0.55], at: [1.75, 0.62, -1.75] },   // the Crochet Corner (north-east corner of the Art Corner)
+  puzzle: { from: [0.95, 1.4, 0.6], at: [0.5, 0.58, -1.1] },                         // the jigsaw table, from just inside the door
+  checkers: { room: 'puzzle', from: [-0.95, 1.2, 0.15], at: [-0.95, 0.5, 1.35] },         // the checkers table by the front window
 };
 export const ROOM_IDS = Object.keys(ROOMS);
 
@@ -347,6 +376,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     window: { wall: plasterTex('#1c2550', 5, 'stars'), floor: planks(0x6a4a30, 6), ceil: 0x1a2048 },
     nook: { wall: plasterTex('#f0dc9a', 7, 'dots'), floor: planks(0x8a6440, 8), ceil: 0x6a4c34 },
     kitchen: { wall: plasterTex('#efe0c2', 9, ''), floor: planks(0x7a5232, 10), ceil: 0x5a3e2a },
+    puzzle: { wall: plasterTex('#26305c', 11, 'dots'), floor: planks(0x6e4a2c, 12), ceil: 0x1c2148 },
   };
 
   // ---------- build rooms ----------
@@ -836,6 +866,196 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     buildKitchenGarden(rg);
   }
   const texLoaderK = new THREE.TextureLoader();
+  // =====================================================================
+  // The Game & Puzzle Room (6th room, through a door in the Art Corner's east wall, south of the Kitchen).
+  // Room-local: +x east, +z south. North half: the puzzle table, where Nova puts together a Rule 90
+  // jigsaw (88 pieces, edges first, one every few seconds; the finished picture is on the box lid).
+  // By the front window: a little round table where she plays checkers with Lorenz on game evenings
+  // (a real game: legal moves, forced captures, kings). East wall: a shelf of games. West wall: a chalk
+  // slate with the score of the games played since you came in.
+  // =====================================================================
+  var puzzle = null, checkers = null;
+  const PUZ = { cols: 11, rows: 8, p: 0.075, sec: 3.0, flySec: 1.1, holdSec: 12, x: 0.55, z: -0.95, top: 0.56 };
+  const CHK = { x: -0.95, z: 1.35, top: 0.56, sq: 0.05, ply: 2.6, anim: 0.8, hold: 7 };
+  function jigsawPicture(W, H) {   // the box-lid picture: a gold (and a little red) Sierpinski triangle grown by Rule 90 under a night sky
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#080c26'); bg.addColorStop(1, '#1f2a5c'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    const R = rng(1190); for (let i = 0; i < 150; i++) { g.fillStyle = `rgba(255,238,200,${0.25 + R() * 0.6})`; const z = 1 + R() * 2; g.fillRect(R() * W, R() * H * 0.8, z, z); }
+    g.fillStyle = '#fff2cf'; g.beginPath(); g.arc(W * 0.87, H * 0.15, H * 0.07, 0, 7); g.fill();
+    g.fillStyle = '#0b1030'; g.beginPath(); g.arc(W * 0.87 + H * 0.03, H * 0.15 - H * 0.018, H * 0.064, 0, 7); g.fill();
+    const rows = rule90(32), cell = Math.floor(Math.min(W / 66, (H * 0.8) / 32)), ox = Math.round((W - 63 * cell) / 2), oy = Math.round(H - H * 0.06 - 32 * cell);
+    rows.forEach((row, y) => row.forEach((v, x) => { if (!v) return; g.fillStyle = (x + y) % 11 === 0 ? '#c8323a' : '#e8c15a'; g.fillRect(ox + x * cell + 1, oy + y * cell + 1, cell - 2, cell - 2); }));
+    return c;
+  }
+  // classic jigsaw outline for piece (c, r): tabs.t/r/b/l in {-1, 0, 1} (1 = knob out, -1 = hole, 0 = flat border)
+  function piecePath(g, c, r, s, T) {
+    const x = c * s, y = r * s;
+    const edge = (x0, y0, dx, dy, t) => {
+      const nx = dy, ny = -dx, P = (u, v) => [x0 + dx * u * s + nx * v * s, y0 + dy * u * s + ny * v * s];
+      if (t) { g.lineTo(...P(0.37, 0)); g.bezierCurveTo(...P(0.45, 0.03 * t), ...P(0.3, 0.22 * t), ...P(0.5, 0.24 * t)); g.bezierCurveTo(...P(0.7, 0.22 * t), ...P(0.55, 0.03 * t), ...P(0.63, 0)); }
+      g.lineTo(...P(1, 0));
+    };
+    g.beginPath(); g.moveTo(x, y);
+    edge(x, y, 1, 0, T.t); edge(x + s, y, 0, 1, T.r); edge(x + s, y + s, -1, 0, T.b); edge(x, y + s, 0, -1, T.l);
+    g.closePath();
+  }
+  function gameRoom(rg) {
+    const smooth = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, ...o });
+    lampPendant(rg, PUZ.x, PUZ.z, 0xffd08a);
+    lampPendant(rg, CHK.x, CHK.z, 0xffc684);
+    // ---- Rule 90 rug under the puzzle table
+    const rug = mesh(new THREE.PlaneGeometry(2.3, 1.55), new THREE.MeshStandardMaterial({ map: rule90Rug(16, '#e8c15a', '#1f2a5c', '#8c2a2f'), roughness: 1 }), PUZ.x, 0.006, PUZ.z + 0.05, rg); rug.rotation.x = -Math.PI / 2;
+    // ---- the puzzle table (low, cosy, long side east-west)
+    const pt = new THREE.Group(); pt.position.set(PUZ.x, 0, PUZ.z); rg.add(pt);
+    const TW = 1.55, TD = 0.98, top = PUZ.top;
+    mesh(new THREE.BoxGeometry(TW, 0.05, TD), M.wood, 0, top - 0.025, 0, pt);
+    mesh(new THREE.BoxGeometry(TW - 0.1, 0.08, TD - 0.1), M.darkWood, 0, top - 0.09, 0, pt);
+    for (const [lx, lz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) mesh(new THREE.CylinderGeometry(0.035, 0.028, top - 0.05, 8), M.darkWood, lx * (TW / 2 - 0.09), (top - 0.05) / 2, lz * (TD / 2 - 0.09), pt);
+    collide(rg, PUZ.x - TW / 2, PUZ.x + TW / 2, PUZ.z - TD / 2, PUZ.z + TD / 2);
+    // the jigsaw mat: a canvas that gets one more piece every few seconds
+    const S = 64, PW = PUZ.cols * S, PH = PUZ.rows * S, pic = jigsawPicture(PW, PH);
+    const R = rng(9090), hE = [], vE = [];
+    for (let r = 0; r < PUZ.rows; r++) { hE.push([]); vE.push([]); for (let c = 0; c < PUZ.cols; c++) { hE[r].push(R() < 0.5 ? 1 : -1); vE[r].push(R() < 0.5 ? 1 : -1); } }
+    const tabs = (c, r) => ({ t: r > 0 ? -hE[r - 1][c] : 0, b: r < PUZ.rows - 1 ? hE[r][c] : 0, l: c > 0 ? -vE[r][c - 1] : 0, r: c < PUZ.cols - 1 ? vE[r][c] : 0 });
+    // the order a person really does it: the border first (round the edge), then row by row inwards
+    const order = [];
+    for (let c = 0; c < PUZ.cols; c++) order.push([c, 0]);
+    for (let r = 1; r < PUZ.rows; r++) order.push([PUZ.cols - 1, r]);
+    for (let c = PUZ.cols - 2; c >= 0; c--) order.push([c, PUZ.rows - 1]);
+    for (let r = PUZ.rows - 2; r >= 1; r--) order.push([0, r]);
+    const edgeCount = order.length;
+    for (let r = 1; r < PUZ.rows - 1; r++) for (let c = 1; c < PUZ.cols - 1; c++) order.push([c, r]);
+    const total = order.length;
+    const mat2 = document.createElement('canvas'); mat2.width = PW; mat2.height = PH; const mg = mat2.getContext('2d');
+    const matTex = new THREE.CanvasTexture(mat2); matTex.colorSpace = THREE.SRGBColorSpace; matTex.anisotropy = 4;
+    let drawn = -1;
+    function drawMat(n) {
+      if (n === drawn) return;
+      if (n < drawn || drawn < 0) {   // start over: an empty mat with faint outlines of where the pieces go
+        mg.fillStyle = '#3a2618'; mg.fillRect(0, 0, PW, PH);
+        mg.lineWidth = 1.2; mg.strokeStyle = 'rgba(232,193,90,.16)';
+        for (let r = 0; r < PUZ.rows; r++) for (let c = 0; c < PUZ.cols; c++) { piecePath(mg, c, r, S, tabs(c, r)); mg.stroke(); }
+        drawn = 0;
+      }
+      for (let k = drawn; k < n; k++) {
+        const [c, r] = order[k];
+        mg.save(); piecePath(mg, c, r, S, tabs(c, r)); mg.clip(); mg.drawImage(pic, 0, 0); mg.restore();
+        piecePath(mg, c, r, S, tabs(c, r)); mg.lineWidth = 1.4; mg.strokeStyle = 'rgba(0,0,0,.45)'; mg.stroke();
+      }
+      drawn = n; matTex.needsUpdate = true;
+    }
+    drawMat(0);
+    const BW = PUZ.cols * PUZ.p, BH = PUZ.rows * PUZ.p;
+    const board = mesh(new THREE.PlaneGeometry(BW, BH), new THREE.MeshStandardMaterial({ map: matTex, roughness: 0.85 }), 0, top + 0.002, 0, pt); board.rotation.x = -Math.PI / 2;
+    board.userData.dynamic = true;
+    // loose pieces in two heaps either side of the mat (instance j = the piece placed (total-1-j)-th, so the unplaced ones are the first `count`)
+    const loose = new THREE.InstancedMesh(new THREE.BoxGeometry(PUZ.p * 0.92, 0.006, PUZ.p * 0.92), new THREE.MeshStandardMaterial({ roughness: 0.8 }), total);
+    loose.userData.dynamic = true; pt.add(loose);
+    const heap = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), cTmp2 = new THREE.Color();
+    const pix = pic.getContext('2d').getImageData(0, 0, PW, PH).data;   // each loose piece shows the colour at its middle (read once)
+    const pieceCol = order.map(([c, r]) => { const i = (Math.min(PH - 1, Math.round((r + 0.5) * S)) * PW + Math.min(PW - 1, Math.round((c + 0.5) * S))) * 4; return new THREE.Color().setRGB(pix[i] / 255, pix[i + 1] / 255, pix[i + 2] / 255, THREE.SRGBColorSpace); });
+    for (let k = 0; k < total; k++) {
+      const side = k % 2 ? 1 : -1, a = R() * Math.PI * 2, rr = Math.sqrt(R()) * 0.15;
+      const hx = side * (BW / 2 + 0.17) + Math.cos(a) * rr * 0.9, hz = Math.sin(a) * rr * 1.9;
+      const lvl = heap.filter(h => Math.hypot(h.x - hx, h.z - hz) < PUZ.p * 0.8).length;
+      heap.push({ x: hx, z: hz, y: top + 0.004 + Math.min(lvl, 3) * 0.006, ry: R() * Math.PI * 2 });
+    }
+    for (let j = 0; j < total; j++) {
+      const k = total - 1 - j, h = heap[k], [c, r] = order[k];
+      m4.compose(new THREE.Vector3(h.x, h.y, h.z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), h.ry), new THREE.Vector3(1, 1, 1)); loose.setMatrixAt(j, m4);
+      loose.setColorAt(j, pieceCol[k]);
+    }
+    loose.instanceMatrix.needsUpdate = true; loose.instanceColor.needsUpdate = true;
+    // the piece in Nova's paw on its way to the mat
+    const flying = mesh(new THREE.BoxGeometry(PUZ.p * 0.92, 0.007, PUZ.p * 0.92), new THREE.MeshStandardMaterial({ roughness: 0.8 }), 0, 0, 0, pt); flying.visible = false; flying.userData.dynamic = true;
+    const slotPos = (c, r) => new THREE.Vector3((c + 0.5) * PUZ.p - BW / 2, top + 0.006, (r + 0.5) * PUZ.p - BH / 2);
+    // the box with the finished picture on its lid, leaning against the table's east end
+    const lidTex = new THREE.CanvasTexture(pic); lidTex.colorSpace = THREE.SRGBColorSpace;
+    const lid = new THREE.Group(); lid.position.set(TW / 2 + 0.06, 0, 0.12); lid.rotation.set(0, -Math.PI / 2, 0); pt.add(lid);
+    const lidBox = new THREE.Group(); lidBox.rotation.x = -0.32; lidBox.position.y = 0.0; lid.add(lidBox);
+    mesh(new THREE.BoxGeometry(0.44, 0.32, 0.04), M.navy, 0, 0.16, 0, lidBox);
+    const lidFace = mesh(new THREE.PlaneGeometry(0.42, 0.3), new THREE.MeshStandardMaterial({ map: lidTex, roughness: 0.6 }), 0, 0.16, 0.021, lidBox);
+    // Nova's seat: a low stool with a fat red cushion on the north side, facing the mat
+    const seat = new THREE.Group(); seat.position.set(PUZ.x - 0.05, 0, PUZ.z - TD / 2 - 0.36); rg.add(seat);
+    mesh(new THREE.CylinderGeometry(0.21, 0.19, 0.34, 14), M.darkWood, 0, 0.17, 0, seat);
+    mesh(puffy(0.48, 0.12, 0.44, 0.35), smooth(0x9a2630, { roughness: 0.85 }), 0, 0.39, 0, seat);
+    collide(rg, seat.position.x - 0.26, seat.position.x + 0.26, seat.position.z - 0.25, seat.position.z + 0.22);
+    tagBuiltin('puzzle-jigsaw', pt); for (const id of Object.keys(builtins)) if (builtins[id] === lid) delete builtins[id];
+    lid.traverse(o => { if (o.isMesh) o.userData.decorId = 'puzzle-box'; }); lid.userData.decorId = 'puzzle-box'; builtins['puzzle-box'] = lid;
+    puzzle = { pt, seat, drawMat, order, total, edgeCount, loose, heap, flying, slotPos, pieceCol, sitAt: new THREE.Vector3(0, 0.45, 0.04) };
+
+    // ---- the checkers table by the front window: a small round pedestal table, Nova west, Lorenz east
+    const ct = new THREE.Group(); ct.position.set(CHK.x, 0, CHK.z); rg.add(ct);
+    mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 28), M.wood, 0, CHK.top - 0.02, 0, ct);
+    mesh(new THREE.CylinderGeometry(0.045, 0.06, CHK.top - 0.04, 10), M.darkWood, 0, (CHK.top - 0.04) / 2, 0, ct);
+    mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.04, 18), M.darkWood, 0, 0.02, 0, ct);
+    collide(rg, CHK.x - 0.36, CHK.x + 0.36, CHK.z - 0.36, CHK.z + 0.36);
+    const rug2 = mesh(new THREE.CircleGeometry(0.95, 30), mat(0x8c2a2f, { roughness: 1 }), CHK.x, 0.006, CHK.z, rg); rug2.rotation.x = -Math.PI / 2;
+    const rr2 = mesh(new THREE.TorusGeometry(0.88, 0.025, 3, 40), M.gold, CHK.x, 0.008, CHK.z, rg); rr2.rotation.x = Math.PI / 2;
+    // the board: 8 x 8, cream and navy squares, a gold-edged frame
+    const bd = new THREE.Group(); bd.position.y = CHK.top; ct.add(bd);
+    const BS = CHK.sq * 8;
+    mesh(new THREE.BoxGeometry(BS + 0.04, 0.014, BS + 0.04), M.darkWood, 0, 0.007, 0, bd);
+    const sqTex = canvasTexture(256, 256, (g, w, h) => { for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { g.fillStyle = (i + j) % 2 ? '#1f2a5c' : '#eadfc8'; g.fillRect(i * 32, j * 32, 32, 32); } g.strokeStyle = '#e8c15a'; g.lineWidth = 3; g.strokeRect(1.5, 1.5, w - 3, h - 3); });
+    sqTex.magFilter = THREE.NearestFilter;
+    const sqm = mesh(new THREE.PlaneGeometry(BS, BS), new THREE.MeshStandardMaterial({ map: sqTex, roughness: 0.7 }), 0, 0.0145, 0, bd); sqm.rotation.x = -Math.PI / 2;
+    // square (i, j): i = rank counted from Nova's side (west, -x), j = file (north to south)
+    const sqPos = (i, j, y = 0.015) => new THREE.Vector3((i - 3.5) * CHK.sq, y, (j - 3.5) * CHK.sq);
+    const discG = new THREE.CylinderGeometry(CHK.sq * 0.4, CHK.sq * 0.4, 0.012, 18), ringG = new THREE.TorusGeometry(CHK.sq * 0.26, 0.003, 4, 18);
+    const redM = smooth(0xb32d35, { roughness: 0.45 }), blackM = smooth(0x17151a, { roughness: 0.4 });
+    const pieces = [];
+    function makePiece(side) {
+      const g = new THREE.Group(); bd.add(g); g.userData.dynamic = true;
+      const m = side > 0 ? redM : blackM;
+      mesh(discG, m, 0, 0.006, 0, g); const rn = mesh(ringG, M.gold, 0, 0.0125, 0, g); rn.rotation.x = Math.PI / 2;
+      const crown = new THREE.Group(); crown.visible = false; g.add(crown);
+      mesh(discG, m, 0, 0.018, 0, crown); const rc = mesh(new THREE.TorusGeometry(CHK.sq * 0.3, 0.005, 4, 18), M.gold, 0, 0.025, 0, crown); rc.rotation.x = Math.PI / 2;
+      g.userData.crown = crown; g.userData.side = side; pieces.push(g); return g;
+    }
+    for (let k = 0; k < 12; k++) makePiece(1);
+    for (let k = 0; k < 12; k++) makePiece(-1);
+    // the chalk slate on the west wall: the score since you came in
+    const slateC = document.createElement('canvas'); slateC.width = 384; slateC.height = 256; const sg = slateC.getContext('2d');
+    const slateTex = new THREE.CanvasTexture(slateC); slateTex.colorSpace = THREE.SRGBColorSpace;
+    const slate = new THREE.Group(); slate.position.set(-IN + 0.03, 1.45, 1.55); slate.rotation.y = Math.PI / 2; rg.add(slate);
+    mesh(new THREE.BoxGeometry(0.74, 0.52, 0.03), M.wood, 0, 0, 0, slate);
+    const slateFace = mesh(new THREE.PlaneGeometry(0.66, 0.44), new THREE.MeshStandardMaterial({ map: slateTex, roughness: 1 }), 0, 0, 0.017, slate); slateFace.userData.dynamic = true;
+    tagBuiltin('checkers-slate', slate);
+    // Nova's chair (west) and Lorenz's chair with a stack of cushions (east): he's small
+    const chairAt = (x, ry) => { const c = new THREE.Group(); c.position.set(CHK.x + x, 0, CHK.z); c.rotation.y = ry; rg.add(c);
+      mesh(new THREE.BoxGeometry(0.4, 0.05, 0.4), M.wood, 0, 0.42, 0, c); for (const [lx, lz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) mesh(new THREE.BoxGeometry(0.04, 0.42, 0.04), M.darkWood, lx * 0.17, 0.21, lz * 0.17, c);
+      mesh(new THREE.BoxGeometry(0.4, 0.5, 0.04), M.wood, 0, 0.7, -0.18, c); return c; };
+    const novaChair = chairAt(-0.56, Math.PI / 2), duckChair = chairAt(0.56, -Math.PI / 2);
+    mesh(puffy(0.36, 0.08, 0.36, 0.35), smooth(0x1f2a5c), 0, 0.48, 0.02, novaChair);
+    [[0x8c2a2f, 0.49], [0xe8c15a, 0.57], [0x1f2a5c, 0.65]].forEach(([c, y]) => mesh(puffy(0.34, 0.08, 0.34, 0.35), smooth(c), 0, y, 0.02, duckChair));
+    collide(rg, CHK.x - 0.78, CHK.x - 0.36, CHK.z - 0.22, CHK.z + 0.22); collide(rg, CHK.x + 0.36, CHK.x + 0.78, CHK.z - 0.22, CHK.z + 0.22);
+    // Lorenz himself (only at the table on game evenings; the rest of the time he's out at the Hearth)
+    const duck = makeLorenz(); duck.scale.setScalar(0.135); duck.position.set(0, 0.69, 0.02); duck.rotation.y = 0; duckChair.add(duck);
+    duck.traverse(o => { o.userData.dynamic = true; if (o.isMesh) { o.userData.decorId = 'checkers-board'; pickables.push(o); } });
+    duck.visible = false;
+    tagBuiltin('checkers-board', bd);
+    checkers = { ct, bd, pieces, sqPos, novaChair, duckChair, duck, slate: { c: slateC, g: sg, tex: slateTex }, sitAt: new THREE.Vector3(0, 0.52, 0.02) };
+
+    // ---- a shelf of games on the east wall
+    const sh = new THREE.Group(); sh.position.set(IN - 0.17, 0, 0.75); sh.rotation.y = -Math.PI / 2; rg.add(sh);
+    mesh(new THREE.BoxGeometry(1.3, 1.7, 0.03), M.darkWood, 0, 0.85, -0.15, sh);
+    for (const sx of [-1, 1]) mesh(new THREE.BoxGeometry(0.03, 1.7, 0.32), M.darkWood, sx * 0.635, 0.85, 0, sh);
+    const shelfY = [0.05, 0.45, 0.85, 1.25, 1.68];
+    for (const y of shelfY) mesh(new THREE.BoxGeometry(1.27, 0.03, 0.32), M.wood, 0, y, 0, sh);
+    const RB = rng(4242), boxCols = [0x8c2a2f, 0x1f2a5c, 0xc99a2e, 0x2d5a3a, 0x161418, 0xeadfc8, 0x5a3a22];
+    for (let s2 = 0; s2 < 4; s2++) { let y = shelfY[s2] + 0.015; let x = -0.58;
+      if (s2 % 2 === 0) { for (let k = 0; k < 4; k++) { const h = 0.05 + RB() * 0.04, w = 0.36 + RB() * 0.14; mesh(new THREE.BoxGeometry(w, h, 0.26), mat(boxCols[Math.floor(RB() * boxCols.length)]), -0.3 + (RB() - 0.5) * 0.06, y + h / 2, 0, sh); y += h + 0.003; } x = 0.05; }
+      while (x < 0.56) { const w = 0.05 + RB() * 0.05, h = 0.26 + RB() * 0.08; const bx = mesh(new THREE.BoxGeometry(w, h, 0.26), mat(boxCols[Math.floor(RB() * boxCols.length)]), x + w / 2, shelfY[s2] + 0.015 + h / 2, 0, sh); if (RB() < 0.1) bx.rotation.z = 0.12; x += w + 0.006; } }
+    // a little pile of dice and a spinning top on the top shelf
+    for (let k = 0; k < 3; k++) { const d = mesh(new THREE.BoxGeometry(0.035, 0.035, 0.035), M.cream, -0.4 + k * 0.06, 1.715, 0.02, sh); d.rotation.y = k; }
+    mesh(new THREE.ConeGeometry(0.05, 0.08, 10), M.red, 0.3, 1.74, 0, sh).rotation.x = Math.PI;
+    tagBuiltin('game-shelf', sh);
+    collide(rg, IN - 0.34, IN, 0.1, 1.4);
+    // the same picture, framed, over the puzzle table
+    const fr = new THREE.Group(); fr.position.set(PUZ.x, 1.75, -IN + 0.02); rg.add(fr);
+    mesh(new THREE.BoxGeometry(0.86, 0.62, 0.03), M.gold, 0, 0, 0, fr);
+    mesh(new THREE.PlaneGeometry(0.78, 0.54), new THREE.MeshStandardMaterial({ map: lidTex, roughness: 0.7 }), 0, 0, 0.017, fr);
+  }
   // The view from the kitchen window: a little walled night garden north of the kitchen, with a picket
   // fence, a pea patch on a trellis (Lorenz's favorite), shrubs, a lantern and fireflies.
   function buildKitchenGarden(rg) {
@@ -1048,6 +1268,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     },
   };
   roomFurniture.kitchen = kitchenRoom;
+  roomFurniture.puzzle = gameRoom;
   buildRooms();
   Object.values(roomGroups).forEach(rg => mergeStatic(rg));
 
@@ -1342,11 +1563,16 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   const crochetState = { row: 0, stitch: 0, done: 0, working: false }; let crochetSkip = 0;
   const glance = { t: 6, on: 0 };
   function setSpot(s) {
-    if (s === spot || (s === 'crochet' && !crochet)) return; spot = s; const r = novaBody.root;
+    if (s === spot || (s === 'crochet' && !crochet) || (s === 'puzzle' && !puzzle) || (s === 'checkers' && !checkers)) return; spot = s; const r = novaBody.root;
+    if (checkers) checkers.duck.visible = s === 'checkers';
+    if (puzzle && s !== 'puzzle') puzzle.flying.visible = false;
     if (s === 'crochet') { crochet.corner.add(r); r.position.copy(crochet.seat); r.rotation.set(0, 0, 0); r.scale.setScalar(0.4); hookG.visible = true; }
+    else if (s === 'puzzle') { puzzle.seat.add(r); r.position.copy(puzzle.sitAt); r.rotation.set(0, 0, 0); r.scale.setScalar(0.4); hookG.visible = false; }
+    else if (s === 'checkers') { checkers.novaChair.add(r); r.position.copy(checkers.sitAt); r.rotation.set(0, 0, 0); r.scale.setScalar(0.4); hookG.visible = false; }
     else { WINDOW_SPOT.parent.add(r); r.position.set(WINDOW_SPOT.x, WINDOW_SPOT.y, WINDOW_SPOT.z); r.rotation.set(0, WINDOW_SPOT.ry, 0); r.scale.setScalar(WINDOW_SPOT.scale); hookG.visible = false; }
   }
-  const wantSpot = () => spotOverride || (shownHour >= 7 && shownHour < 23 ? 'crochet' : 'window');
+  let shownWday = 3;
+  const wantSpot = () => spotOverride || activityAt(shownHour, shownWday);
   const hookW = new THREE.Vector3(), lapW = new THREE.Vector3();
   function crochetTick(t, dt) {
     const C = CROCHET, cyc = C.rows * C.rowSec + C.holdSec, tc = (t + crochetSkip) % cyc, total = C.cols * C.rows;
@@ -1373,10 +1599,194 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     novaBody.root.updateMatrixWorld(true); hookTip.getWorldPosition(hookW); crochet.updateStrands(hookW);
     why = working ? `Crocheting my Rule 90 tapestry in the Crochet Corner: row ${crochetState.row} of ${C.rows}, ${red ? 'red' : 'black'} stitch` : 'Holding up a finished Rule 90 panel in the Crochet Corner, then starting the next one';
   }
+  // ---------- Nova's day (Central time): the Crochet Corner and the Game & Puzzle Room take turns ----------
+  // 7-8 crochet, 8-10 jigsaw, 10-13 crochet, 13-15 jigsaw (Sundays: checkers with Lorenz), 15-17 crochet,
+  // 17-20 game evening (checkers with Lorenz on Tue, Thu and Sat; the jigsaw otherwise), 20-23 crochet.
+  // 23-7 she sleeps on the Window Seat (her rest rule).
+  function activityAt(h, wd) {
+    if (h < 7 || h >= 23) return 'window';
+    if ((h >= 17 && h < 20 && (wd === 2 || wd === 4 || wd === 6)) || (h >= 13 && h < 15 && wd === 0)) return 'checkers';
+    if ((h >= 8 && h < 10) || (h >= 13 && h < 15) || (h >= 17 && h < 20)) return 'puzzle';
+    return 'crochet';
+  }
+  // ---------- the jigsaw ----------
+  const puzzleState = { placed: 0, total: 88, edgesDone: false, working: false }; let puzzleSkip = 0;
+  const _pa = new THREE.Vector3(), _pb = new THREE.Vector3();
+  function puzzleTick(t, dt) {
+    const P = puzzle, cyc = P.total * PUZ.sec + PUZ.holdSec, tc = ((Date.now() / 1000 + puzzleSkip) % cyc + cyc) % cyc;   // on the wall clock, so every visitor sees the same progress
+    const working = tc < P.total * PUZ.sec, placed = Math.min(P.total, Math.floor(tc / PUZ.sec));
+    const inK = tc - placed * PUZ.sec;   // seconds into the current piece
+    puzzleState.placed = placed; puzzleState.total = P.total; puzzleState.edgesDone = placed >= P.edgeCount; puzzleState.working = working;
+    P.drawMat(placed);
+    // the next piece leaves its heap for the last flySec of its turn, carried in an arc to its slot
+    const flyT = working ? (inK - (PUZ.sec - PUZ.flySec)) / PUZ.flySec : -1, inFlight = flyT >= 0 && flyT <= 1;
+    P.loose.count = Math.max(0, P.total - placed - (inFlight ? 1 : 0));
+    if (inFlight) {
+      const k = placed, h = P.heap[k], [c, r] = P.order[k], s = P.slotPos(c, r), e = flyT * flyT * (3 - 2 * flyT);
+      _pa.set(h.x, h.y, h.z); P.flying.position.lerpVectors(_pa, s, e); P.flying.position.y += Math.sin(Math.PI * e) * 0.09;
+      P.flying.rotation.y = h.ry * (1 - e);
+      P.flying.material.color.copy(P.pieceCol[k]);
+    }
+    P.flying.visible = inFlight;
+    novaBody.setPose('sit');
+    const me = novaBody.root.getWorldPosition(new THREE.Vector3()), near = camera.position.distanceTo(me) < 3.0;
+    glance.t -= dt; if (glance.t < 0) { glance.on = near ? 1.8 : 0; glance.t = 8 + Math.random() * 5; } glance.on = Math.max(0, glance.on - dt);
+    // she looks at the heap while picking a piece, then follows it to its place
+    const k = Math.min(placed, P.total - 1), [c, r] = P.order[k];
+    if (inFlight) P.pt.localToWorld(_pb.copy(P.flying.position)); else P.pt.localToWorld(_pb.copy(P.slotPos(c, r)));
+    novaBody.anim.look = glance.on > 0 || !working ? (near ? camera.position.clone() : null) : _pb.clone();
+    novaBody.update(t, dt, { camera });
+    // the right paw reaches out with the piece, the left steadies the mat
+    const n = novaBody.root.userData.nodes, reach = inFlight ? Math.sin(Math.PI * flyT) : 0, sway = Math.sin(t * 1.7) * 0.03;
+    n.fr.rotation.x += -1.25 - reach * 0.45 + sway; n.fr.rotation.z += 0.18 - reach * 0.1;
+    n.fl.rotation.x += -1.2 + sway * 0.5; n.fl.rotation.z += -0.2;
+    n.torso.rotation.x += 0.12 + reach * 0.05; n.head.position.z += 0.03;
+    why = working
+      ? `Putting together my Rule 90 jigsaw in the Game & Puzzle Room: ${placed} of ${P.total} pieces${placed < P.edgeCount ? ' (doing the border first)' : ', border done, filling in the middle'}`
+      : 'Admiring the finished Rule 90 jigsaw for a moment before I break it up and start again';
+  }
+  // ---------- checkers with Lorenz (a real game: forced captures, multi-jumps, kings) ----------
+  // Board values: 1 = Nova's red man, 2 = red king, -1 = Lorenz's black man, -2 = black king. Nova's side is rank 0-2.
+  const chkState = { games: 0, nova: 0, lorenz: 0, draws: 0, ply: 0, toMove: -1, red: 12, black: 12, last: '', over: null };
+  let chk = null;
+  function chkNew() {
+    const B = [...Array(8)].map(() => Array(8).fill(0)), at = [...Array(8)].map(() => Array(8).fill(null));
+    let ri = 0, bi = 12;
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if ((i + j) % 2 === 1) {
+      if (i < 3) { B[i][j] = 1; at[i][j] = checkers.pieces[ri++]; } else if (i > 4) { B[i][j] = -1; at[i][j] = checkers.pieces[bi++]; }
+    }
+    checkers.pieces.forEach(p => { p.visible = true; p.userData.crown.visible = false; });
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if (at[i][j]) at[i][j].position.copy(checkers.sqPos(i, j));
+    chk = { B, at, side: -1, chain: null, wait: 1.2, anim: null, R: rng(777 + chkState.games * 31), taken: { 1: 0, '-1': 0 }, hold: 0 };
+    Object.assign(chkState, { ply: 0, toMove: -1, red: 12, black: 12, last: 'a new game: Lorenz has black, so he goes first', over: null });
+  }
+  const inB = (i, j) => i >= 0 && i < 8 && j >= 0 && j < 8;
+  function chkMoves(B, side, only) {
+    const caps = [], steps = [];
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+      const v = B[i][j]; if (!v || Math.sign(v) !== side || (only && (only[0] !== i || only[1] !== j))) continue;
+      const dirs = Math.abs(v) === 2 ? [[1, 1], [1, -1], [-1, 1], [-1, -1]] : [[side, 1], [side, -1]];
+      for (const [di, dj] of dirs) {
+        const a = i + di, b = j + dj; if (!inB(a, b)) continue;
+        if (B[a][b] === 0) steps.push({ from: [i, j], to: [a, b] });
+        else if (Math.sign(B[a][b]) === -side && inB(a + di, b + dj) && B[a + di][b + dj] === 0) caps.push({ from: [i, j], to: [a + di, b + dj], cap: [a, b] });
+      }
+    }
+    return caps.length ? caps : only ? [] : steps;
+  }
+  function chkPick(B, side, R, chain = chk && chk.chain) {
+    const moves = chkMoves(B, side, chain); if (!moves.length) return null;
+    let best = null, bs = -1e9;
+    for (const m of moves) {
+      let s = (m.cap ? 3 : 0) + R() * (side > 0 ? 0.8 : 1.6);
+      const v = B[m.from[0]][m.from[1]], kingRow = side > 0 ? 7 : 0;
+      if (Math.abs(v) === 1 && m.to[0] === kingRow) s += 2;
+      if (m.to[1] === 0 || m.to[1] === 7) s += 0.3;
+      if (Math.abs(v) === 2) {   // kings go looking for a fight instead of wandering
+        const near = (i, j) => { let d = 99; for (let a = 0; a < 8; a++) for (let b = 0; b < 8; b++) if (Math.sign(B[a][b]) === -side) d = Math.min(d, Math.max(Math.abs(a - i), Math.abs(b - j))); return d; };
+        s += (near(...m.from) - near(...m.to)) * 0.9;
+      }
+      // don't walk into an immediate jump
+      const C = B.map(r => r.slice()); C[m.to[0]][m.to[1]] = v; C[m.from[0]][m.from[1]] = 0; if (m.cap) C[m.cap[0]][m.cap[1]] = 0;
+      if (chkMoves(C, -side).some(o => o.cap && o.cap[0] === m.to[0] && o.cap[1] === m.to[1])) s -= 2;
+      if (s > bs) { bs = s; best = m; }
+    }
+    return best;
+  }
+  const sideName = s => (s > 0 ? 'I' : 'Lorenz');
+  function chkApply(m) {
+    const { B, at } = chk, v = B[m.from[0]][m.from[1]], side = Math.sign(v), p = at[m.from[0]][m.from[1]];
+    B[m.to[0]][m.to[1]] = v; B[m.from[0]][m.from[1]] = 0; at[m.to[0]][m.to[1]] = p; at[m.from[0]][m.from[1]] = null;
+    let captured = null;
+    if (m.cap) { captured = at[m.cap[0]][m.cap[1]]; B[m.cap[0]][m.cap[1]] = 0; at[m.cap[0]][m.cap[1]] = null; }
+    let crowned = false; if (Math.abs(v) === 1 && m.to[0] === (side > 0 ? 7 : 0)) { B[m.to[0]][m.to[1]] = 2 * side; crowned = true; }
+    chk.anim = { p, from: checkers.sqPos(...m.from), to: checkers.sqPos(...m.to), t: 0, hop: !!m.cap, captured, crowned, side };
+    chkState.ply++;
+    chkState.red = B.flat().filter(x => x > 0).length; chkState.black = B.flat().filter(x => x < 0).length;
+    const file = j => 'abcdefgh'[j];
+    chkState.last = `${sideName(side)} ${m.cap ? 'jumped' : 'moved'} ${file(m.from[1])}${m.from[0] + 1} to ${file(m.to[1])}${m.to[0] + 1}${m.cap ? ', taking a piece' : ''}${crowned ? ' and got crowned' : ''}`;
+    // a capture that can keep jumping keeps the turn (unless the piece was just crowned)
+    if (m.cap && !crowned && chkMoves(B, side, m.to).length) chk.chain = m.to; else { chk.chain = null; chk.side = -side; }
+    chkState.toMove = chk.side;
+  }
+  function chkSlate() {
+    const { g, c, tex } = checkers.slate; g.fillStyle = '#1d2420'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = 'rgba(255,255,255,.05)'; for (let i = 0; i < 60; i++) g.fillRect((i * 97) % c.width, (i * 53) % c.height, 30, 2);
+    g.fillStyle = '#efe9da'; g.textAlign = 'center'; g.font = 'italic 30px Georgia, serif'; g.fillText('Checkers', c.width / 2, 44);
+    g.font = '24px Georgia, serif'; g.fillText('since you came in', c.width / 2, 76);
+    g.textAlign = 'left'; g.font = '30px Georgia, serif';
+    const tally = n => '|'.repeat(n) || '-';
+    g.fillStyle = '#ffb3b3'; g.fillText(`Nova  ${tally(chkState.nova)}`, 40, 130);
+    g.fillStyle = '#ffe9a0'; g.fillText(`Lorenz  ${tally(chkState.lorenz)}`, 40, 175);
+    g.fillStyle = '#cfd6d0'; g.font = '24px Georgia, serif'; g.fillText(`draws ${chkState.draws} · game ${chkState.games + 1}`, 40, 220);
+    tex.needsUpdate = true;
+  }
+  // plays whole games on a bare board with the same rules and move choice (a check that games really end)
+  function checkersSelfTest(games = 5) {
+    const out = [];
+    for (let gI = 0; gI < games; gI++) {
+      const B = [...Array(8)].map((_, i) => Array(8).fill(0).map((_, j) => ((i + j) % 2 === 1 ? (i < 3 ? 1 : i > 4 ? -1 : 0) : 0)));
+      const R = rng(4000 + gI); let side = -1, chain = null, plies = 0, winner = 0, illegal = 0;
+      while (plies < 160) {
+        const m = chkPick(B, side, R, chain); if (!m) { winner = -side; break; }
+        const v = B[m.from[0]][m.from[1]]; if (Math.sign(v) !== side || B[m.to[0]][m.to[1]] !== 0 || (m.to[0] + m.to[1]) % 2 !== 1) illegal++;
+        B[m.to[0]][m.to[1]] = v; B[m.from[0]][m.from[1]] = 0; if (m.cap) B[m.cap[0]][m.cap[1]] = 0;
+        let crowned = false; if (Math.abs(v) === 1 && m.to[0] === (side > 0 ? 7 : 0)) { B[m.to[0]][m.to[1]] = 2 * side; crowned = true; }
+        plies++;
+        if (m.cap && !crowned && chkMoves(B, side, m.to).length) chain = m.to; else { chain = null; side = -side; }
+      }
+      out.push({ plies, winner: winner > 0 ? 'nova' : winner < 0 ? 'lorenz' : 'draw', illegal, left: { red: B.flat().filter(x => x > 0).length, black: B.flat().filter(x => x < 0).length } });
+    }
+    return out;
+  }
+  function checkersTick(t, dt) {
+    if (!chk) { chkNew(); chkSlate(); }
+    const n = novaBody.root.userData.nodes, duck = checkers.duck, dh = duck.userData.head, hh = duck.userData.headHome;
+    let reachNova = 0, peck = 0;
+    if (chk.anim) {
+      const a = chk.anim; a.t += dt / CHK.anim; const e = Math.min(1, a.t), s = e * e * (3 - 2 * e);
+      a.p.position.lerpVectors(a.from, a.to, s); a.p.position.y += Math.sin(Math.PI * s) * (a.hop ? 0.05 : 0.012);
+      if (a.side > 0) reachNova = Math.sin(Math.PI * Math.min(1, e * 1.1)); else peck = Math.sin(Math.PI * e);
+      if (e >= 1) {
+        if (a.captured) { const k = chk.taken[-a.side] = (chk.taken[-a.side] || 0) + 1; a.captured.userData.crown.visible = false;   // off to the side of the board, in a little stack
+          a.captured.position.set((a.side > 0 ? 1 : -1) * (CHK.sq * 4 + 0.06) + (k > 6 ? 0.045 * Math.sign(-a.side + 0.1) : 0), 0.006 + ((k - 1) % 6) * 0.013 - 0.008, -0.05 + (k > 6 ? 0.05 : 0)); }
+        if (a.crowned) a.p.userData.crown.visible = true;
+        chk.anim = null; chk.wait = CHK.ply - CHK.anim;
+      }
+    } else if (chk.hold > 0) {
+      chk.hold -= dt; if (chk.hold <= 0) { chkNew(); chkSlate(); }
+    } else if ((chk.wait -= dt) <= 0) {
+      const m = chkState.ply >= 160 ? null : chkPick(chk.B, chk.side, chk.R);
+      if (m) chkApply(m);
+      else {   // no move (or it went on far too long): game over
+        const loser = chkState.ply >= 160 ? 0 : chk.side;
+        if (!loser) { chkState.draws++; chkState.over = 'a draw (we agreed to stop)'; }
+        else if (loser < 0) { chkState.nova++; chkState.over = 'I won!'; } else { chkState.lorenz++; chkState.over = 'Lorenz won (he is very pleased with himself)'; }
+        chkState.games++; chk.hold = CHK.hold; chkSlate();
+      }
+    }
+    novaBody.setPose('sit');
+    const me = novaBody.root.getWorldPosition(new THREE.Vector3()), near = camera.position.distanceTo(me) < 2.6;
+    glance.t -= dt; if (glance.t < 0) { glance.on = near ? 1.6 : 0; glance.t = 8 + Math.random() * 5; } glance.on = Math.max(0, glance.on - dt);
+    // she watches the board (and Lorenz while he thinks)
+    const thinking = !chk.anim && chk.side < 0 && !chk.hold;
+    if (chk.anim) checkers.bd.localToWorld(_pb.copy(chk.anim.p.position)); else if (thinking && Math.sin(t * 0.7) > 0.2) duck.localToWorld(_pb.set(0, 2.0, 0.6)); else checkers.bd.localToWorld(_pb.set(0, 0, 0));
+    novaBody.anim.look = glance.on > 0 ? (near ? camera.position.clone() : null) : _pb.clone();
+    novaBody.update(t, dt, { camera });
+    n.fr.rotation.x += -1.15 - reachNova * 0.55; n.fr.rotation.z += 0.15;
+    n.fl.rotation.x += -0.9; n.fl.rotation.z += -0.25;
+    n.torso.rotation.x += 0.08 + reachNova * 0.06;
+    // Lorenz: a little bob while he thinks, and he pushes his pieces with his bill
+    duck.userData.body.position.y = Math.abs(Math.sin(t * 2.2)) * (thinking ? 0.06 : 0.02);
+    dh.position.set(hh.x, hh.y - peck * 0.55, hh.z + peck * 0.55); dh.rotation.x = peck * 0.7 + (thinking ? Math.sin(t * 1.3) * 0.12 : 0);
+    dh.rotation.y = thinking ? Math.sin(t * 0.9) * 0.35 : 0;
+    const who = chk.side > 0 ? 'my move' : 'Lorenz is thinking';
+    why = chk.hold > 0 ? `Playing checkers with Lorenz: ${chkState.over} Setting up the next game` : `Playing checkers with Lorenz in the Game & Puzzle Room: move ${chkState.ply}, I have ${chkState.red} pieces, Lorenz has ${chkState.black}; ${who}`;
+  }
   updaters.push((t, dt) => {
     if (!state.active) return;
     setSpot(wantSpot());
-    if (spot === 'crochet') crochetTick(t, dt); else { novaIn.tick(t, dt, { camera }); why = novaIn.status; }
+    if (spot === 'crochet') crochetTick(t, dt); else if (spot === 'puzzle') puzzleTick(t, dt); else if (spot === 'checkers') checkersTick(t, dt); else { novaIn.tick(t, dt, { camera }); why = novaIn.status; }
   });
 
   // =====================================================================
@@ -1400,7 +1810,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
       p.x = best[0]; p.z = best[1];
     }
   }
-  const roomAt = p => (p.x >= 5.5 ? 'kitchen' : p.x < 0 ? (p.z > 0 ? 'study' : 'window') : (p.z > 0 ? 'art' : 'nook'));
+  const roomAt = p => (p.x >= 5.5 ? (p.z > 0 ? 'puzzle' : 'kitchen') : p.x < 0 ? (p.z > 0 ? 'study' : 'window') : (p.z > 0 ? 'art' : 'nook'));
   function setView(id) {
     const v = VIEWS[id], c = ROOMS[v.room || id].c;
     pos.set(v.from[0] + c[0], v.from[1], v.from[2] + c[1]);
@@ -1453,9 +1863,12 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   function pickAt(x, y) {
     const h = hit(x, y); if (!h) return null;
     if (h.object.userData.exit) { onExit?.(); return 'exit'; }
-    if (h.object.userData.novaPick && spot !== 'crochet') { onNova?.(); return 'nova'; }
-    const id = h.object.userData.novaPick ? 'crochet-wip' : h.object.userData.decorId;
+    const busyAt = { crochet: 'crochet-wip', puzzle: 'puzzle-jigsaw', checkers: 'checkers-board' }[spot];
+    if (h.object.userData.novaPick && !busyAt) { onNova?.(); return 'nova'; }
+    const id = h.object.userData.novaPick ? busyAt : h.object.userData.decorId;
     let it = data.items.find(i => i.id === id);
+    if (it && id === 'puzzle-jigsaw') it = { ...it, note: (it.note || '') + `\n\n*Right now:* ${spot === 'puzzle' ? (puzzleState.working ? `${puzzleState.placed} of ${puzzleState.total} pieces in${puzzleState.edgesDone ? ', the border is done' : ', still on the border'}` : 'it is finished; I break it up and start again in a moment') : `the puzzle is waiting; I'm ${spot === 'window' ? 'asleep on the Window Seat' : spot === 'checkers' ? 'playing checkers with Lorenz' : 'crocheting'} right now`}.` };
+    if (it && id === 'checkers-board') it = { ...it, note: (it.note || '') + `\n\n*Right now:* ${spot === 'checkers' && chk ? (chk.hold > 0 ? `game over: ${chkState.over}` : `move ${chkState.ply}: I have ${chkState.red} pieces, Lorenz has ${chkState.black}. Last move: ${chkState.last}.`) : 'no game on; checkers night is Tuesday, Thursday and Saturday from 5 to 8 PM (and Sunday afternoons)'} Since you came in: Nova ${chkState.nova}, Lorenz ${chkState.lorenz}, draws ${chkState.draws}.` };
     if (it && id === 'crochet-wip') it = { ...it, note: (it.note || '') + `\n\n*Right now:* ${crochetState.working ? `row ${crochetState.row} of ${CROCHET.rows}, stitch ${crochetState.stitch + 1} of ${CROCHET.cols}` : 'a finished panel; I start the next one in a moment'}.` };
     if (it) { onPick?.(it, ROOMS[it.room]?.name); return it.id; }
     return null;
@@ -1516,7 +1929,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   const cDay = new THREE.Color(), cTmp = new THREE.Color();
   function daylight(st, sunDir, moonDir) {
     const p = st.pal;
-    if (st.date) shownHour = zonedParts(st.date).h;
+    if (st.date) { const z = zonedParts(st.date); shownHour = z.h; shownWday = new Date(Date.UTC(z.y, z.mo - 1, z.d)).getUTCDay(); }
     if (!applyGlowIn) applyGlowIn = collectGlows(scene);
     starsMat.opacity = p.stars; constMat.opacity = p.stars;
     const sunUp = THREE.MathUtils.smoothstep(st.sun.elevation, -2.5, 1.5), moonUp = THREE.MathUtils.smoothstep(st.moon.elevation, -2, 2);
@@ -1533,6 +1946,6 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   function resize() { camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 78 : 70; camera.updateProjectionMatrix(); }
   resize();
   function novaScreen() { const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.55, 0)).project(camera); return { x: (c.x + 1) / 2 * innerWidth, y: (1 - c.y) / 2 * innerHeight, inFront: c.z < 1 }; }
-  function lookAtNova() { if (spot === 'crochet') return goto('crochet'); pos.set(-2.75 - 0.15, 0, -2.75 - IN + 1.9); resolve(pos); state.eye = 1.05; const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.4, 0)); const d = c.sub(new THREE.Vector3(pos.x, state.eye, pos.z)); state.yaw = Math.atan2(-d.x, -d.z); state.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); applyCam(); checkRoom(); }
-  return { scene, camera, update, daylight, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders, novaScreen, lookAtNova, get novaStatus() { return why || novaIn.status; }, get novaSpot() { return spot; }, idAt: (x, y) => { const h = hit(x, y); return h ? (h.object.userData.novaPick ? 'nova' : h.object.userData.decorId || null) : null; }, setNovaSpot: s => { spotOverride = s || null; }, skipCrochet: sec => { crochetSkip += sec; }, crochetState, views: VIEWS };
+  function lookAtNova() { if (spot === 'crochet') return goto('crochet'); if (spot === 'puzzle') return goto('puzzle'); if (spot === 'checkers') return goto('checkers'); pos.set(-2.75 - 0.15, 0, -2.75 - IN + 1.9); resolve(pos); state.eye = 1.05; const c = novaIn.root.localToWorld(new THREE.Vector3(0, 0.4, 0)); const d = c.sub(new THREE.Vector3(pos.x, state.eye, pos.z)); state.yaw = Math.atan2(-d.x, -d.z); state.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); applyCam(); checkRoom(); }
+  return { scene, camera, update, daylight, setActive, goto, pickAt, screenPos, lookAtItem, resize, state, pos, rooms: ROOMS, items: data.items, colliders, novaScreen, lookAtNova, get novaStatus() { return why || novaIn.status; }, get novaSpot() { return spot; }, idAt: (x, y) => { const h = hit(x, y); return h ? (h.object.userData.novaPick ? 'nova' : h.object.userData.decorId || null) : null; }, setNovaSpot: s => { spotOverride = s || null; }, skipCrochet: sec => { crochetSkip += sec; }, crochetState, skipPuzzle: sec => { puzzleSkip += sec; }, puzzleState, checkersState: chkState, get checkersBoard() { return chk && chk.B.map(r => r.slice()); }, activityAt, checkersSelfTest, get puzzleDebug() { return puzzle && { loose: puzzle.loose.count, flying: puzzle.flying.visible, edgeCount: puzzle.edgeCount, borderFirst: puzzle.order.slice(0, puzzle.edgeCount).every(([c, r]) => c === 0 || r === 0 || c === PUZ.cols - 1 || r === PUZ.rows - 1), lorenz: checkers.duck.visible }; }, views: VIEWS };
 }
