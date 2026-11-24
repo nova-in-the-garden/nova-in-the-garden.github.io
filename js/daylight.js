@@ -56,15 +56,22 @@ export function phaseName(el, morning) {
 }
 
 // ---------- which moment the world shows ----------
-// live (default), ?time=HH:MM (Central), ?phase=dawn|day|golden|dusk|night, or the slider.
+// live (default), ?time=HH:MM (Central), ?phase=dawn|day|golden|dusk|night, ?date=YYYY-MM-DD, or the slider.
 export function makeClock() {
   const q = new URLSearchParams(location.search);
-  let override = null; // minutes after local midnight (Central), or null for live
-  const today = () => { const z = zonedParts(new Date()); return z; };
+  let override = null; // minutes after local midnight (Central), or null for live time of day
+  let dateOv = null;   // {y, mo, d} or null for the real calendar day (Central)
+  const dq = q.get('date');
+  if (dq && /^(\d{4})-(\d{2})-(\d{2})$/.test(dq)) {
+    const [, ys, ms, ds] = dq.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const y = +ys, mo = +ms, d = +ds;
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) dateOv = { y, mo, d };
+  }
+  const today = () => dateOv ? { y: dateOv.y, mo: dateOv.mo, d: dateOv.d } : zonedParts(new Date());
   const atMinutes = m => { const z = today(); return zonedDate(z.y, z.mo, z.d, Math.floor(m / 60), Math.round(m % 60)); };
   const minutesOf = d => { const z = zonedParts(d); return z.h * 60 + z.mi + z.s / 60; };
   function phaseMinutes(p) {
-    const t = sunTimes(new Date());
+    const t = sunTimes(dateOv ? zonedDate(dateOv.y, dateOv.mo, dateOv.d, 12, 0) : new Date());
     const mid = (a, b) => new Date((a.getTime() + b.getTime()) / 2);
     const goldenEve = new Date(t.sunset.getTime() - 25 * 60000);
     const m = { dawn: t.dawn && t.sunrise && mid(t.dawn, t.sunrise), day: new Date(t.noon.getTime() - 90 * 60000), noon: t.noon,
@@ -76,11 +83,12 @@ export function makeClock() {
   else if (pq) override = phaseMinutes(pq.toLowerCase());
   return {
     get live() { return override === null; },
+    get dateOverride() { return dateOv; },
     get minutes() { return override ?? minutesOf(new Date()); },
     set(m) { override = m === null ? null : ((m % 1440) + 1440) % 1440; },
     phaseMinutes,
     at: atMinutes,
-    now() { return override === null ? new Date() : atMinutes(override); },
+    now() { return override === null ? (dateOv ? atMinutes(minutesOf(new Date())) : new Date()) : atMinutes(override); },
   };
 }
 

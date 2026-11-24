@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { rng, rule90, mesh, jitter, glowSprite, canvasTexture } from './util.js';
 import { DAY } from './daylight.js';
+import { FEAST_WHY } from './holiday.js';
 
 const FUR = '#1b2452', FUR_HEX = 0x1b2452;
 const GOLD = '#f2c75a';
@@ -324,7 +325,7 @@ export function makeNova({ lights = 'both' } = {}) {
 // Outdoors: wander, sit with Lorenz, curl up at night, hop between islands
 // as a ball of light (along the gold threads).
 // =====================================================================
-export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = [], pond, lorenzBed, scale = 1.3, flat = () => false }) {
+export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = [], pond, lorenzBed, scale = 1.3, flat = () => false, feast = null }) {
   const R = rng(1111);
   const root = nova.root; root.scale.setScalar(scale);
   let isl = hearth; isl.group.add(root);
@@ -360,8 +361,23 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
     return null;
   }
   const lorenzLocal = () => lorenz.position; // Lorenz lives in the Hearth group too
+  const feastOn = () => !!(feast && feast.active && feast.active());
+  const feastSeat = () => feast && feast.seat && feast.seat();
+  function goToFeastSeat() {
+    const seat = feastSeat(); if (!seat || isl !== hearth) return false;
+    target = new THREE.Vector3(seat.x, 0, seat.z);
+    mode = 'toFeast'; why = 'Going to sit down with Lorenz for Thanksgiving';
+    return true;
+  }
+  function sitAtFeast() {
+    const seat = feastSeat(); if (!seat) return;
+    pos.set(seat.x, seat.y ?? 0.52, seat.z);
+    heading = seat.heading ?? heading;
+    mode = 'feast'; why = FEAST_WHY; pause = 1e9; target = null;
+  }
   function nextActivity() {
     const night = DAY.night > 0.6;
+    if (feastOn() && !night) { if (goToFeastSeat()) return; }
     if (isl === hearth && night) {
       const spot = lorenzBed.clone();
       if (freeAt(hearth, spot.x, spot.z) && pathFree(hearth, pos.x, pos.z, spot.x, spot.z)) { target = spot; mode = 'toBed'; why = 'Heading to bed next to Lorenz'; return; }
@@ -388,21 +404,25 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
     if (goal !== isl && !travel) startTravel(goal);
     if (!travel && t - lastOrder > 90) {
       roamT -= dt;
-      if (isl !== hearth) { stayT -= dt; if (stayT < 0 || DAY.night > 0.6) goal = hearth; }
-      else if (roamT < 0) { roamT = 50 + R() * 60; if (DAY.night < 0.4 && R() < 0.5) { const others = islands.filter(i => i !== hearth); goal = others[Math.floor(R() * others.length)]; stayT = 25 + R() * 30; } }
+      if (isl !== hearth) { stayT -= dt; if (stayT < 0 || DAY.night > 0.6 || feastOn()) goal = hearth; }
+      else if (roamT < 0 && !feastOn()) { roamT = 50 + R() * 60; if (DAY.night < 0.4 && R() < 0.5) { const others = islands.filter(i => i !== hearth); goal = others[Math.floor(R() * others.length)]; stayT = 25 + R() * 30; } }
     }
     if (travel) return doTravel(t, dt);
     let moving = false, speed = 0;
     const night = DAY.night > 0.6;
     if (night && isl === hearth && mode !== 'toBed' && mode !== 'sleep') { pause = 0; target = null; nextActivity(); }
     if (!night && mode === 'sleep') { mode = 'idle'; pause = 1.2; why = 'Waking up and stretching'; }
-    if (pause > 0) pause -= dt;
+    if (feastOn() && !night && isl === hearth && mode !== 'toFeast' && mode !== 'feast' && !travel) { pause = 0; target = null; goToFeastSeat(); }
+    if (!feastOn() && (mode === 'feast' || mode === 'toFeast')) { mode = 'idle'; pause = 0.6; target = null; why = 'Leaving the harvest table'; pos.y = 0.02; }
+    if (pause > 0 && mode !== 'feast') pause -= dt;
+    else if (mode === 'feast') { const seat = feastSeat(); if (seat) { pos.x = seat.x; pos.z = seat.z; pos.y = seat.y ?? 0.52; heading = seat.heading ?? heading; } }
     else if (!target) nextActivity();
     else {
       const dx = target.x - pos.x, dz = target.z - pos.z, d = Math.hypot(dx, dz);
       if (d < 0.08) {
         target = null;
         if (mode === 'toBed') { mode = 'sleep'; why = 'Curled up asleep next to Lorenz, tail on night-light mode'; pause = 1e9; }
+        else if (mode === 'toFeast') sitAtFeast();
         else if (mode === 'toLorenz') { mode = 'withLorenz'; pause = 7 + R() * 8; why = 'Sitting with Lorenz'; }
         else { mode = 'idle'; pause = 3 + R() * 6; why = isl === hearth ? 'Sitting on the Hearth, watching' : `Looking around ${isl.data.name}`; }
       } else {
@@ -468,7 +488,7 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
     const k = Math.min(1, T.t / dur.arrive);
     nova.rig.scale.setScalar(Math.max(0.001, k)); nova.orb.scale.setScalar(Math.max(0.001, 1 - k)); nova.setPose('sit');
     nova.update(t, dt, {});
-    if (k >= 1) { nova.orb.visible = false; travel = null; mode = 'idle'; pause = 2 + R() * 2; target = null; why = isl === hearth ? 'Back home on the Hearth' : `Just arrived on ${isl.data.name}`; }
+    if (k >= 1) { nova.orb.visible = false; travel = null; target = null; if (feastOn() && isl === hearth) sitAtFeast(); else { mode = 'idle'; pause = 2 + R() * 2; why = isl === hearth ? 'Back home on the Hearth' : `Just arrived on ${isl.data.name}`; } }
     return { moving: false };
   }
   return {
@@ -480,6 +500,7 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
     get goal() { return goal; },
     worldPos(v = new THREE.Vector3()) { return root.getWorldPosition(v); },
     teleport(I, spot) { if (travel) travel = null; nova.orb.visible = false; nova.rig.visible = true; nova.rig.scale.setScalar(1); isl = I; goal = I; I.group.add(root); root.rotation.set(0, heading, 0); root.scale.setScalar(scale); pos.copy(spot || pickSpot(I, null, 40) || new THREE.Vector3(0, 0, 1)).setY(0.02); target = null; mode = 'idle'; pause = 3; },
+    seatNow() { if (travel) travel = null; nova.orb.visible = false; nova.rig.visible = true; nova.rig.scale.setScalar(1); isl = hearth; goal = hearth; hearth.group.add(root); root.scale.setScalar(scale); sitAtFeast(); root.rotation.set(0, heading, 0); },
     freeAt,
   };
 }

@@ -42,8 +42,9 @@ export function setupSkyClock({ clock, onChange }) {
       if (key !== lastKey) {
         lastKey = key;
         $('.ico').textContent = icon;
-        $('.tm').textContent = `${fmtTime(st.date)} ${REF.tzLabel}`;
-        $('.ph').textContent = clk.live ? st.phase.name : `${st.phase.name} · preview`;
+        const dateBit = clk.dateOverride ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: REF.tz }).format(st.date) + ' · ' : '';
+        $('.tm').textContent = `${dateBit}${fmtTime(st.date)} ${REF.tzLabel}`;
+        $('.ph').textContent = (clk.live && !clk.dateOverride) ? st.phase.name : `${st.phase.name} · preview`;
         $('.rs').textContent = `↑ ${fmtTime(st.times.sunrise)} ↓ ${fmtTime(st.times.sunset)}`;
         $('.rs').title = `Sunrise ${fmtTime(st.times.sunrise)}, sunset ${fmtTime(st.times.sunset)} (civil twilight ${fmtTime(st.times.dawn)}–${fmtTime(st.times.dusk)}) ${REF.tzLabel}`;
         $('.sky-tw').textContent = `Sunrise ${fmtTime(st.times.sunrise)} · Sunset ${fmtTime(st.times.sunset)} · Twilight ${fmtTime(st.times.dawn)}–${fmtTime(st.times.dusk)} ${REF.tzLabel}`;

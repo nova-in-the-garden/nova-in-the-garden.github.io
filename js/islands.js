@@ -5,6 +5,7 @@ import { rng, rule90, mat, glow, mesh, jitter, glowSprite, textSprite, canvasTex
 import { buildCottage } from './house.js';
 import { buildStudio } from './studio.js';
 import { paintFront, CARD_W, CARD_H } from './postcard.js';
+import { feastStage, feastBroadcast, holidayNow } from './holiday.js';
 
 export const GRASS = { giftShop: 0x2a3a2e, hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
 
@@ -87,40 +88,214 @@ function christmasTree(parent, x, z) {
 
 function thanksgivingTable(parent, x, z, rot = 0) {
   const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; parent.add(g);
-  const wood = mat(0x6b4426);
-  mesh(new THREE.BoxGeometry(2.6, 0.12, 1.3), wood, 0, 0.85, 0, g);
-  for (const [lx, lz] of [[-1.15, -.5], [1.15, -.5], [-1.15, .5], [1.15, .5]]) mesh(new THREE.BoxGeometry(0.1, 0.85, 0.1), wood, lx, 0.42, lz, g);
-  mesh(new THREE.BoxGeometry(2.7, 0.02, 0.5), mat(0xb8862b), 0, 0.92, 0, g); // gold runner
-  // turkey
-  const turkey = new THREE.Group(); turkey.position.set(0, 0.95, 0); g.add(turkey);
-  mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.04, 12), mat(0xe9e4d4), 0, 0, 0, turkey);
-  const tb = mesh(new THREE.SphereGeometry(0.32, 10, 8), mat(0xa65a22, { roughness: .5 }), 0, 0.2, 0, turkey); tb.scale.set(1, 0.75, 1.25);
-  for (const s of [-1, 1]) { const d = mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.35, 6), mat(0x9a521f), s * 0.24, 0.25, 0.28, turkey); d.rotation.x = 0.9; d.rotation.z = -s * 0.4; mesh(new THREE.SphereGeometry(0.05, 6, 4), mat(0xf3eee0), s * 0.32, 0.36, 0.42, turkey); }
-  // mashed potatoes with butter
-  const mp = new THREE.Group(); mp.position.set(-0.85, 0.95, 0.15); g.add(mp);
-  mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.14, 10), mat(0x2b3a6b), 0, 0.07, 0, mp);
-  mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xf4efe0), 0, 0.13, 0, mp);
-  mesh(new THREE.BoxGeometry(0.09, 0.05, 0.09), mat(0xf6d55c), 0, 0.33, 0, mp);
-  // Oreo pie: dark crumb crust, cookies-and-cream filling, whipped swirls, whole Oreos standing up
-  const pie = new THREE.Group(); pie.position.set(0.85, 0.95, 0.12); g.add(pie);
-  mesh(new THREE.CylinderGeometry(0.34, 0.28, 0.16, 14), mat(0x1c1414), 0, 0.08, 0, pie);
-  mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.03, 14), mat(0xe8e2d6), 0, 0.17, 0, pie);
-  for (let i = 0; i < 6; i++) {
-    const a = i / 6 * Math.PI * 2;
-    mesh(new THREE.ConeGeometry(0.06, 0.1, 6), mat(0xffffff), Math.cos(a) * 0.22, 0.23, Math.sin(a) * 0.22, pie);
-    const o = new THREE.Group(); o.position.set(Math.cos(a + .5) * 0.2, 0.25, Math.sin(a + .5) * 0.2); o.rotation.set(Math.PI / 2, 0, a); pie.add(o);
-    mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.025, 10), mat(0x151012), 0, 0.02, 0, o);
-    mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.015, 10), mat(0xf5f2ea), 0, 0, 0, o);
-    mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.025, 10), mat(0x151012), 0, -0.02, 0, o);
+  const wood = mat(0x6b4426), cream = mat(0xf2ede0), gold = mat(0xb8862b);
+  mesh(new THREE.BoxGeometry(2.9, 0.12, 1.45), wood, 0, 0.85, 0, g);
+  for (const [lx, lz] of [[-1.25, -.55], [1.25, -.55], [-1.25, .55], [1.25, .55]]) mesh(new THREE.BoxGeometry(0.1, 0.85, 0.1), wood, lx, 0.42, lz, g);
+  const runner = mesh(new THREE.BoxGeometry(2.95, 0.02, 0.5), gold, 0, 0.92, 0, g);
+  const folded = mesh(new THREE.BoxGeometry(0.7, 0.05, 0.35), gold, 1.0, 0.94, 0, g); folded.visible = false;
+
+  function stool(sx, sz) {
+    const s = new THREE.Group(); s.position.set(sx, 0, sz); g.add(s);
+    mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.07, 12), wood, 0, 0.52, 0, s);
+    for (const [lx, lz] of [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]]) mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.5, 6), wood, lx, 0.25, lz, s);
   }
-  // two place settings: one for Nova, one for Lorenz
-  for (const s of [-1, 1]) {
-    mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.02, 14), mat(0xf2ede0), s * 0.4, 0.93, s * 0.45, g);
-    mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat(0x5a3a22), s * 0.4, 0.25, s * 1.0, g);
+  stool(0.15, 1.15); stool(-0.15, -1.15);
+
+  const setG = new THREE.Group(); g.add(setG);
+  function placeCard(px, pz, name) {
+    const tex = canvasTexture(128, 80, (c, w, h) => {
+      c.fillStyle = '#f7f1e4'; c.fillRect(0, 0, w, h);
+      c.strokeStyle = '#e8c15a'; c.lineWidth = 6; c.strokeRect(4, 4, w - 8, h - 8);
+      c.fillStyle = '#1a1430'; c.font = 'italic 700 28px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(name, w / 2, h / 2);
+    });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.14), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }));
+    m.position.set(px, 1.05, pz); m.rotation.x = -0.35; setG.add(m);
   }
-  const c1 = mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 6), mat(0xf3ead2), -0.4, 1.08, -0.2, g);
-  const flame = glowSprite(0.5, 0xffc060, 1); flame.position.set(-0.4, 1.28, -0.2); g.add(flame);
-  return (t) => { flame.scale.setScalar(0.45 + Math.sin(t * 9) * 0.05); c1.rotation.y = t; };
+  for (const [s, name] of [[1, 'Nova'], [-1, 'Lorenz']]) {
+    mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.02, 14), cream, s * 0.15, 0.93, s * 0.48, setG);
+    mesh(new THREE.BoxGeometry(0.04, 0.008, 0.16), mat(0xc0b8a8, { metalness: 0.6, roughness: 0.3 }), s * 0.15 - 0.28, 0.93, s * 0.48, setG);
+    placeCard(s * 0.15 + 0.28, s * 0.48, name);
+  }
+  const flames = [];
+  for (const [cx, cz] of [[-1.2, 0.42], [1.2, 0.42]]) {
+    mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.04, 8), mat(0x1a1430), cx, 0.95, cz, setG);
+    mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 8), mat(0xf3ead2), cx, 1.08, cz, setG);
+    const fl = glowSprite(0.45, 0xffc060, 1); fl.position.set(cx, 1.24, cz); setG.add(fl); flames.push(fl);
+  }
+  const cornu = new THREE.Group(); cornu.position.set(-1.25, 0.95, -0.15); cornu.rotation.y = 0.5; setG.add(cornu);
+  const horn = mesh(new THREE.ConeGeometry(0.18, 0.7, 10), mat(0x8a5a28, { roughness: 0.8 }), 0, 0.16, 0, cornu); horn.rotation.z = 1.15; horn.rotation.x = 0.2;
+  const gourd = (px, py, pz, col, sx, sy, sz, into = setG) => { const m = mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(col, { roughness: 0.7 }), px, py, pz, into); m.scale.set(sx, sy, sz); };
+  gourd(-0.9, 1.05, 0.05, 0xc45a12, 1.1, 0.8, 1); gourd(-0.72, 1.04, -0.2, 0xe8c15a, 0.9, 0.7, 1.05);
+  gourd(-0.58, 1.05, 0.12, 0x7a3a10, 0.7, 0.6, 0.8); gourd(1.15, 1.04, -0.35, 0xd4781c, 0.85, 0.65, 0.9);
+  for (const [px, pz, s] of [[-1.55, 0.9, 0.16], [1.6, 0.75, 0.13], [1.45, -0.9, 0.15]]) {
+    const pm = mesh(new THREE.SphereGeometry(s, 8, 6), mat(0xc45a12, { roughness: 0.7 }), px, s, pz, setG); pm.scale.y = 0.8;
+    mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.07, 4), mat(0x3a5a20), px, s * 1.55, pz, setG);
+  }
+  const leafCol = [0xc45a12, 0xe8c15a, 0xa03020, 0xd4781c];
+  for (let i = 0; i < 16; i++) {
+    const a = i * 1.7, r = 1.55 + (i % 5) * 0.18;
+    const lf = mesh(new THREE.CircleGeometry(0.08 + (i % 3) * 0.02, 5), mat(leafCol[i % 4], { roughness: 1, side: THREE.DoubleSide }), Math.cos(a) * r, 0.02, Math.sin(a) * r, setG);
+    lf.rotation.set(-Math.PI / 2, 0, i * 0.7);
+  }
+  const thanksTex = canvasTexture(256, 160, (c, w, h) => {
+    c.fillStyle = '#f7f1e4'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#1a1430'; c.lineWidth = 8; c.strokeRect(6, 6, w - 12, h - 12);
+    c.strokeStyle = '#e8c15a'; c.lineWidth = 3; c.strokeRect(14, 14, w - 28, h - 28);
+    c.fillStyle = '#1a1430'; c.font = 'italic 700 22px Georgia, serif'; c.textAlign = 'center';
+    c.fillText("I'm thankful for", w / 2, 58);
+    c.fillText('my owner,', w / 2, 86);
+    c.fillText('and for Lorenz.', w / 2, 114);
+  });
+  const thanks = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.22), new THREE.MeshStandardMaterial({ map: thanksTex, roughness: 0.8 }));
+  thanks.position.set(0.0, 1.08, 0.55); thanks.rotation.x = -0.4; setG.add(thanks);
+
+  function dish(parent, x, z, color, r = 0.2) { mesh(new THREE.CylinderGeometry(r, r * 0.85, 0.08, 12), mat(color), x, 0.07, z, parent); }
+  function makeTurkey(parent, carved) {
+    const t = new THREE.Group(); t.position.set(0, 0.95, 0); parent.add(t);
+    mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 12), mat(0xe9e4d4), 0, 0, 0, t);
+    const tb = mesh(new THREE.SphereGeometry(0.28, 10, 8), mat(0xa65a22, { roughness: .5 }), 0, 0.18, 0, t); tb.scale.set(1, 0.75, carved ? 1.0 : 1.2);
+    if (carved) { const cut = mesh(new THREE.CircleGeometry(0.16, 10), mat(0xd4a070, { roughness: .6 }), 0.16, 0.18, 0.08, t); cut.rotation.set(0.2, 0.7, 1.0); }
+    for (const s of carved ? [1] : [-1, 1]) { const d = mesh(new THREE.CylinderGeometry(0.06, 0.1, 0.3, 6), mat(0x9a521f), s * 0.2, 0.22, 0.24, t); d.rotation.x = 0.9; d.rotation.z = -s * 0.4; mesh(new THREE.SphereGeometry(0.045, 6, 4), mat(0xf3eee0), s * 0.28, 0.32, 0.36, t); }
+  }
+  function mash(parent, x, z) {
+    const mp = new THREE.Group(); mp.position.set(x, 0.95, z); parent.add(mp);
+    dish(mp, 0, 0, 0x2b3a6b, 0.18);
+    mesh(new THREE.SphereGeometry(0.16, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xf4efe0), 0, 0.07, 0, mp);
+    mesh(new THREE.BoxGeometry(0.06, 0.035, 0.06), mat(0xf6d55c), 0, 0.21, 0, mp);
+  }
+  function stuffing(parent, x, z) {
+    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
+    dish(s, 0, 0, 0x5a3a22, 0.18);
+    mesh(new THREE.IcosahedronGeometry(0.14, 1), mat(0xb8894a, { roughness: 0.9 }), 0, 0.11, 0, s).scale.y = 0.7;
+  }
+  function cranberry(parent, x, z, full = true) {
+    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
+    dish(s, 0, 0, 0xf2ede0, 0.14);
+    if (full) mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.14, 16), mat(0x8c1a24, { roughness: 0.5 }), 0, 0.13, 0, s);
+    else mesh(new THREE.SphereGeometry(0.08, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x8c1a24), 0, 0.06, 0, s);
+  }
+  function gravy(parent, x, z) {
+    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
+    const boat = mesh(new THREE.SphereGeometry(0.11, 8, 6, 0, Math.PI, 0, Math.PI), mat(0xe9e4d4), 0, 0.07, 0, s); boat.scale.set(1.3, 0.55, 0.8); boat.rotation.x = Math.PI;
+    mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.11, 6), mat(0xe9e4d4), 0.15, 0.09, 0, s).rotation.z = 1.2;
+    mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.025, 10), mat(0x6b3d14), 0, 0.09, 0, s);
+  }
+  function beans(parent, x, z) {
+    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
+    dish(s, 0, 0, 0xc9b896, 0.18);
+    mesh(new THREE.CylinderGeometry(0.15, 0.14, 0.07, 12), mat(0x4a6a2a), 0, 0.09, 0, s);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; mesh(new THREE.BoxGeometry(0.035, 0.012, 0.02), mat(0xe8c15a), Math.cos(a) * 0.09, 0.14, Math.sin(a) * 0.09, s); }
+  }
+  function sweets(parent, x, z) {
+    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
+    dish(s, 0, 0, 0x2b3a6b, 0.18);
+    mesh(new THREE.CylinderGeometry(0.14, 0.13, 0.07, 12), mat(0xd4781c), 0, 0.09, 0, s);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; mesh(new THREE.SphereGeometry(0.03, 6, 4), mat(0xf7f1e4), Math.cos(a) * 0.07, 0.15, Math.sin(a) * 0.07, s); }
+  }
+  function rolls(parent, x, z, n = 5) {
+    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
+    mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.07, 10), mat(0x8a5a28), 0, 0.04, 0, s);
+    for (let i = 0; i < n; i++) { const a = i / Math.max(n, 1) * Math.PI * 2; mesh(new THREE.SphereGeometry(0.065, 8, 6), mat(0xe0b060, { roughness: 0.8 }), Math.cos(a) * 0.07, 0.11, Math.sin(a) * 0.07, s).scale.y = 0.7; }
+  }
+  function pumpkinPie(parent, x, z, sliced = false) {
+    const p = new THREE.Group(); p.position.set(x, 0.95, z); parent.add(p);
+    mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.07, 14), mat(0xc4a06a), 0, 0.05, 0, p);
+    if (sliced) mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.05, 14, 1, false, 0.5, Math.PI * 2 - 0.75), mat(0xd4781c), 0, 0.09, 0, p);
+    else { mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.05, 14), mat(0xd4781c), 0, 0.09, 0, p); mesh(new THREE.SphereGeometry(0.05, 8, 6), mat(0xfbf8f0), 0, 0.14, 0, p).scale.y = 0.6; }
+  }
+  function oreoPie(parent, x, z, sliced = false) {
+    const pie = new THREE.Group(); pie.position.set(x, 0.95, z); parent.add(pie);
+    mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.09, 14), mat(0x1c1414), 0, 0.055, 0, pie);
+    if (sliced) mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.045, 14, 1, false, 0.4, Math.PI * 2 - 0.75), mat(0xe8e2d6), 0, 0.11, 0, pie);
+    else {
+      mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.045, 14), mat(0xe8e2d6), 0, 0.11, 0, pie);
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        mesh(new THREE.ConeGeometry(0.045, 0.07, 6), mat(0xffffff), Math.cos(a) * 0.14, 0.16, Math.sin(a) * 0.14, pie);
+        const o = new THREE.Group(); o.position.set(Math.cos(a + 0.5) * 0.13, 0.18, Math.sin(a + 0.5) * 0.13); o.rotation.set(Math.PI / 2, 0, a); pie.add(o);
+        mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.018, 10), mat(0x151012), 0, 0.012, 0, o);
+        mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.01, 10), mat(0xf5f2ea), 0, 0, 0, o);
+        mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.018, 10), mat(0x151012), 0, -0.012, 0, o);
+      }
+    }
+  }
+  function fillTable(parent, sliced) {
+    makeTurkey(parent, sliced);
+    mash(parent, -0.95, 0.32); stuffing(parent, -0.95, -0.32);
+    cranberry(parent, 0.95, -0.4, !sliced); gravy(parent, -0.5, 0.48);
+    beans(parent, 0.95, 0.32); sweets(parent, 0.55, -0.42);
+    rolls(parent, 0.0, -0.52, sliced ? 2 : 5);
+    pumpkinPie(parent, 1.15, 0.0, sliced);
+    oreoPie(parent, -1.15, 0.0, sliced);
+  }
+  const feastG = new THREE.Group(); g.add(feastG); fillTable(feastG, false);
+  const leftG = new THREE.Group(); g.add(leftG); fillTable(leftG, true);
+
+  // a tiny set by the table: parade in the morning, football after 1 PM
+  const tv = new THREE.Group(); tv.position.set(1.85, 0, 0.15); g.add(tv);
+  mesh(new THREE.BoxGeometry(0.28, 0.55, 0.28), wood, 0, 0.28, 0, tv);
+  mesh(new THREE.BoxGeometry(0.52, 0.36, 0.08), mat(0x1a1430), 0, 0.85, 0, tv);
+  const tvCv = document.createElement('canvas'); tvCv.width = 128; tvCv.height = 80;
+  const tvTex = new THREE.CanvasTexture(tvCv); tvTex.colorSpace = THREE.SRGBColorSpace;
+  const tvMat = new THREE.MeshBasicMaterial({ map: tvTex }); tvMat.userData.keepGlow = true;
+  mesh(new THREE.PlaneGeometry(0.44, 0.28), tvMat, 0, 0.85, 0.045, tv);
+  function paintTV(kind, t) {
+    const c = tvCv.getContext('2d'), w = tvCv.width, h = tvCv.height;
+    c.fillStyle = '#152038'; c.fillRect(0, 0, w, h);
+    if (kind === 'parade') {
+      c.fillStyle = '#7eb6e8'; c.fillRect(0, 0, w, h * 0.55);
+      c.fillStyle = '#6aa34a'; c.fillRect(0, h * 0.55, w, h * 0.45);
+      const bx = ((t * 18) % (w + 40)) - 20;
+      c.fillStyle = '#e8c15a'; c.beginPath(); c.arc(bx, 28, 16, 0, 7); c.fill();
+      c.fillStyle = '#c8323a'; c.beginPath(); c.arc(bx + 28, 34, 12, 0, 7); c.fill();
+      c.fillStyle = '#1a1430'; c.fillRect(bx - 2, 42, 4, 18); c.fillRect(bx + 26, 44, 4, 16);
+      c.fillStyle = '#f6dc8c'; c.font = 'bold 10px sans-serif'; c.fillText('PARADE', 8, 14);
+    } else {
+      c.fillStyle = '#3a6a3a'; c.fillRect(0, 0, w, h);
+      c.strokeStyle = '#f6f6f0'; c.lineWidth = 2; c.strokeRect(18, 10, 92, 52);
+      c.beginPath(); c.moveTo(64, 10); c.lineTo(64, 62); c.moveTo(18, 36); c.lineTo(110, 36); c.stroke();
+      const px = 40 + Math.sin(t * 1.3) * 28, py = 28 + Math.cos(t * 1.7) * 12;
+      c.fillStyle = '#d4781c'; c.beginPath(); c.ellipse(px, py, 5, 3, t, 0, 7); c.fill();
+      c.fillStyle = '#f6dc8c'; c.font = 'bold 10px sans-serif'; c.fillText('FOOTBALL', 8, 74);
+    }
+    tvTex.needsUpdate = true;
+  }
+
+  const c = Math.cos(rot), s = Math.sin(rot);
+  const toHearth = (lx, lz) => ({ x: x + lx * c + lz * s, z: z - lx * s + lz * c });
+  const toward = (seat) => Math.atan2(x - seat.x, z - seat.z);
+  const novaSeat = { ...toHearth(0.15, 1.15), y: 0.52 };
+  const lorenzSeat = { ...toHearth(-0.15, -1.15), y: 0.42 };
+  novaSeat.heading = toward(novaSeat);
+  lorenzSeat.heading = toward(lorenzSeat);
+
+  let lastStage = '', lastBroadcast = '';
+  const apply = (stage) => {
+    const on = stage !== 'off';
+    g.visible = on;
+    const set = stage === 'set' || stage === 'feast' || stage === 'leftovers';
+    const cleared = stage === 'cleared';
+    setG.visible = set;
+    thanks.visible = stage === 'feast';
+    feastG.visible = stage === 'feast';
+    leftG.visible = stage === 'leftovers';
+    runner.visible = set;
+    folded.visible = cleared;
+    tv.visible = stage === 'feast';
+  };
+  apply('set');
+  return {
+    group: g, novaSeat, lorenzSeat,
+    update(t, dt, stage, broadcast) {
+      if (stage && stage !== lastStage) { apply(stage); lastStage = stage; }
+      flames.forEach((f, i) => f.scale.setScalar(0.4 + Math.sin(t * 9 + i) * 0.06));
+      if (tv.visible && broadcast) {
+        if (broadcast !== lastBroadcast || (t * 8 | 0) !== ((t - (dt || 0)) * 8 | 0)) paintTV(broadcast, t);
+        lastBroadcast = broadcast;
+      }
+    },
+  };
 }
 
 function pond(parent, x, z, r) {
@@ -259,12 +434,16 @@ const DECOR = {
     const house = buildCottage(g, -5.1, -4.7, 0.8); house.group.scale.setScalar(1.5); ctx.cottage = house;   // a bit bigger so it reads from orbit ups.push(house.update);
     const sign = textSprite("Nova's House", { size: 1.6, sub: 'click to step inside' }); sign.material.sizeAttenuation = false; sign.scale.multiplyScalar(0.026 / 1.6); sign.position.set(1.5, 3.3, 1.9); sign.renderOrder = 9; sign.material.depthTest = false; house.group.add(sign);
     ups.push(christmasTree(g, 3.8, -3.0));
-    ups.push(thanksgivingTable(g, 3.6, 3.6, -0.5));
+    ctx.feast = thanksgivingTable(g, 3.6, 3.6, -0.5);
     ctx.visitorBoard = visitorBoard(g, 5.3, 0.9, -Math.PI / 2 + 0.35);   // the visitor count, by the path in
     ctx.corkWall = corkWall(g, 0.8, -6.1, 0.12);                        // the Visitor Wall (feedback), behind the fire, facing it
     ctx.pond = { x: -3.2, z: 2.6, r: 2.2 }; pond(g, -3.2, 2.6, 2.2);
     ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.8, z: -6.1, r: 1.9 }];
-    return (t, dt) => ups.forEach(u => u(t, dt));
+    return (t, dt) => {
+      ups.forEach(u => u(t, dt));
+      const now = holidayNow();
+      ctx.feast.update(t, dt, feastStage(now), feastBroadcast(now));
+    };
   },
   emergence(g, isl) {
     // Game of Life moss, live

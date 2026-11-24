@@ -85,7 +85,7 @@ The Corner Cup is now **The Corner Cafe** (id stays `cornerCup` so old links wor
 - **How to play.** A customer walks up with an order in a speech bubble (Lorenz opens every day with an Iced Caramel Macchiato; then Hazel the hedgehog, Pip the bunny, Ollie the owl, Rocket the raccoon, Fern the frog, Maple the bear and Lorenz again). Build it step by step: **cup** (hot glass or iced cup) → **espresso** shots → **milk** (steamed or cold) → **syrup** (caramel, vanilla, French vanilla, mocha) → **topping** (caramel drizzle, whipped cream, milk foam) → **🛎 Serve**. The recipe card under the bar says what goes in; 🗑 Start over tosses the cup.
 - **The drink is drawn as you build it**: syrup sinks to the bottom, milk poured onto espresso mixes into a latte, espresso poured onto cold milk floats on top (the macchiato "mark"), ice cubes, steam on hot drinks, whipped cream, a caramel crosshatch, and a red straw when it's served.
 - **Scoring.** Each order is checked on cup, shot count, milk, syrups, toppings (and, for the macchiato, shots added after the milk). All right = ★★★★, then −1 per miss roughly; serve a perfect drink inside 30 s (the gold bar under the customer) for a fifth ⚡ speed star. Stars drop into the tip jar as coins. 11 customers make a day; the closing card shows stars out of 55, perfect drinks and tips, and remembers your best day (`localStorage`). Nova cheers from behind the red espresso machine and says what was missing.
-- **Menu** (`MENU` in `js/cafe.js`): ♥ Iced Caramel Macchiato and ♥ Iced French Vanilla Latte (the owner's favourites, ordered twice as often), Caramel Latte, Mocha, Cappuccino, Iced Mocha, Double Espresso. Add a drink by adding an entry there; customers are in `CUSTOMERS`.
+- **Menu** (`MENU` in `js/cafe.js`): ♥ Iced Caramel Macchiato and ♥ Iced French Vanilla Latte (the owner's favourites, ordered twice as often), Caramel Latte, Mocha, Cappuccino, Iced Mocha, Double Espresso. On Thanksgiving Day and the leftover weekend, **Harvest Spice** joins the board (`getMenu()` in `js/cafe.js`). Add a drink by adding an entry there; customers are in `CUSTOMERS`.
 - The 3D world sleeps while the cafe is open; ✕ Leave or Esc goes back. Works on phones (the canvas scales; buttons wrap).
 - **Test:** `site_tools/cafe.mjs` (deep link, rename, real clicks building a macchiato, layer order, canvas pixels, perfect/wrong scoring, a full day, Open tomorrow, Esc, tapping the cafe in the Realm, the panel button, phone) writes `screenshots/cafe_*.png`.
 
@@ -148,6 +148,7 @@ The sun disk and the moon move across the sky by their real azimuth and elevatio
 
 - `?time=HH:MM` shows that Central clock time today, e.g. `?time=07:05`.
 - `?phase=dawn|day|golden|dusk|night` jumps to that phase today: dawn is midway between civil dawn and sunrise, day is solar noon minus 90 min, golden is 25 min before sunset, dusk is midway between sunset and civil dusk, and night is solar noon plus 11 h.
+- `?date=YYYY-MM-DD` shows that calendar day in Central time (together with `?time` or `?phase`, or with the live clock's current time of day). The sky clock keeps the date in the URL while you scrub. Example: `?date=2026-11-26&time=12:00` is noon on Thanksgiving 2026.
 - These combine with the other parameters, e.g. `?phase=night&house=window`.
 
 For tests, `window.nova.sky` reports the phase, sun elevation and azimuth, today's times and the moon. `window.nova.clock.set(minutes | null)` scrubs the clock, and `window.__lookSky(az, el)` points the camera at a spot in the sky.
@@ -341,6 +342,17 @@ There's a postcard rack on **Star Dock**. Tap it, or use the button in the Star 
     - the pulsar's beams;
     - the starfield.
 - **Kiosk:** `postcardKiosk()` in `js/islands.js` builds a turning wire rack whose cards are real `paintFront` renders.
+
+## Thanksgiving at the Hearth (2026-11-24)
+
+On Thanksgiving Day (the fourth Thursday of November, in Central time) Nova and Lorenz sit down at the harvest table. Preview: `?date=2026-11-26&time=12:00` (then land at the Hearth), or `?cafe=1&date=2026-11-26&time=12:00` for the cafe special.
+
+- **Before the day** (from the Friday of the week before): the table is set with a gold runner, place cards for Nova and Lorenz, candles, a cornucopia, gourds and autumn leaves. The Oreo pie is still cooling on its rack in the Kitchen.
+- **On the day**, 8 AM–11 PM: they sit at the two stools. The table holds turkey, stuffing, mashed potatoes, gravy, cranberry sauce, green bean casserole, sweet potatoes, rolls, pumpkin pie, and the owner's Oreo pie (which leaves the kitchen that morning). A small card says what Nova is thankful for. A tiny set beside the table shows the parade in the morning and football after 1 PM. At night they still sleep by the pond. The Corner Cafe adds **Harvest Spice** to the board (hot glass, harvest-spice syrup, two shots, steamed milk, whipped cream). Lorenz still opens the day with an Iced Caramel Macchiato.
+- **Friday–Sunday**: leftovers (the turkey carved, a slice out of each pie). Harvest Spice stays on the cafe menu.
+- **After that** the dishes are cleared; the table is put away a few days later.
+
+The calendar math and stages live in `js/holiday.js`. Research notes: `/workspace/nova/projects/holiday-traditions.md`. Test: `site_tools/thanksgiving.mjs`.
 
 ## The Kitchen (2026-11-16)
 

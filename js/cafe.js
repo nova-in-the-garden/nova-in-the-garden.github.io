@@ -3,6 +3,7 @@
 // (cup -> espresso -> milk -> syrup -> topping -> serve) and watch it fill the glass. Stars for getting
 // it right (plus one for speed), coins in the tip jar, 11 customers make a day.
 // Everything is drawn on one 2D canvas; the 3D world sleeps while the cafe is open.
+import { cafeSpecialOn, holidayNow } from './holiday.js';
 
 export const MENU = [
   { id: 'icedCaramelMacchiato', name: 'Iced Caramel Macchiato', fav: true, cup: 'iced', syrups: ['vanilla'], milk: 'cold', shots: 2, toppings: ['caramel'], shotsOnTop: true,
@@ -29,8 +30,13 @@ export const CUSTOMERS = [
   { id: 'fern', name: 'Fern the frog', kind: 'frog', body: '#6ab84a', accent: '#f4ece0' },
   { id: 'maple', name: 'Maple the bear', kind: 'bear', body: '#8a5a34', accent: '#c89a6a' },
 ];
-const SYRUPS = { caramel: ['Caramel', '#c8862a'], vanilla: ['Vanilla', '#efdc9a'], frenchVanilla: ['French vanilla', '#f2c86a'], mocha: ['Mocha', '#4a2414'] };
+const SYRUPS = { caramel: ['Caramel', '#c8862a'], vanilla: ['Vanilla', '#efdc9a'], frenchVanilla: ['French vanilla', '#f2c86a'], mocha: ['Mocha', '#4a2414'], spice: ['Harvest spice', '#c86a28'] };
 const TOPS = { caramel: 'Caramel drizzle', whip: 'Whipped cream', foam: 'Milk foam' };
+export const HARVEST_SPICE = {
+  id: 'harvestSpice', name: 'Harvest Spice', seasonal: true, cup: 'hot', syrups: ['spice'], milk: 'steamed', shots: 2, toppings: ['whip'],
+  recipe: 'Hot glass · harvest spice syrup · 2 shots · steamed milk · whipped cream'
+};
+export function getMenu(date) { return cafeSpecialOn(date || holidayNow()) ? [...MENU, HARVEST_SPICE] : MENU.slice(); }
 const PER_DAY = 11, SPEEDY = 30;   // seconds for the speed star
 
 export function createCafe({ onOpen, onClose, rnd = Math.random } = {}) {
@@ -63,7 +69,8 @@ export function createCafe({ onOpen, onClose, rnd = Math.random } = {}) {
     const first = day.served === 0;
     cust = first ? CUSTOMERS[0] : CUSTOMERS[1 + Math.floor(rnd() * (CUSTOMERS.length - 1))];
     if (!first && rnd() < 0.25) cust = CUSTOMERS[0];
-    const pool = MENU.flatMap(m => m.fav ? [m, m] : [m]);
+    const menu = getMenu();
+    const pool = menu.flatMap(m => m.fav ? [m, m] : m.seasonal ? [m, m] : [m]);
     order = first ? MENU[0] : pool[Math.floor(rnd() * pool.length)];
     custT = now; leaving = 0; mood = null; newDrink();
     bubble = { who: cust.name, text: `${order.fav ? '' : ''}One ${order.name}, please!` };
@@ -99,7 +106,7 @@ export function createCafe({ onOpen, onClose, rnd = Math.random } = {}) {
       if ((l.kind === 'cold' || l.kind === 'steamed') && out.some(o => o.kind === 'shot')) {   // milk onto espresso: mix
         const shots = out.filter(o => o.kind === 'shot'); const sh = shots.reduce((s, o) => s + o.cur, 0);
         for (const s of shots) out.splice(out.indexOf(s), 1);
-        mixed = { kind: 'latte', color: drink.syrups.includes('mocha') ? '#7a4a30' : (l.kind === 'cold' ? '#c8a07a' : '#c49470'), cur: l.cur + sh, top: l.kind === 'cold' ? '#e8d8c0' : null }; out.push(mixed);
+        mixed = { kind: 'latte', color: drink.syrups.includes('mocha') ? '#7a4a30' : drink.syrups.includes('spice') ? '#c48448' : (l.kind === 'cold' ? '#c8a07a' : '#c49470'), cur: l.cur + sh, top: l.kind === 'cold' ? '#e8d8c0' : null }; out.push(mixed);
       } else if (l.kind === 'shot' && mixed && drink.seq.lastIndexOf('shot') > drink.seq.indexOf('milk') && drink.milk !== 'cold') { mixed.cur += l.cur; }
       else out.push(l);
     }
@@ -178,9 +185,13 @@ export function createCafe({ onOpen, onClose, rnd = Math.random } = {}) {
     ctx.fillStyle = '#6a4a2c'; ctx.fillRect(687, 26, 6, 120); ctx.fillRect(600, 83, 180, 6);
     // chalkboard menu
     ctx.fillStyle = '#1c2a22'; rr(22, 22, 250, 186, 8); ctx.fill(); ctx.strokeStyle = '#8a5a34'; ctx.lineWidth = 7; ctx.stroke();
+    const menu = getMenu();
     ctx.fillStyle = '#e8c15a'; ctx.font = 'bold 17px Georgia,serif'; ctx.fillText('The Corner Cafe', 40, 48);
+    if (menu.some(m => m.seasonal)) { ctx.fillStyle = '#f6dc8c'; ctx.font = 'italic bold 12px Georgia,serif'; ctx.fillText('★ Today: Harvest Spice', 40, 64); }
     ctx.font = '12.5px system-ui,sans-serif';
-    MENU.forEach((m, i) => { ctx.fillStyle = order?.id === m.id ? '#f6dc8c' : m.fav ? '#f4d2a0' : '#d8d4c4'; ctx.fillText((m.fav ? '♥ ' : '· ') + m.name, 38, 74 + i * 18.5); });
+    const listY = menu.some(m => m.seasonal) ? 82 : 74;
+    const gap = menu.length > 7 ? 16 : 18.5;
+    menu.forEach((m, i) => { ctx.fillStyle = order?.id === m.id ? '#f6dc8c' : m.fav ? '#f4d2a0' : m.seasonal ? '#f6dc8c' : '#d8d4c4'; ctx.fillText((m.fav ? '♥ ' : m.seasonal ? '★ ' : '· ') + m.name, 38, listY + i * gap); });
     ctx.fillStyle = '#c8323a'; ctx.font = 'italic 11px Georgia,serif'; ctx.fillText('♥ = the owner’s favourites', 38, 200);
     // string lights
     ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(290, 18); ctx.quadraticCurveTo(445, 70, 590, 18); ctx.stroke();
@@ -202,7 +213,7 @@ export function createCafe({ onOpen, onClose, rnd = Math.random } = {}) {
     ctx.fillStyle = '#f6dc8c'; ctx.beginPath(); ctx.arc(x + 30, y + 18, 7, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x + 90, y + 18, 7, 0, 7); ctx.fill();
     ctx.strokeStyle = '#2a2a32'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 30, y + 18); ctx.lineTo(x + 30 + 5 * Math.cos(t), y + 18 + 5 * Math.sin(t)); ctx.stroke();
     // syrup pumps
-    [['#c8862a', 655], ['#efdc9a', 680], ['#f2c86a', 705], ['#4a2414', 730]].forEach(([c, px]) => { ctx.fillStyle = c; rr(px, 250, 18, 46, 4); ctx.fill(); ctx.fillStyle = '#2a2a32'; ctx.fillRect(px + 6, 236, 6, 14); ctx.fillRect(px + 2, 234, 16, 4); });
+    [['#c8862a', 640], ['#efdc9a', 665], ['#f2c86a', 690], ['#4a2414', 715], ['#c86a28', 740]].forEach(([c, px]) => { ctx.fillStyle = c; rr(px, 250, 18, 46, 4); ctx.fill(); ctx.fillStyle = '#2a2a32'; ctx.fillRect(px + 6, 236, 6, 14); ctx.fillRect(px + 2, 234, 16, 4); });
   }
   function drawNova(t) {   // Nova behind the bar: midnight-blue fox, gold apron, glowing tail tip
     const x = 210, y = 292, bob = Math.sin(t * 2.2) * 2;

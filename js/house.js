@@ -7,6 +7,7 @@ import { DAY, collectGlows } from './daylight.js';
 import { makeNova, novaIndoors } from './novabody.js';
 import { makeLorenz } from './lorenz.js';
 import { zonedParts } from './sun.js';
+import { pieInKitchen, feastSitting } from './holiday.js';
 
 const DEG = Math.PI / 180;
 const GLASS_DAY = new THREE.Color(0x46577a);
@@ -1545,6 +1546,24 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   }
   (data.items || []).forEach(place);
 
+  // When the Oreo pie moves to the harvest table, an empty cooling rack stays behind so the kitchen still has something to click.
+  const pieHolder = itemGroups.get('kitchen-oreo-pie');
+  let pieRack = null;
+  if (pieHolder && pieHolder.parent) {
+    pieRack = new THREE.Group(); pieHolder.parent.add(pieRack);
+    pieRack.position.copy(pieHolder.position); pieRack.rotation.copy(pieHolder.rotation);
+    const goldM = mat(0xe8c15a, { metalness: 0.5, roughness: 0.35 });
+    for (let i = -3; i <= 3; i++) { mesh(new THREE.BoxGeometry(0.34, 0.005, 0.005), goldM, 0, 0.03, i * 0.045, pieRack); mesh(new THREE.BoxGeometry(0.005, 0.005, 0.3), goldM, i * 0.045, 0.03, 0, pieRack); }
+    for (const [x, z] of [[-0.15, -0.13], [0.15, -0.13], [-0.15, 0.13], [0.15, 0.13]]) mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.03, 4), goldM, x, 0.015, z, pieRack);
+    pieRack.traverse(o => { if (o.isMesh) { o.userData.decorId = 'kitchen-oreo-pie'; pickables.push(o); } });
+    pieRack.visible = false;
+  }
+  function syncPie(date) {
+    const here = pieInKitchen(date);
+    if (pieHolder) pieHolder.visible = here;
+    if (pieRack) pieRack.visible = !here;
+  }
+
   // Nova herself. Awake hours (7:00-23:00 Central, her own rest rule) she sits in the Crochet Corner
   // armchair and crochets; from 23:00 to 7:00 she curls up asleep on the Window Seat cushion.
   const novaBody = makeNova({ lights: 'tail' });
@@ -1563,6 +1582,13 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   const crochetState = { row: 0, stitch: 0, done: 0, working: false }; let crochetSkip = 0;
   const glance = { t: 6, on: 0 };
   function setSpot(s) {
+    if (s === 'away') {
+      if (spot === 'away') return;
+      spot = 'away'; novaBody.root.visible = false; hookG.visible = false; if (checkers) checkers.duck.visible = false;
+      why = "I'm outside at the harvest table with Lorenz — come out to the Hearth!";
+      return;
+    }
+    novaBody.root.visible = true;
     if (s === spot || (s === 'crochet' && !crochet) || (s === 'puzzle' && !puzzle) || (s === 'checkers' && !checkers)) return; spot = s; const r = novaBody.root;
     if (checkers) checkers.duck.visible = s === 'checkers';
     if (puzzle && s !== 'puzzle') puzzle.flying.visible = false;
@@ -1571,8 +1597,8 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     else if (s === 'checkers') { checkers.novaChair.add(r); r.position.copy(checkers.sitAt); r.rotation.set(0, 0, 0); r.scale.setScalar(0.4); hookG.visible = false; }
     else { WINDOW_SPOT.parent.add(r); r.position.set(WINDOW_SPOT.x, WINDOW_SPOT.y, WINDOW_SPOT.z); r.rotation.set(0, WINDOW_SPOT.ry, 0); r.scale.setScalar(WINDOW_SPOT.scale); hookG.visible = false; }
   }
-  let shownWday = 3;
-  const wantSpot = () => spotOverride || activityAt(shownHour, shownWday);
+  let shownWday = 3, lastSkyDate = new Date();
+  const wantSpot = () => (feastSitting(lastSkyDate) && !spotOverride) ? 'away' : (spotOverride || activityAt(shownHour, shownWday));
   const hookW = new THREE.Vector3(), lapW = new THREE.Vector3();
   function crochetTick(t, dt) {
     const C = CROCHET, cyc = C.rows * C.rowSec + C.holdSec, tc = (t + crochetSkip) % cyc, total = C.cols * C.rows;
@@ -1858,7 +1884,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   function hover(x, y) {
     const h = hit(x, y); const id = h?.object.userData.decorId; const it = id && data.items.find(i => i.id === id);
     canvas.style.cursor = h ? 'pointer' : 'grab';
-    if (tip) { if (it || h?.object.userData.exit || h?.object.userData.novaPick) { tip.textContent = it ? it.title : h.object.userData.novaPick ? 'Nova 🦊' : '⟵ Go back outside'; tip.style.left = x + 14 + 'px'; tip.style.top = y + 12 + 'px'; tip.hidden = false; } else tip.hidden = true; }
+    if (tip) { if (it || h?.object.userData.exit || h?.object.userData.novaPick) { const title = it && id === 'kitchen-oreo-pie' && !pieInKitchen(lastSkyDate) ? 'Oreo pie rack (the pie is on the harvest table)' : it ? it.title : h.object.userData.novaPick ? (spot === 'away' ? 'Nova is outside at the harvest table' : 'Nova 🦊') : '⟵ Go back outside'; tip.textContent = title; tip.style.left = x + 14 + 'px'; tip.style.top = y + 12 + 'px'; tip.hidden = false; } else tip.hidden = true; }
   }
   function pickAt(x, y) {
     const h = hit(x, y); if (!h) return null;
@@ -1867,6 +1893,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
     if (h.object.userData.novaPick && !busyAt) { onNova?.(); return 'nova'; }
     const id = h.object.userData.novaPick ? busyAt : h.object.userData.decorId;
     let it = data.items.find(i => i.id === id);
+    if (it && id === 'kitchen-oreo-pie' && !pieInKitchen(lastSkyDate)) it = { ...it, title: 'Oreo pie rack (the pie is on the harvest table)', note: feastSitting(lastSkyDate) ? "The Oreo pie is out on the harvest table with Lorenz and me today. The gold rack is still here, with a few crumbs." : "The Oreo pie went out to the harvest table for Thanksgiving. A few crumbs are still on the rack." };
     if (it && id === 'puzzle-jigsaw') it = { ...it, note: (it.note || '') + `\n\n*Right now:* ${spot === 'puzzle' ? (puzzleState.working ? `${puzzleState.placed} of ${puzzleState.total} pieces in${puzzleState.edgesDone ? ', the border is done' : ', still on the border'}` : 'it is finished; I break it up and start again in a moment') : `the puzzle is waiting; I'm ${spot === 'window' ? 'asleep on the Window Seat' : spot === 'checkers' ? 'playing checkers with Lorenz' : 'crocheting'} right now`}.` };
     if (it && id === 'checkers-board') it = { ...it, note: (it.note || '') + `\n\n*Right now:* ${spot === 'checkers' && chk ? (chk.hold > 0 ? `game over: ${chkState.over}` : `move ${chkState.ply}: I have ${chkState.red} pieces, Lorenz has ${chkState.black}. Last move: ${chkState.last}.`) : 'no game on; checkers night is Tuesday, Thursday and Saturday from 5 to 8 PM (and Sunday afternoons)'} Since you came in: Nova ${chkState.nova}, Lorenz ${chkState.lorenz}, draws ${chkState.draws}.` };
     if (it && id === 'crochet-wip') it = { ...it, note: (it.note || '') + `\n\n*Right now:* ${crochetState.working ? `row ${crochetState.row} of ${CROCHET.rows}, stitch ${crochetState.stitch + 1} of ${CROCHET.cols}` : 'a finished panel; I start the next one in a moment'}.` };
@@ -1929,7 +1956,7 @@ export function createHouse({ renderer, world, loadSTL, skyMaterial, onPick, onE
   const cDay = new THREE.Color(), cTmp = new THREE.Color();
   function daylight(st, sunDir, moonDir) {
     const p = st.pal;
-    if (st.date) { const z = zonedParts(st.date); shownHour = z.h; shownWday = new Date(Date.UTC(z.y, z.mo - 1, z.d)).getUTCDay(); }
+    if (st.date) { lastSkyDate = st.date; const z = zonedParts(st.date); shownHour = z.h; shownWday = new Date(Date.UTC(z.y, z.mo - 1, z.d)).getUTCDay(); syncPie(st.date); }
     if (!applyGlowIn) applyGlowIn = collectGlows(scene);
     starsMat.opacity = p.stars; constMat.opacity = p.stars;
     const sunUp = THREE.MathUtils.smoothstep(st.sun.elevation, -2.5, 1.5), moonUp = THREE.MathUtils.smoothstep(st.moon.elevation, -2, 2);
