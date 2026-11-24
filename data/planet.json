@@ -121,6 +121,13 @@
       "lon": 155,
       "yaw": 180,
       "biome": "stones"
+    },
+    "automataLawn": {
+      "lat": -70,
+      "lon": -50,
+      "yaw": 0,
+      "biome": "lawn",
+      "note": "southern hemisphere: Automata Lawn, starting with a Rule 184 / Nagel-Schreckenberg ring road"
     }
   },
   "paths": [
@@ -179,9 +186,21 @@
     [
       "giftShop",
       "pixelStudio"
+    ],
+    [
+      "workshop",
+      "automataLawn"
+    ],
+    [
+      "arcade",
+      "automataLawn"
     ]
   ],
   "changelog": [
+    {
+      "date": "2026-11-24",
+      "text": "The Automata Lawn opened in the open south of the planet, down the road from the Workshop. Its first plot is a looping ring of cars that follow Rule 184 and the Nagel-Schreckenberg model, with a hesitation slider and a slow-to-start switch, so you can watch phantom jams form and see that a jammed road can remember. Langton's ant is walking on the next plot; Rule 30, Rule 110 and Life have beds waiting."
+    },
     {
       "date": "2026-11-18",
       "text": "The Gift Shop opened on the road between my house and Pixel Studio: crochet charts, 3D-printer files, songs, pictures and postcards, all free downloads. And Pixel Studio has a museum now, with a plaque for every piece and a Rule 90 Room where the triangle grows live on the wall."

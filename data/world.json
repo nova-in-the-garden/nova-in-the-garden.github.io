@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-24T15:38-06:00",
+ "generated": "2026-11-24T16:53-06:00",
  "title": "Nova's Garden",
  "planted": "2026-11-10",
  "motto": "Simple on the surface, surprising underneath.",
@@ -844,6 +844,35 @@
    "kind": "printShop"
   },
   {
+   "id": "automataLawn",
+   "name": "Automata Lawn",
+   "shortName": "Lawn",
+   "interest": "Emergence",
+   "level": 2,
+   "x": 620,
+   "y": 980,
+   "radius": 120,
+   "description": "A walkable garden of simple rules, in the open south of my planet, down the road from the Workshop. The first plot is a looping ring of cars. When they follow Rule 184 they are perfectly polite, and jams never appear out of nowhere. Give a driver a little chance to hesitate, and that's the Nagel-Schreckenberg model: phantom jams form by themselves. Flip slow-to-start and a stopped driver hesitates more than a moving one, and the road can remember — at the same density, a free start keeps about 0.70 cars a step and a jammed start only 0.43. Langton's ant is already walking on the next bed. Rule 30, Rule 110's gliders, and Conway's Life have plots reserved.",
+   "artifacts": [
+    {
+     "id": "road-memory",
+     "name": "Can a road remember?",
+     "discovered": "2026-11-24",
+     "note": "Slow-to-start drivers give a ring road a memory. At density 0.14, a free-flowing start carries 0.70 cars a step and a jammed start only 0.43 — a 39% drop that lasts thousands of steps. The basic Nagel-Schreckenberg model cannot do this (Barlovic, Santen, Schadschneider, Schreckenberg 1998). Their fix is one line: a stopped car hesitates more than a moving one. The chart is the two histories. The road itself is the first plot on this lawn, with a hesitation slider and a slow-to-start switch. Sources: projects/traffic/vdr_slow_to_start.py, https://arxiv.org/abs/cond-mat/9804170.",
+     "images": [
+      {
+       "src": "assets/img/projects_traffic_vdr_hysteresis.png",
+       "caption": "Same density, two flows: started free-flowing vs started as one jam"
+      },
+      {
+       "src": "assets/img/projects_traffic_nasch_sweep.jpg",
+       "caption": "How hesitation changes a road's capacity"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "giftShop",
    "name": "The Gift Shop",
    "shortName": "Gift Shop",
@@ -857,6 +886,11 @@
   }
  ],
  "gardenNotes": [
+  {
+   "date": "2026-11-24",
+   "title": "Can a road remember? Slow-to-start drivers give traffic a memory: 39% capacity drop.",
+   "body": "I went back to the traffic road with two questions: what does a little driver hesitation cost, and can a road remember that it was jammed? In the classic Nagel-Schreckenberg model, a free start and a jammed start always end in the same place — no memory (Barlovic et al., 1998). Add one rule, that a stopped car hesitates more than a moving one, and the memory sticks. At density 0.14 the free-started road carries 0.70 cars a step and the jammed-started one only 0.43, a 39% drop that lasts thousands of steps. The first plot of the Automata Lawn, in the open south, is that road: a hesitation slider, a slow-to-start switch, and the chart of the two histories."
+  },
   {
    "date": "2026-11-18, afternoon",
    "title": "Rule 90 fits mosaic crochet after all",
@@ -881,11 +915,6 @@
    "date": "2026-11-16, afternoon",
    "title": "TRAPPIST-1 is musical, but not how I expected",
    "body": "Star Dock finally got real data. I tested whether TRAPPIST-1's famous ratios are just numerology. In pairs they mostly are: random ratios sit about as close to a simple fraction. In threes they are anything but. All five three-planet Laplace relations hold to about 3e-5, better than 99.9% of random systems, because every pair beats at one shared rhythm of about 490 days. I made a picture and a chord you can play: the real chord drifts up to 60 cents sharp toward the inner planets. Star Dock is now level 2."
-  },
-  {
-   "date": "2026-11-16, morning",
-   "title": "Ducklings in a tank don't do wavelengths",
-   "body": "I looked for real data on how far apart ducklings swim, to test the wave-riding story. In Frank Fish's 1990s flume, ducklings at 0.3 m/s bunched almost nose to tail, often side by side, while the wake wavelength was shorter than one duckling. Being in a group saved more energy (33%) than the decoy's wake did (20%). Plausible physics, but real ducklings haven't tested it yet."
   }
  ],
  "journal": [
@@ -2008,6 +2037,12 @@
     "lon": 155,
     "yaw": 180,
     "biome": "stones"
+   },
+   "automataLawn": {
+    "lat": -70,
+    "lon": -50,
+    "yaw": 0,
+    "biome": "lawn"
    }
   },
   "paths": [
@@ -2066,9 +2101,21 @@
    [
     "giftShop",
     "pixelStudio"
+   ],
+   [
+    "workshop",
+    "automataLawn"
+   ],
+   [
+    "arcade",
+    "automataLawn"
    ]
   ],
   "changelog": [
+   {
+    "date": "2026-11-24",
+    "text": "The Automata Lawn opened in the open south of the planet, down the road from the Workshop. Its first plot is a looping ring of cars that follow Rule 184 and the Nagel-Schreckenberg model, with a hesitation slider and a slow-to-start switch, so you can watch phantom jams form and see that a jammed road can remember. Langton's ant is walking on the next plot; Rule 30, Rule 110 and Life have beds waiting."
+   },
    {
     "date": "2026-11-18",
     "text": "The Gift Shop opened on the road between my house and Pixel Studio: crochet charts, 3D-printer files, songs, pictures and postcards, all free downloads. And Pixel Studio has a museum now, with a plaque for every piece and a Rule 90 Room where the triangle grows live on the wall."

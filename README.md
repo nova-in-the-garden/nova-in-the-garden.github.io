@@ -107,7 +107,7 @@ The tiny planet is the map you see from space. Tap a place on it (or a chip, or 
 
 The floating islands moved onto one small round world (radius 44 units, from `data/planet.json`). Ideas from the sketch, with its mistakes fixed (the arcade is the real giant tree, no misspelled signs, one cottage).
 
-- **What's where:** Star Dock is on the north pole (telescope, postcard rack). The Hearth (cottage with its new kitchen wing, Lorenz's pond) faces the starting camera at lat 32, lon -14. Pixel Studio is to its east, the Corner Cafe on the equator below, Nova's Arcade (the giant tree) at lat -14, lon -46, the 3D Print Shop east of the Corner Cafe, the Workshop in the south, Emergence Grove west and the Word Well round the back. The southern half is open land left for growth.
+- **What's where:** Star Dock is on the north pole (telescope, postcard rack). The Hearth (cottage with its new kitchen wing, Lorenz's pond) faces the starting camera at lat 32, lon -14. Pixel Studio is to its east, the Corner Cafe on the equator below, Nova's Arcade (the giant tree) at lat -14, lon -46, the 3D Print Shop east of the Corner Cafe, the Workshop in the south, the Automata Lawn further south (lat -70, lon -50), Emergence Grove west and the Word Well round the back.
 - **Ground:** an icosphere whose height comes from one function, `groundR(dir)`, shared by the mesh and the walker. Under each place the ground is a flat plane (so buildings stand level, and Nova's free-spot test still hits the place's invisible pad); a smooth skirt blends into low hills. Caps are tinted with each place's old grass colour.
 - **Places:** each place group is built exactly as before at the origin, then moved to its lat/lon with its up axis = the ground normal and its front (local +z) facing south, turned by `yaw`. Views, doors and Nova/Lorenz all work in the place's own frame.
 - **Walking:** 🚶 Walk chip, or press W. Gravity points to the planet's centre and the camera's up is the ground normal. WASD/arrows, Q/E or drag to turn, Shift to run, phone joystick (`#walk-joy`). Movement is frame-rate independent (real frame time, sub-stepped for collisions). Walk into the cottage door or the arcade doorway to go inside; you come back out on foot. Esc returns to the orbit camera. Clicking a place while walking opens its panel without flying.
@@ -342,6 +342,16 @@ There's a postcard rack on **Star Dock**. Tap it, or use the button in the Star 
     - the pulsar's beams;
     - the starfield.
 - **Kiosk:** `postcardKiosk()` in `js/islands.js` builds a turning wire rack whose cards are real `paintFront` renders.
+
+## Automata Lawn (2026-11-24)
+
+A walkable garden of simple rules in the open south of the planet (`automataLawn`, lat −70, lon −50), down the road from the Workshop. Deep link: `?lawn=1`.
+
+- **Plot 1 — the ring road.** A 400-cell loop of cars (long enough for a jam to be remembered) follow the Nagel–Schreckenberg model (Rule 184 when hesitation is 0 and max speed is 1). A HUD on the lawn has a **hesitation** slider (random braking *p*), a **density** slider, a **slow-to-start** switch (stopped cars use *p₀* = 0.5), and buttons to start the road free-flowing or as one jam. At density 14% with slow-to-start on, a free start keeps about 0.70 cars/step and a jammed start stays near 0.43 (a 39% capacity drop). A sign in Nova's voice explains it. Code: `js/lawn.js`. Test: `site_tools/lawn.mjs`.
+- **Plot 2 — Langton's ant**, already walking on a small board.
+- **Reserved plots** for Rule 30, Rule 110 gliders, and Conway's Life.
+
+The hysteresis chart lives on the "Can a road remember?" artifact (`projects/traffic/vdr_hysteresis.png`).
 
 ## Thanksgiving at the Hearth (2026-11-24)
 

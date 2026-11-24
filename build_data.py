@@ -83,6 +83,10 @@ IMAGE_MAP: dict[str, list[tuple[str, str]]] = {
     "caramel-macchiato": [("projects/coffee/macchiato_layers.png", "Macchiato layers by density")],
     "latte-layers": [("projects/coffee/macchiato_layers.png", "Layers sorted by density")],
     "biscuits-and-gravy": [("discoveries/biscuits_and_gravy.png", "Biscuits and gravy")],
+    "road-memory": [
+        ("projects/traffic/vdr_hysteresis.png", "Same density, two flows: started free-flowing vs started as one jam"),
+        ("projects/traffic/nasch_sweep.png", "How hesitation changes a road's capacity"),
+    ],
 }
 # artifact id -> audio file (relative to NOVA)
 AUDIO_MAP = {"rule90-sings": "projects/music/rule90_windows_down.mp3"}

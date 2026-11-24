@@ -6,8 +6,9 @@ import { buildCottage } from './house.js';
 import { buildStudio } from './studio.js';
 import { paintFront, CARD_W, CARD_H } from './postcard.js';
 import { feastStage, feastBroadcast, holidayNow } from './holiday.js';
+import { buildLawn } from './lawn.js';
 
-export const GRASS = { giftShop: 0x2a3a2e, hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c };
+export const GRASS = { giftShop: 0x2a3a2e, hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c, automataLawn: 0x1d3a28 };
 
 export function islandBase(isl, r, seed) {
   const R = rng(seed);
@@ -678,6 +679,10 @@ const DECOR = {
     ctx.lazyPrints = { group: g, get loaded() { return loaded; }, load() { if (loaded) return; loaded = true; loaders.forEach(f => f()); } };
     if (!prints.length) { const s = textSprite('Prints coming soon', { size: 0.4 }); s.position.set(0, 1.5, 1.5); g.add(s); }
     return t => { peds.forEach((s, i) => s.rotation.y = t * 0.5 + i); const k = (t * 0.6) % 10; noz.position.x = Math.sin(t * 5) * 0.5; noz.position.y = 0.75 + Math.min(k, 8) * 0.09; built.children.forEach(c => c.visible = c.userData.layer <= k); };
+  },
+  automataLawn(g, isl, ctx) {
+    const lawn = buildLawn(g, ctx);
+    return (t, dt) => lawn.update(t, dt);
   },
 };
 

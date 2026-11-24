@@ -16,7 +16,7 @@ const Y = new THREE.Vector3(0, 1, 0);
 const BIOMES = {
   wild: { ground: 0x34583a }, meadow: { ground: 0x3a6a40 }, forest: { ground: 0x24462e }, lookout: { ground: 0x56654c, lift: 7 },
   painted: { ground: 0x3c5e48 }, amber: { ground: 0x7a7038 }, crystal: { ground: 0x3a4e56 }, yard: { ground: 0x5e584c },
-  glow: { ground: 0x1c3e3a }, stones: { ground: 0x45524a },
+  glow: { ground: 0x1c3e3a }, stones: { ground: 0x45524a }, lawn: { ground: 0x2a5a38 },
 };
 const BAND = [0xc8323a, 0xf2cd62, 0x9a7ae0, 0xf4ece0, 0x5a8ad8];
 // Rule 30 rows (for the Emergence Grove's moss pattern)

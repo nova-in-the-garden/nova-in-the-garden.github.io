@@ -349,9 +349,15 @@ function visit(id, { open = true, instant = false } = {}) {
   if (id !== 'pixelStudio') leaveStudio('left the studio');
   const landed = landAt(isl);
   if (landed && novaBrainT.island !== isl) novaBrainT.teleport(isl);   // Nova comes down with you
-  follow = null; skyFocus = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : id === 'pixelStudio' && studio ? studio.viewPoint(innerWidth < innerHeight) : islandView(isl); flyTo(v.pos, v.target, instant ? 0.01 : landed ? 2.4 : 1.6, placeUp(isl)); novaAt = isl; novaBrainT.goTo(isl, t);
+  follow = null; skyFocus = null; const v = isl.data.arcade && arcadeExt ? arcadeView() : id === 'pixelStudio' && studio ? studio.viewPoint(innerWidth < innerHeight) : id === 'automataLawn' && ctx.lawn?.viewPoint ? lawnView(isl) : islandView(isl); flyTo(v.pos, v.target, instant ? 0.01 : landed ? 2.4 : 1.6, placeUp(isl)); novaAt = isl; novaBrainT.goTo(isl, t);
   if (open) openPanel(id);
   setChip(id);
+  if (ctx.lawn) ctx.lawn.setActive(id === 'automataLawn');
+}
+function lawnView(isl) {
+  const p = ctx.lawn.viewPoint();
+  isl.group.updateMatrixWorld(true);
+  return { pos: isl.group.localToWorld(p.from.clone()), target: isl.group.localToWorld(p.at.clone()), up: placeUp(isl) };
 }
 function openPanel(id) {
   const isl = byId(id); if (!isl) return;
@@ -516,6 +522,7 @@ function setRealm(on) {
   if (novaBrainT.mode === 'travel') novaBrainT.teleport(novaBrainT.goal);
   novaTag.userData.ok = false;
   document.body.classList.toggle('in-realm', on);
+  if (!on && ctx.lawn) ctx.lawn.setActive(false);
   controls.maxPolarAngle = on ? Math.PI * 0.47 : Math.PI; controls.maxDistance = on ? 420 : PR * 7;
   camera.far = on ? 3200 : 2000; camera.updateProjectionMatrix();
   const ov = chips.querySelector('[data-id=overview]'); if (ov) { ov.textContent = on ? 'Back to space' : '✦ Overview'; ov.classList.toggle('space', on); }
@@ -882,7 +889,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get lawn() { return ctx.lawn; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;
@@ -898,6 +905,7 @@ window.__lookSky = (az, el = 8) => {
 window.__novaView = (dist = 3.2, h = 1.2, ang = 0, at = 0.65) => { follow = null; const r = novaBody.root; const P = r.parent; P.updateMatrixWorld(true); const p = r.getWorldPosition(new THREE.Vector3()); const a = r.rotation.y + ang; const f = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).transformDirection(P.matrixWorld), up = new THREE.Vector3(0, 1, 0).transformDirection(P.matrixWorld); flyTo(p.clone().addScaledVector(f, dist).addScaledVector(up, h), p.clone().addScaledVector(up, at), 0.01, up); };
 window.__houseView = () => { if (!cottage) return; landAt(hearth, { high: false }); follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
 window.__feastView = (dur = 0.01, from = [3.6, 2.45, 3.5], at = [0, 0.95, 0]) => { const f = ctx.feast; if (!f?.group) return; landAt(hearth, { high: false }); follow = null; f.group.updateMatrixWorld(true); flyTo(f.group.localToWorld(new THREE.Vector3(from[0], from[1], from[2])), f.group.localToWorld(new THREE.Vector3(at[0], at[1], at[2])), dur); };
+window.__lawnView = (dur = 0.01, from, at) => { const isl = byId('automataLawn'); if (!isl || !ctx.lawn) return; landAt(isl, { high: false }); follow = null; const p = ctx.lawn.viewPoint(); const f = from ? new THREE.Vector3(from[0], from[1], from[2]) : p.from; const a = at ? new THREE.Vector3(at[0], at[1], at[2]) : p.at; isl.group.updateMatrixWorld(true); flyTo(isl.group.localToWorld(f), isl.group.localToWorld(a), dur, placeUp(isl)); ctx.lawn.setActive(true); };
 window.__pick = (x, y) => { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); const h = pickHit(); return h ? { ...h.object.userData, d: +h.distance.toFixed(2), type: h.object.type } : null; };
 window.__arcadeView = (dur = 0.01) => { if (!arcadeExt) return; landAt(byId('arcade'), { high: false }); follow = null; const v = arcadeView(); flyTo(v.pos, v.target, dur); };
 window.__arcadeDoorScreen = () => { if (!arcadeExt) return null; const v = arcadeExt.doorWorld().project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
@@ -925,6 +933,7 @@ if (q.has('cafe')) { visit('cornerCup', { open: false, instant: true }); openCaf
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });
 if (q.has('arcade') || q.get('game')) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: q.get('game') || undefined }); }
+if (q.has('lawn')) visit('automataLawn', { instant: true });
 // test hook: far-place name tags (drawn through everything) that land on a building's face on screen
 window.__farLabelsOver = (id, tag) => {
   const i = byId(id); if (!i || !inRealm) return null; let top = null;
