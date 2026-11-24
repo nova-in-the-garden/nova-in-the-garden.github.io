@@ -435,7 +435,8 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
       const L = lorenzLocal(); const want = Math.atan2(L.x - pos.x, L.z - pos.z) - 0.9; let diff = want - heading; diff = Math.atan2(Math.sin(diff), Math.cos(diff)); heading += diff * Math.min(1, dt * 2);
     }
     root.rotation.y = heading;
-    pos.y = 0.02;
+    // feast seats set pos.y to the chair; don't stomp it back to the grass
+    if (mode !== 'feast') pos.y = 0.02;
     nova.setPose(moving ? 'stand' : mode === 'sleep' ? 'curl' : 'sit');
     // what she looks at
     let look = null;

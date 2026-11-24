@@ -747,7 +747,7 @@ function realmFrame(dt) {
   const c = camera.position;
   if ((occT -= dt) <= 0) { occT = 2; realmOcc = []; for (const i of islands) if (i.group.visible) i.group.traverse(o => { if (o.userData.museum && !o.parent?.userData.museum) { o.getWorldPosition(_lw); realmOcc.push({ x: _lw.x, z: _lw.z, r: 5 }); } }); }   // the museum annex stands off to the side of the studio
   realm.update(t, dt, c, { occluders: realmOcc, placeVisible: (id, near) => { const i = byId(id); if (i) i.group.visible = near; } });
-  for (const o of xray) { o.getWorldPosition(_lw); o.visible = c.distanceTo(_lw) < (walker.active ? 45 : 140); }
+  for (const o of xray) { o.getWorldPosition(_lw); o.visible = c.distanceTo(_lw) < (walker.active ? 28 : 16); }
   if ((mapT += dt) > 0.05) { mapT = 0; camera.getWorldDirection(_cf); realm.drawMap(mapCtx, 300, 300, c, Math.atan2(_cf.x, -_cf.z), 0.55); }
 }
 // Print Shop models load only once you're near the shop (saves ~7 MB on first load)
@@ -897,7 +897,7 @@ window.__lookSky = (az, el = 8) => {
 // test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)
 window.__novaView = (dist = 3.2, h = 1.2, ang = 0, at = 0.65) => { follow = null; const r = novaBody.root; const P = r.parent; P.updateMatrixWorld(true); const p = r.getWorldPosition(new THREE.Vector3()); const a = r.rotation.y + ang; const f = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).transformDirection(P.matrixWorld), up = new THREE.Vector3(0, 1, 0).transformDirection(P.matrixWorld); flyTo(p.clone().addScaledVector(f, dist).addScaledVector(up, h), p.clone().addScaledVector(up, at), 0.01, up); };
 window.__houseView = () => { if (!cottage) return; landAt(hearth, { high: false }); follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
-window.__feastView = (dur = 0.01, from = [-3.55, 2.15, 1.75], at = [0.1, 0.88, 0]) => { const f = ctx.feast; if (!f?.group) return; landAt(hearth, { high: false }); follow = null; f.group.updateMatrixWorld(true); flyTo(f.group.localToWorld(new THREE.Vector3(from[0], from[1], from[2])), f.group.localToWorld(new THREE.Vector3(at[0], at[1], at[2])), dur); };
+window.__feastView = (dur = 0.01, from = [3.6, 2.45, 3.5], at = [0, 0.95, 0]) => { const f = ctx.feast; if (!f?.group) return; landAt(hearth, { high: false }); follow = null; f.group.updateMatrixWorld(true); flyTo(f.group.localToWorld(new THREE.Vector3(from[0], from[1], from[2])), f.group.localToWorld(new THREE.Vector3(at[0], at[1], at[2])), dur); };
 window.__pick = (x, y) => { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); const h = pickHit(); return h ? { ...h.object.userData, d: +h.distance.toFixed(2), type: h.object.type } : null; };
 window.__arcadeView = (dur = 0.01) => { if (!arcadeExt) return; landAt(byId('arcade'), { high: false }); follow = null; const v = arcadeView(); flyTo(v.pos, v.target, dur); };
 window.__arcadeDoorScreen = () => { if (!arcadeExt) return null; const v = arcadeExt.doorWorld().project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };

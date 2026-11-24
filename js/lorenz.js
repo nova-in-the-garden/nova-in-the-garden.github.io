@@ -143,7 +143,7 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
     head.rotation.y = Math.sin(t * 0.7) * 0.35;
     feet.forEach((f, i) => { f.rotation.x = moving ? Math.sin(t * 11 + i * Math.PI) * (inPond ? 0.6 : 0.4) : 0; f.visible = true; });
     ends.rotation.x = moving ? 0.25 + Math.sin(t * 6) * 0.08 : Math.sin(t * 1.5) * 0.05;
-    if (atFeast && !sleep) { body.position.y = -0.12; body.rotation.x = 0.08; }
+    if (atFeast && !sleep) { body.position.y = 0; body.rotation.x = 0.02; }
     if (sleep > 0) { // settle down, turn the head back and tuck the bill in, breathe slowly
       const k = sleep * sleep * (3 - 2 * sleep);
       body.position.y = -0.3 * k; body.rotation.z *= 1 - k; body.rotation.x = 0;

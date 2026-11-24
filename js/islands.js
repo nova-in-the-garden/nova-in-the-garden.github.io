@@ -87,186 +87,252 @@ function christmasTree(parent, x, z) {
 }
 
 function thanksgivingTable(parent, x, z, rot = 0) {
+  // A long harvest table in the open southern yard, well clear of the Visitors
+  // board. Nova and Lorenz sit on opposite long sides, in real chairs, facing
+  // the spread. Dishes sit in a grid so nothing overlaps or hangs off the edge.
   const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; parent.add(g);
-  const wood = mat(0x6b4426), cream = mat(0xf2ede0), gold = mat(0xb8862b);
-  mesh(new THREE.BoxGeometry(2.9, 0.12, 1.45), wood, 0, 0.85, 0, g);
-  for (const [lx, lz] of [[-1.25, -.55], [1.25, -.55], [-1.25, .55], [1.25, .55]]) mesh(new THREE.BoxGeometry(0.1, 0.85, 0.1), wood, lx, 0.42, lz, g);
-  const runner = mesh(new THREE.BoxGeometry(2.95, 0.02, 0.5), gold, 0, 0.92, 0, g);
-  const folded = mesh(new THREE.BoxGeometry(0.7, 0.05, 0.35), gold, 1.0, 0.94, 0, g); folded.visible = false;
+  const R = rng(26), wood = mat(0x6b3a1c), dark = mat(0x3d2110), cloth = mat(0xf3e4c4);
+  const gold = mat(0xc9a24a, { roughness: 0.45, metalness: 0.35, emissive: 0x3a2a08, emissiveIntensity: 0.35 });
+  const topY = 0.90, topW = 4.2, topD = 2.1, topH = 0.1;
+  mesh(new THREE.BoxGeometry(topW, topH, topD), wood, 0, topY, 0, g);
+  mesh(new THREE.BoxGeometry(topW + 0.06, 0.03, topD + 0.06), dark, 0, topY - 0.07, 0, g);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    mesh(new THREE.BoxGeometry(0.12, 0.84, 0.12), dark, sx * (topW / 2 - 0.22), 0.42, sz * (topD / 2 - 0.22), g);
+  }
+  const runner = mesh(new THREE.BoxGeometry(3.5, 0.01, 0.42), mat(0x6b1d1d, { roughness: 0.9 }), 0, topY + 0.056, 0, g);
+  const folded = new THREE.Group(); folded.position.set(0.1, topY + 0.04, 0.05); g.add(folded); folded.visible = false;
+  mesh(new THREE.BoxGeometry(0.95, 0.04, 0.6), cloth, 0, 0, 0, folded);
+  mesh(new THREE.BoxGeometry(0.9, 0.04, 0.55), cloth, 0.04, 0.04, 0.02, folded);
+  mesh(new THREE.BoxGeometry(0.85, 0.04, 0.5), cloth, 0.02, 0.08, -0.01, folded);
 
-  function stool(sx, sz) {
-    const s = new THREE.Group(); s.position.set(sx, 0, sz); g.add(s);
-    mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.07, 12), wood, 0, 0.52, 0, s);
-    for (const [lx, lz] of [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]]) mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.5, 6), wood, lx, 0.25, lz, s);
-  }
-  stool(0.15, 1.15); stool(-0.15, -1.15);
-
-  const setG = new THREE.Group(); g.add(setG);
-  function placeCard(px, pz, name) {
-    const tex = canvasTexture(128, 80, (c, w, h) => {
-      c.fillStyle = '#f7f1e4'; c.fillRect(0, 0, w, h);
-      c.strokeStyle = '#e8c15a'; c.lineWidth = 6; c.strokeRect(4, 4, w - 8, h - 8);
-      c.fillStyle = '#1a1430'; c.font = 'italic 700 28px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(name, w / 2, h / 2);
-    });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.14), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }));
-    m.position.set(px, 1.05, pz); m.rotation.x = -0.35; setG.add(m);
-  }
-  for (const [s, name] of [[1, 'Nova'], [-1, 'Lorenz']]) {
-    mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.02, 14), cream, s * 0.15, 0.93, s * 0.48, setG);
-    mesh(new THREE.BoxGeometry(0.04, 0.008, 0.16), mat(0xc0b8a8, { metalness: 0.6, roughness: 0.3 }), s * 0.15 - 0.28, 0.93, s * 0.48, setG);
-    placeCard(s * 0.15 + 0.28, s * 0.48, name);
-  }
-  const flames = [];
-  for (const [cx, cz] of [[-1.2, 0.42], [1.2, 0.42]]) {
-    mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.04, 8), mat(0x1a1430), cx, 0.95, cz, setG);
-    mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 8), mat(0xf3ead2), cx, 1.08, cz, setG);
-    const fl = glowSprite(0.45, 0xffc060, 1); fl.position.set(cx, 1.24, cz); setG.add(fl); flames.push(fl);
-  }
-  const cornu = new THREE.Group(); cornu.position.set(-1.25, 0.95, -0.15); cornu.rotation.y = 0.5; setG.add(cornu);
-  const horn = mesh(new THREE.ConeGeometry(0.18, 0.7, 10), mat(0x8a5a28, { roughness: 0.8 }), 0, 0.16, 0, cornu); horn.rotation.z = 1.15; horn.rotation.x = 0.2;
-  const gourd = (px, py, pz, col, sx, sy, sz, into = setG) => { const m = mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(col, { roughness: 0.7 }), px, py, pz, into); m.scale.set(sx, sy, sz); };
-  gourd(-0.9, 1.05, 0.05, 0xc45a12, 1.1, 0.8, 1); gourd(-0.72, 1.04, -0.2, 0xe8c15a, 0.9, 0.7, 1.05);
-  gourd(-0.58, 1.05, 0.12, 0x7a3a10, 0.7, 0.6, 0.8); gourd(1.15, 1.04, -0.35, 0xd4781c, 0.85, 0.65, 0.9);
-  for (const [px, pz, s] of [[-1.55, 0.9, 0.16], [1.6, 0.75, 0.13], [1.45, -0.9, 0.15]]) {
-    const pm = mesh(new THREE.SphereGeometry(s, 8, 6), mat(0xc45a12, { roughness: 0.7 }), px, s, pz, setG); pm.scale.y = 0.8;
-    mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.07, 4), mat(0x3a5a20), px, s * 1.55, pz, setG);
-  }
-  const leafCol = [0xc45a12, 0xe8c15a, 0xa03020, 0xd4781c];
-  for (let i = 0; i < 16; i++) {
-    const a = i * 1.7, r = 1.55 + (i % 5) * 0.18;
-    const lf = mesh(new THREE.CircleGeometry(0.08 + (i % 3) * 0.02, 5), mat(leafCol[i % 4], { roughness: 1, side: THREE.DoubleSide }), Math.cos(a) * r, 0.02, Math.sin(a) * r, setG);
-    lf.rotation.set(-Math.PI / 2, 0, i * 0.7);
-  }
-  const thanksTex = canvasTexture(256, 160, (c, w, h) => {
-    c.fillStyle = '#f7f1e4'; c.fillRect(0, 0, w, h);
-    c.strokeStyle = '#1a1430'; c.lineWidth = 8; c.strokeRect(6, 6, w - 12, h - 12);
-    c.strokeStyle = '#e8c15a'; c.lineWidth = 3; c.strokeRect(14, 14, w - 28, h - 28);
-    c.fillStyle = '#1a1430'; c.font = 'italic 700 22px Georgia, serif'; c.textAlign = 'center';
-    c.fillText("I'm thankful for", w / 2, 58);
-    c.fillText('my owner,', w / 2, 86);
-    c.fillText('and for Lorenz.', w / 2, 114);
-  });
-  const thanks = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.22), new THREE.MeshStandardMaterial({ map: thanksTex, roughness: 0.8 }));
-  thanks.position.set(0.0, 1.08, 0.55); thanks.rotation.x = -0.4; setG.add(thanks);
-
-  function dish(parent, x, z, color, r = 0.2) { mesh(new THREE.CylinderGeometry(r, r * 0.85, 0.08, 12), mat(color), x, 0.07, z, parent); }
-  function makeTurkey(parent, carved) {
-    const t = new THREE.Group(); t.position.set(0, 0.95, 0); parent.add(t);
-    mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 12), mat(0xe9e4d4), 0, 0, 0, t);
-    const tb = mesh(new THREE.SphereGeometry(0.28, 10, 8), mat(0xa65a22, { roughness: .5 }), 0, 0.18, 0, t); tb.scale.set(1, 0.75, carved ? 1.0 : 1.2);
-    if (carved) { const cut = mesh(new THREE.CircleGeometry(0.16, 10), mat(0xd4a070, { roughness: .6 }), 0.16, 0.18, 0.08, t); cut.rotation.set(0.2, 0.7, 1.0); }
-    for (const s of carved ? [1] : [-1, 1]) { const d = mesh(new THREE.CylinderGeometry(0.06, 0.1, 0.3, 6), mat(0x9a521f), s * 0.2, 0.22, 0.24, t); d.rotation.x = 0.9; d.rotation.z = -s * 0.4; mesh(new THREE.SphereGeometry(0.045, 6, 4), mat(0xf3eee0), s * 0.28, 0.32, 0.36, t); }
-  }
-  function mash(parent, x, z) {
-    const mp = new THREE.Group(); mp.position.set(x, 0.95, z); parent.add(mp);
-    dish(mp, 0, 0, 0x2b3a6b, 0.18);
-    mesh(new THREE.SphereGeometry(0.16, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xf4efe0), 0, 0.07, 0, mp);
-    mesh(new THREE.BoxGeometry(0.06, 0.035, 0.06), mat(0xf6d55c), 0, 0.21, 0, mp);
-  }
-  function stuffing(parent, x, z) {
-    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
-    dish(s, 0, 0, 0x5a3a22, 0.18);
-    mesh(new THREE.IcosahedronGeometry(0.14, 1), mat(0xb8894a, { roughness: 0.9 }), 0, 0.11, 0, s).scale.y = 0.7;
-  }
-  function cranberry(parent, x, z, full = true) {
-    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
-    dish(s, 0, 0, 0xf2ede0, 0.14);
-    if (full) mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.14, 16), mat(0x8c1a24, { roughness: 0.5 }), 0, 0.13, 0, s);
-    else mesh(new THREE.SphereGeometry(0.08, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x8c1a24), 0, 0.06, 0, s);
-  }
-  function gravy(parent, x, z) {
-    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
-    const boat = mesh(new THREE.SphereGeometry(0.11, 8, 6, 0, Math.PI, 0, Math.PI), mat(0xe9e4d4), 0, 0.07, 0, s); boat.scale.set(1.3, 0.55, 0.8); boat.rotation.x = Math.PI;
-    mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.11, 6), mat(0xe9e4d4), 0.15, 0.09, 0, s).rotation.z = 1.2;
-    mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.025, 10), mat(0x6b3d14), 0, 0.09, 0, s);
-  }
-  function beans(parent, x, z) {
-    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
-    dish(s, 0, 0, 0xc9b896, 0.18);
-    mesh(new THREE.CylinderGeometry(0.15, 0.14, 0.07, 12), mat(0x4a6a2a), 0, 0.09, 0, s);
-    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; mesh(new THREE.BoxGeometry(0.035, 0.012, 0.02), mat(0xe8c15a), Math.cos(a) * 0.09, 0.14, Math.sin(a) * 0.09, s); }
-  }
-  function sweets(parent, x, z) {
-    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
-    dish(s, 0, 0, 0x2b3a6b, 0.18);
-    mesh(new THREE.CylinderGeometry(0.14, 0.13, 0.07, 12), mat(0xd4781c), 0, 0.09, 0, s);
-    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; mesh(new THREE.SphereGeometry(0.03, 6, 4), mat(0xf7f1e4), Math.cos(a) * 0.07, 0.15, Math.sin(a) * 0.07, s); }
-  }
-  function rolls(parent, x, z, n = 5) {
-    const s = new THREE.Group(); s.position.set(x, 0.95, z); parent.add(s);
-    mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.07, 10), mat(0x8a5a28), 0, 0.04, 0, s);
-    for (let i = 0; i < n; i++) { const a = i / Math.max(n, 1) * Math.PI * 2; mesh(new THREE.SphereGeometry(0.065, 8, 6), mat(0xe0b060, { roughness: 0.8 }), Math.cos(a) * 0.07, 0.11, Math.sin(a) * 0.07, s).scale.y = 0.7; }
-  }
-  function pumpkinPie(parent, x, z, sliced = false) {
-    const p = new THREE.Group(); p.position.set(x, 0.95, z); parent.add(p);
-    mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.07, 14), mat(0xc4a06a), 0, 0.05, 0, p);
-    if (sliced) mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.05, 14, 1, false, 0.5, Math.PI * 2 - 0.75), mat(0xd4781c), 0, 0.09, 0, p);
-    else { mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.05, 14), mat(0xd4781c), 0, 0.09, 0, p); mesh(new THREE.SphereGeometry(0.05, 8, 6), mat(0xfbf8f0), 0, 0.14, 0, p).scale.y = 0.6; }
-  }
-  function oreoPie(parent, x, z, sliced = false) {
-    const pie = new THREE.Group(); pie.position.set(x, 0.95, z); parent.add(pie);
-    mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.09, 14), mat(0x1c1414), 0, 0.055, 0, pie);
-    if (sliced) mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.045, 14, 1, false, 0.4, Math.PI * 2 - 0.75), mat(0xe8e2d6), 0, 0.11, 0, pie);
-    else {
-      mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.045, 14), mat(0xe8e2d6), 0, 0.11, 0, pie);
-      for (let i = 0; i < 6; i++) {
-        const a = i / 6 * Math.PI * 2;
-        mesh(new THREE.ConeGeometry(0.045, 0.07, 6), mat(0xffffff), Math.cos(a) * 0.14, 0.16, Math.sin(a) * 0.14, pie);
-        const o = new THREE.Group(); o.position.set(Math.cos(a + 0.5) * 0.13, 0.18, Math.sin(a + 0.5) * 0.13); o.rotation.set(Math.PI / 2, 0, a); pie.add(o);
-        mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.018, 10), mat(0x151012), 0, 0.012, 0, o);
-        mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.01, 10), mat(0xf5f2ea), 0, 0, 0, o);
-        mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.018, 10), mat(0x151012), 0, -0.012, 0, o);
-      }
+  // wooden dining chairs on the long sides, facing the table centre
+  function chair(cx, cz, facing, { seatY = 0.56, wide = 0.62 } = {}) {
+    const c = new THREE.Group(); c.position.set(cx, 0, cz); c.rotation.y = facing; g.add(c);
+    mesh(new THREE.BoxGeometry(wide, 0.07, 0.52), wood, 0, seatY, 0, c);
+    mesh(new THREE.BoxGeometry(wide, 0.02, 0.52), mat(0x5a3014), 0, seatY + 0.04, 0, c);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      mesh(new THREE.BoxGeometry(0.07, seatY, 0.07), dark, sx * (wide / 2 - 0.07), seatY / 2, sz * 0.2, c);
     }
+    // backrest sits on the far side (local +z); the chair itself faces -z toward the table
+    mesh(new THREE.BoxGeometry(wide - 0.04, 0.08, 0.06), wood, 0, seatY + 0.58, 0.23, c);
+    for (const sx of [-1, 0, 1]) mesh(new THREE.BoxGeometry(0.055, 0.56, 0.05), dark, sx * (wide / 2 - 0.1), seatY + 0.3, 0.23, c);
+    return c;
   }
-  function fillTable(parent, sliced) {
-    makeTurkey(parent, sliced);
-    mash(parent, -0.95, 0.32); stuffing(parent, -0.95, -0.32);
-    cranberry(parent, 0.95, -0.4, !sliced); gravy(parent, -0.5, 0.48);
-    beans(parent, 0.95, 0.32); sweets(parent, 0.55, -0.42);
-    rolls(parent, 0.0, -0.52, sliced ? 2 : 5);
-    pumpkinPie(parent, 1.15, 0.0, sliced);
-    oreoPie(parent, -1.15, 0.0, sliced);
-  }
-  const feastG = new THREE.Group(); g.add(feastG); fillTable(feastG, false);
-  const leftG = new THREE.Group(); g.add(leftG); fillTable(leftG, true);
+  // heading 0 faces +z; Nova (south, +z) faces π, Lorenz (north, −z) faces 0
+  chair(0, 1.52, 0, { seatY: 0.56, wide: 0.85 });
+  chair(0, -1.68, Math.PI, { seatY: 0.52, wide: 0.62 });
 
-  // a tiny set by the table: parade in the morning, football after 1 PM
-  const tv = new THREE.Group(); tv.position.set(1.85, 0, 0.15); g.add(tv);
-  mesh(new THREE.BoxGeometry(0.28, 0.55, 0.28), wood, 0, 0.28, 0, tv);
-  mesh(new THREE.BoxGeometry(0.52, 0.36, 0.08), mat(0x1a1430), 0, 0.85, 0, tv);
-  const tvCv = document.createElement('canvas'); tvCv.width = 128; tvCv.height = 80;
-  const tvTex = new THREE.CanvasTexture(tvCv); tvTex.colorSpace = THREE.SRGBColorSpace;
-  const tvMat = new THREE.MeshBasicMaterial({ map: tvTex }); tvMat.userData.keepGlow = true;
-  mesh(new THREE.PlaneGeometry(0.44, 0.28), tvMat, 0, 0.85, 0.045, tv);
-  function paintTV(kind, t) {
-    const c = tvCv.getContext('2d'), w = tvCv.width, h = tvCv.height;
-    c.fillStyle = '#152038'; c.fillRect(0, 0, w, h);
-    if (kind === 'parade') {
-      c.fillStyle = '#7eb6e8'; c.fillRect(0, 0, w, h * 0.55);
-      c.fillStyle = '#6aa34a'; c.fillRect(0, h * 0.55, w, h * 0.45);
-      const bx = ((t * 18) % (w + 40)) - 20;
-      c.fillStyle = '#e8c15a'; c.beginPath(); c.arc(bx, 28, 16, 0, 7); c.fill();
-      c.fillStyle = '#c8323a'; c.beginPath(); c.arc(bx + 28, 34, 12, 0, 7); c.fill();
-      c.fillStyle = '#1a1430'; c.fillRect(bx - 2, 42, 4, 18); c.fillRect(bx + 26, 44, 4, 16);
-      c.fillStyle = '#f6dc8c'; c.font = 'bold 10px sans-serif'; c.fillText('PARADE', 8, 14);
+  // ground leaves — only outside the table and chairs, slightly lifted and
+  // tipped so they read as settled on the grass, not floating or z-fighting
+  const leafCols = [0xc45c22, 0xd4a017, 0xa33b1a, 0xc47a22, 0x7a3a12];
+  for (let i = 0; i < 42; i++) {
+    const a = R() * Math.PI * 2, r = 2.6 + R() * 1.8;
+    const lx = Math.cos(a) * r, lz = Math.sin(a) * r;
+    if (Math.abs(lx) < 2.35 && Math.abs(lz) < 2.15) continue;
+    const leaf = mesh(new THREE.CircleGeometry(0.07 + R() * 0.05, 5), mat(leafCols[i % 5], { side: THREE.DoubleSide }), lx, 0.034 + R() * 0.01, lz, g);
+    leaf.rotation.set(-Math.PI / 2 + (R() - 0.5) * 0.25, R() * 6, (R() - 0.5) * 0.18);
+  }
+  function gourd(px, py, pz, s, c, parent) { const o = mesh(new THREE.SphereGeometry(0.09, 8, 6), mat(c), px, py, pz, parent); o.scale.set(s, s * 0.85, s * 1.15); }
+  gourd(2.35, 0.1, 1.45, 1.1, 0xd98012, g);
+  gourd(2.5, 0.08, 1.28, 0.8, 0xc44c12, g);
+  gourd(-2.4, 0.09, -1.4, 1.0, 0xe8c84a, g);
+
+  const setG = new THREE.Group(); g.add(setG);   // full spread (set + feast only)
+  const dressG = new THREE.Group(); g.add(dressG); // cornucopia, places, candles — stay through leftovers
+  const feastG = new THREE.Group(); g.add(feastG);   // only on the day: thanks card, TV
+  const leftG = new THREE.Group(); g.add(leftG);     // leftover versions of the same dishes
+
+  // ----- dishes, in a non-overlapping grid -----
+  // +z is Nova's side, -z is Lorenz's. Place settings sit at the long edges;
+  // food stays in the inner lanes so nothing sits in a plate or hangs off.
+  function pie(px, pz, flavor, parent, eaten = 0) {
+    const p = new THREE.Group(); p.position.set(px, topY + 0.056, pz); parent.add(p);
+    const start = eaten ? 0.35 : 0, span = eaten ? Math.PI * 2 - 1.35 : Math.PI * 2;
+    mesh(new THREE.CylinderGeometry(0.2, 0.21, 0.05, 16, 1, false, start, span), mat(0xc4a06a), 0, 0.03, 0, p);
+    if (eaten) mesh(new THREE.CylinderGeometry(0.2, 0.21, 0.01, 16), mat(0xefe6d6), 0, 0.012, 0, p);
+    if (flavor === 'oreo') {
+      mesh(new THREE.CylinderGeometry(0.185, 0.185, 0.07, 16, 1, false, start, span), mat(0x2a1c14), 0, 0.08, 0, p);
+      mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.02, 16, 1, false, start, span), mat(0xf4efe6), 0, 0.125, 0, p);
     } else {
-      c.fillStyle = '#3a6a3a'; c.fillRect(0, 0, w, h);
-      c.strokeStyle = '#f6f6f0'; c.lineWidth = 2; c.strokeRect(18, 10, 92, 52);
-      c.beginPath(); c.moveTo(64, 10); c.lineTo(64, 62); c.moveTo(18, 36); c.lineTo(110, 36); c.stroke();
-      const px = 40 + Math.sin(t * 1.3) * 28, py = 28 + Math.cos(t * 1.7) * 12;
-      c.fillStyle = '#d4781c'; c.beginPath(); c.ellipse(px, py, 5, 3, t, 0, 7); c.fill();
-      c.fillStyle = '#f6dc8c'; c.font = 'bold 10px sans-serif'; c.fillText('FOOTBALL', 8, 74);
+      mesh(new THREE.CylinderGeometry(0.185, 0.185, 0.06, 16, 1, false, start, span), mat(0xc56a12), 0, 0.075, 0, p);
+      mesh(new THREE.TorusGeometry(0.175, 0.025, 6, 16, span), mat(0xc4a06a), 0, 0.11, 0, p).rotation.x = Math.PI / 2;
+      if (start) p.children[p.children.length - 1].rotation.z = start;
     }
-    tvTex.needsUpdate = true;
+    return p;
+  }
+  function bowl(px, pz, color, parent, rad = 0.16, fillY = 0.05) {
+    const b = new THREE.Group(); b.position.set(px, topY + 0.056, pz); parent.add(b);
+    mesh(new THREE.CylinderGeometry(rad, rad * 0.85, 0.08, 12), mat(0xefe6d6), 0, 0.04, 0, b);
+    mesh(new THREE.CylinderGeometry(rad * 0.85, rad * 0.8, fillY, 12), mat(color), 0, 0.07, 0, b);
+    return b;
+  }
+  function turkey(px, pz, parent, leftover = false) {
+    const t = new THREE.Group(); t.position.set(px, topY + 0.056, pz); parent.add(t);
+    mesh(new THREE.CylinderGeometry(0.36, 0.38, 0.04, 20), gold, 0, 0.025, 0, t);
+    const body = mesh(new THREE.SphereGeometry(leftover ? 0.13 : 0.22, 10, 8), mat(0xc88840), 0, leftover ? 0.12 : 0.2, leftover ? -0.04 : 0, t);
+    body.scale.set(leftover ? 0.9 : 1.15, leftover ? 0.55 : 0.85, leftover ? 0.7 : 0.9);
+    if (!leftover) {
+      mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(0xc88840), 0, 0.32, 0.16, t);
+      for (const s of [-1, 1]) { const drum = mesh(new THREE.SphereGeometry(0.08, 8, 6), mat(0xb56c30), s * 0.2, 0.14, -0.12, t); drum.scale.set(0.7, 0.7, 1.3); }
+    } else {
+      // a carved-down carcass and one leftover drumstick
+      const bone = mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.12, 6), mat(0xf4efe6), 0.12, 0.12, 0.08, t); bone.rotation.z = 0.8;
+      mesh(new THREE.SphereGeometry(0.06, 8, 6), mat(0xb56c30), 0.16, 0.08, 0.1, t).scale.set(0.7, 0.6, 1.1);
+    }
+    return t;
+  }
+  function casserole(px, pz, parent, leftover = false) {
+    const c = new THREE.Group(); c.position.set(px, topY + 0.056, pz); parent.add(c);
+    mesh(new THREE.BoxGeometry(0.38, 0.07, 0.26), mat(0xefe6d6), 0, 0.04, 0, c);
+    mesh(new THREE.BoxGeometry(0.34, leftover ? 0.03 : 0.05, 0.22), mat(0x5a7a32), 0, 0.08, 0, c);
+    if (!leftover) for (let i = 0; i < 8; i++) mesh(new THREE.SphereGeometry(0.025, 5, 4), mat(0xc9a24a), (i % 4 - 1.5) * 0.07, 0.12, (i < 4 ? -0.05 : 0.05), c);
+    return c;
+  }
+  function gravy(px, pz, parent) {
+    const b = new THREE.Group(); b.position.set(px, topY + 0.056, pz); parent.add(b);
+    mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.1, 10), gold, 0, 0.06, 0, b);
+    mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 8), mat(0x6b3a14), 0, 0.12, 0, b);
+    mesh(new THREE.TorusGeometry(0.05, 0.015, 5, 10, Math.PI), gold, 0.1, 0.1, 0, b).rotation.z = Math.PI / 2;
+    return b;
+  }
+  function cranberry(px, pz, parent, leftover = false) {
+    const b = bowl(px, pz, 0x8b1220, parent, 0.13, leftover ? 0.03 : 0.055);
+    return b;
+  }
+  function rolls(px, pz, parent, n = 5) {
+    const b = new THREE.Group(); b.position.set(px, topY + 0.056, pz); parent.add(b);
+    mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.03, 12), mat(0xefe6d6), 0, 0.02, 0, b);
+    for (let i = 0; i < n; i++) {
+      const a = i * (Math.PI * 2 / Math.max(n, 1)) + 0.2;
+      const r = n === 1 ? 0 : 0.08;
+      mesh(new THREE.SphereGeometry(0.05, 8, 6), mat(0xe8c48a), Math.cos(a) * r, 0.07, Math.sin(a) * r, b).scale.set(1, 0.7, 1);
+    }
+    return b;
+  }
+  function sweets(px, pz, parent, leftover = false) {
+    const c = new THREE.Group(); c.position.set(px, topY + 0.056, pz); parent.add(c);
+    mesh(new THREE.BoxGeometry(0.34, 0.07, 0.24), mat(0xefe6d6), 0, 0.04, 0, c);
+    mesh(new THREE.BoxGeometry(0.3, leftover ? 0.03 : 0.05, 0.2), mat(0xc47a22), 0, 0.08, 0, c);
+    if (!leftover) for (let i = 0; i < 6; i++) mesh(new THREE.SphereGeometry(0.03, 5, 4), mat(0xf4efe6), (i % 3 - 1) * 0.07, 0.13, (i < 3 ? -0.04 : 0.04), c);
+    return c;
   }
 
-  const c = Math.cos(rot), s = Math.sin(rot);
-  const toHearth = (lx, lz) => ({ x: x + lx * c + lz * s, z: z - lx * s + lz * c });
+  // full spread (set + feast). Cornucopia sits fully on the west-Nova corner,
+  // horn pointing inward; pies at the ends; turkey in the centre; sides in lanes.
+  function cornucopia() {
+    const c = new THREE.Group(); c.position.set(-1.55, topY + 0.08, 0.48); dressG.add(c);
+    c.rotation.set(0.12, 0.55, 0.18);   // mouth toward the centre of the table
+    for (let i = 0; i < 8; i++) {
+      const k = i / 7, rad = 0.05 + k * 0.09;
+      const seg = mesh(new THREE.SphereGeometry(rad, 8, 6), mat(0xb8863a), 0, 0, k * 0.55, c);
+      seg.scale.set(1, 0.85, 1.05);
+    }
+    // fruit spills from the mouth, still on the tablecloth
+    const mouth = new THREE.Group(); mouth.position.set(0, 0.02, 0.62); c.add(mouth);
+    gourd(0.02, 0.04, 0.08, 0.9, 0xd98012, mouth);
+    gourd(-0.08, 0.03, 0.14, 0.7, 0xc44c12, mouth);
+    gourd(0.1, 0.03, 0.16, 0.65, 0xe8c84a, mouth);
+    mesh(new THREE.SphereGeometry(0.045, 6, 5), mat(0x8b1220), 0.0, 0.05, 0.2, mouth);
+    mesh(new THREE.SphereGeometry(0.04, 6, 5), mat(0xc45c22), -0.05, 0.04, 0.22, mouth);
+    return c;
+  }
+  cornucopia();
+  pie(-1.35, -0.38, 'oreo', setG);
+  pie(1.55, 0.0, 'pumpkin', setG);
+  turkey(0.05, 0.0, setG);
+  bowl(-0.7, 0.42, 0xf4efe6, setG, 0.16, 0.055);           // mashed potatoes, Nova's side
+  bowl(-0.7, -0.42, 0xc4a06a, setG, 0.16, 0.055);          // stuffing, Lorenz's side
+  gravy(0.55, 0.42, setG);
+  rolls(0.55, -0.42, setG, 5);
+  casserole(1.05, 0.42, setG);
+  sweets(1.05, -0.42, setG);
+  cranberry(1.55, -0.48, setG);
+
+  // leftovers: same grid, picked-over
+  pie(-1.35, -0.38, 'oreo', leftG, 1);
+  pie(1.55, 0.0, 'pumpkin', leftG, 1);
+  turkey(0.05, 0.0, leftG, true);
+  bowl(-0.7, 0.42, 0xf4efe6, leftG, 0.16, 0.03);
+  bowl(-0.7, -0.42, 0xc4a06a, leftG, 0.16, 0.025);
+  gravy(0.55, 0.42, leftG);
+  rolls(0.55, -0.42, leftG, 2);
+  casserole(1.05, 0.42, leftG, true);
+  sweets(1.05, -0.42, leftG, true);
+  cranberry(1.55, -0.48, leftG, true);
+
+  function place(px, pz, parent) {
+    const s = new THREE.Group(); s.position.set(px, topY + 0.056, pz); parent.add(s);
+    mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.012, 16), mat(0xf4efe6), 0, 0.008, 0, s);
+    mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.01, 16), gold, 0, 0.016, 0, s);
+    mesh(new THREE.BoxGeometry(0.012, 0.01, 0.14), gold, 0.2, 0.01, 0, s);
+    mesh(new THREE.BoxGeometry(0.012, 0.01, 0.1), gold, 0.23, 0.01, 0, s);
+    const card = mesh(new THREE.BoxGeometry(0.1, 0.07, 0.004), mat(0xf4efe6), -0.22, 0.05, 0, s);
+    card.rotation.x = -0.15;
+    return s;
+  }
+  place(0.0, 0.88, dressG);    // Nova
+  place(0.0, -0.88, dressG);   // Lorenz
+
+  // candles in the open corners, not on the food
+  const flames = [];
+  function candle(px, pz) {
+    const c = new THREE.Group(); c.position.set(px, topY + 0.056, pz); dressG.add(c);
+    mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.04, 8), gold, 0, 0.02, 0, c);
+    mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), mat(0xf4efe6), 0, 0.12, 0, c);
+    const fl = mesh(new THREE.SphereGeometry(0.03, 6, 5), mat(0xffc14a, { emissive: 0xffa020, emissiveIntensity: 0.9 }), 0, 0.22, 0, c);
+    flames.push(fl);
+  }
+  candle(-0.15, 0.55);
+  candle(0.25, -0.55);
+  candle(1.85, 0.55);
+
+  const thanks = mesh(new THREE.BoxGeometry(0.28, 0.18, 0.006), mat(0xf4efe6), 0.42, topY + 0.16, 0.88, feastG);
+  thanks.rotation.x = -0.35;
+  const thanksTex = canvasTexture(256, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 8; ctx.strokeRect(10, 10, w - 20, h - 20);
+    ctx.fillStyle = '#6b1d1d'; ctx.font = 'italic 700 28px Georgia, serif'; ctx.textAlign = 'center';
+    ctx.fillText('We are thankful', w / 2, 70);
+    ctx.font = 'italic 22px Georgia, serif'; ctx.fillStyle = '#3d2110';
+    ctx.fillText('for you, and for pie.', w / 2, 110);
+  });
+  thanks.material = new THREE.MeshBasicMaterial({ map: thanksTex });
+
+  // little TV on a crate beside the table, not on it
+  const tv = new THREE.Group(); tv.position.set(2.55, 0, -1.25); g.add(tv);
+  tv.rotation.y = Math.PI * 0.75;
+  mesh(new THREE.BoxGeometry(0.5, 0.22, 0.35), dark, 0, 0.12, 0, tv);
+  mesh(new THREE.BoxGeometry(0.42, 0.28, 0.08), mat(0x1a1a22), 0, 0.38, 0, tv);
+  const tvScreen = mesh(new THREE.PlaneGeometry(0.36, 0.22), new THREE.MeshBasicMaterial({ color: 0x223355 }), 0, 0.38, 0.045, tv);
+  function paintTV(kind, t) {
+    const tex = canvasTexture(256, 160, (ctx, w, h) => {
+      ctx.fillStyle = '#152038'; ctx.fillRect(0, 0, w, h);
+      if (kind === 'parade') {
+        ctx.fillStyle = '#4aa0d8'; ctx.fillRect(0, 0, w, h * 0.55);
+        ctx.fillStyle = '#3d8a3a'; ctx.fillRect(0, h * 0.55, w, h);
+        const bx = 40 + (t * 18 % 200);
+        ctx.fillStyle = '#e8dcc0'; ctx.fillRect(bx, 70, 50, 28);
+        ctx.fillStyle = '#c62f37'; ctx.beginPath(); ctx.arc(bx + 25, 60, 18, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f4efe6'; ctx.font = 'bold 16px Georgia, serif'; ctx.fillText('PARADE', 16, 24);
+      } else {
+        ctx.fillStyle = '#2a5a32'; ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#f4efe6'; ctx.lineWidth = 2;
+        for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(20, 20 + i * 20); ctx.lineTo(w - 20, 20 + i * 20); ctx.stroke(); }
+        ctx.fillStyle = '#c9a24a'; ctx.fillRect(110 + Math.sin(t * 2) * 30, 70, 8, 14);
+        ctx.fillStyle = '#f4efe6'; ctx.font = 'bold 16px Georgia, serif'; ctx.fillText('FOOTBALL', 16, 24);
+      }
+    });
+    tvScreen.material.map = tex; tvScreen.material.needsUpdate = true;
+  }
+
+  const toHearth = (lx, lz) => {
+    const c = Math.cos(rot), s = Math.sin(rot);
+    return { x: x + lx * c + lz * s, z: z - lx * s + lz * c };
+  };
   const toward = (seat) => Math.atan2(x - seat.x, z - seat.z);
-  const novaSeat = { ...toHearth(0.15, 1.15), y: 0.52 };
-  const lorenzSeat = { ...toHearth(-0.15, -1.15), y: 0.42 };
+  // sit on the chair seats, pulled back from the apron so bodies stay out of the food
+  const novaSeat = { ...toHearth(0, 1.52), y: 0.56 };
+  const lorenzSeat = { ...toHearth(0, -1.68), y: 0.50 };
   novaSeat.heading = toward(novaSeat);
   lorenzSeat.heading = toward(lorenzSeat);
 
@@ -276,7 +342,8 @@ function thanksgivingTable(parent, x, z, rot = 0) {
     g.visible = on;
     const set = stage === 'set' || stage === 'feast' || stage === 'leftovers';
     const cleared = stage === 'cleared';
-    setG.visible = set;
+    setG.visible = stage === 'set' || stage === 'feast';
+    dressG.visible = set;
     thanks.visible = stage === 'feast';
     feastG.visible = stage === 'feast';
     leftG.visible = stage === 'leftovers';
@@ -370,7 +437,7 @@ function visitorBoard(parent, x, z, ry) {
       cg.fillStyle = '#e8c15a'; cg.font = 'italic 21px Georgia, serif'; cg.fillText('tap for daily & monthly visits', 256, 236);
     } else {
       cg.font = 'italic 40px Georgia, serif'; cg.fillStyle = '#ffe9a0'; cg.fillText('Thanks for visiting!', 256, 150);
-      cg.font = '22px Georgia, serif'; cg.fillStyle = '#c9cde0'; cg.fillText('the visitor count is coming soon', 256, 200);
+      cg.font = '22px Georgia, serif'; cg.fillStyle = '#c9cde0'; cg.fillText('Counts appear once they are public.', 256, 200);
     }
     tex.needsUpdate = true;
   };
@@ -434,11 +501,11 @@ const DECOR = {
     const house = buildCottage(g, -5.1, -4.7, 0.8); house.group.scale.setScalar(1.5); ctx.cottage = house;   // a bit bigger so it reads from orbit ups.push(house.update);
     const sign = textSprite("Nova's House", { size: 1.6, sub: 'click to step inside' }); sign.material.sizeAttenuation = false; sign.scale.multiplyScalar(0.026 / 1.6); sign.position.set(1.5, 3.3, 1.9); sign.renderOrder = 9; sign.material.depthTest = false; house.group.add(sign);
     ups.push(christmasTree(g, 3.8, -3.0));
-    ctx.feast = thanksgivingTable(g, 3.6, 3.6, -0.5);
+    ctx.feast = thanksgivingTable(g, 2.4, 5.4, 0);
     ctx.visitorBoard = visitorBoard(g, 5.3, 0.9, -Math.PI / 2 + 0.35);   // the visitor count, by the path in
     ctx.corkWall = corkWall(g, 0.8, -6.1, 0.12);                        // the Visitor Wall (feedback), behind the fire, facing it
     ctx.pond = { x: -3.2, z: 2.6, r: 2.2 }; pond(g, -3.2, 2.6, 2.2);
-    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 3.6, z: 3.6, r: 1.9 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.8, z: -6.1, r: 1.9 }];
+    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 2.4, z: 5.4, r: 3.0 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.8, z: -6.1, r: 1.9 }];
     return (t, dt) => {
       ups.forEach(u => u(t, dt));
       const now = holidayNow();
