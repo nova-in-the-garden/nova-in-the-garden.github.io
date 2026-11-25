@@ -149,7 +149,9 @@ The sun disk and the moon move across the sky by their real azimuth and elevatio
 - `?time=HH:MM` shows that Central clock time today, e.g. `?time=07:05`.
 - `?phase=dawn|day|golden|dusk|night` jumps to that phase today: dawn is midway between civil dawn and sunrise, day is solar noon minus 90 min, golden is 25 min before sunset, dusk is midway between sunset and civil dusk, and night is solar noon plus 11 h.
 - `?date=YYYY-MM-DD` shows that calendar day in Central time (together with `?time` or `?phase`, or with the live clock's current time of day). The sky clock keeps the date in the URL while you scrub. Example: `?date=2026-11-26&time=12:00` is noon on Thanksgiving 2026.
-- These combine with the other parameters, e.g. `?phase=night&house=window`.
+- `?weather=rain|snow|clear` (also `cloud` or `fog`) forces that weather, even on a `?date=` preview.
+- These combine with the other parameters, e.g. `?phase=night&house=window`, or `?date=2026-12-25&time=09:00&weather=snow`.
+
 
 For tests, `window.nova.sky` reports the phase, sun elevation and azimuth, today's times and the moon. `window.nova.clock.set(minutes | null)` scrubs the clock, and `window.__lookSky(az, el)` points the camera at a spot in the sky.
 
@@ -363,6 +365,23 @@ On Thanksgiving Day (the fourth Thursday of November, in Central time) Nova and 
 - **After that** the dishes are cleared; the table is put away a few days later.
 
 The calendar math and stages live in `js/holiday.js`. Research notes: `/workspace/nova/projects/holiday-traditions.md`. Test: `site_tools/thanksgiving.mjs`.
+
+## Seasons, weather, and Christmas (2026-11-24)
+
+The garden follows the real Central-time calendar (and honours `?date=` previews). Meteorological seasons shift the ground, trees and leaves: spring blossoms, summer green, autumn colour, and a light winter snow cover. Retints run once when the date changes, not every frame.
+
+**Holidays take turns.** The harvest table still owns Thanksgiving Day. The Rule 90 Christmas tree and the cottage decorations (string lights, a wreath on the door, stockings on the porch) appear only from the day after Thanksgiving through Twelfth Night (January 6). They are gone again on January 7. On Christmas Eve a plate of cookies and a glass of milk wait by the tree; on Christmas morning, Night-and-Gold gifts sit under it.
+
+- Thanksgiving noon (no tree): `?date=2026-11-26&time=12:00`
+- The tree goes up with leftovers: `?date=2026-11-27&time=12:00`
+- Christmas Eve: `?date=2026-12-24&time=20:00`
+- Christmas morning: `?date=2026-12-25&time=09:00`
+- Snow preview: `?date=2026-12-25&time=09:00&weather=snow` (Christmas Day 2026 is also snow in the climate fallback, even without the override)
+- Spring blossoms: `?date=2026-04-15&time=12:00`
+- Autumn colour: `?date=2026-10-12&time=12:00`
+
+**Weather.** Live days can read the current conditions from [Open-Meteo](https://open-meteo.com) (no API key) at the same generic Central US point the sky already uses (`REF` in `js/sun.js`: 38.6°N, 90.2°W, near St. Louis — deliberately not anyone's home). `?date=` previews, a failed request, and tests use a deterministic climate fallback, so the same date always looks the same offline. `?weather=rain|snow|clear` always wins. Code: `js/holiday.js`, `js/seasons.js`, `js/weather.js`, `js/christmas.js`. Test: `site_tools/seasons.mjs`.
+
 
 ## The Kitchen (2026-11-16)
 

@@ -24,6 +24,9 @@ function rule30Bits(w, rows) { let r = new Array(w).fill(0); r[w >> 1] = 1; cons
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function createRealm(cfg, list, { grass = {} } = {}) {
+  const grassNow = { ...grass };
+  let seasonSnow = 0, seasonFar = 0x35603f;
+  const snowC = new THREE.Color(0xe8eef4);
   const K = cfg.realm?.scale || 220;                 // world units per radian of planet arc
   const centerId = cfg.realm?.center || 'hearth';
   const group = new THREE.Group(); group.name = 'realm'; group.visible = false;
@@ -150,7 +153,8 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
       else if (p.biome === 'lookout' && y > 0.6 && y < p.lift - 0.3) out.lerp(rockC, 0.65 * smooth(0.6, 2, y) * k);   // the plateau's rocky skirt
     }
     const { d, p } = placeDist(x, z);
-    if (p && d < 10) out.lerp(cc.setHex(grass[p.id] ?? 0x23402f), 0.6 * (1 - smooth(-4, 10, d)));
+    if (p && d < 10) out.lerp(cc.setHex(grassNow[p.id] ?? 0x23402f), 0.6 * (1 - smooth(-4, 10, d)));
+    if (seasonSnow > 0) out.lerp(snowC, seasonSnow * (y > 0.2 ? 0.85 : 0.55));
     if (y < -0.3) out.lerp(bed, smooth(-0.3, -1.4, y));
     return out;
   }
@@ -269,6 +273,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     glowPlant: [new THREE.ConeGeometry(0.16, 0.9, 5).translate(0, 0.45, 0), new THREE.MeshBasicMaterial({ color: 0xffffff })],
     hedge: [new THREE.BoxGeometry(1, 0.7, 1).translate(0, 0.35, 0), lam(0x24553c)],
     berry: [new THREE.IcosahedronGeometry(0.07, 0), lam(0xc8323a, { emissive: 0x401010 })],
+    snowcap: [new THREE.SphereGeometry(0.55, 7, 4).scale(1, 0.35, 1).translate(0, 2.55, 0), lam(0xeef2f6)],
   };
   const items = {}; for (const k in KINDS) items[k] = new Map();
   const SMALL = new Set(['flower', 'stem', 'tuft', 'berry', 'reed', 'cattail', 'shroomStem', 'shroomCap']);   // little things: smaller cells, shown only nearby
@@ -277,7 +282,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     const cs = SMALL.has(kind) ? CS / 2 : CS, ck = key(Math.floor(x / cs), Math.floor(z / cs)); const m = items[kind]; if (!m.has(ck)) m.set(ck, []);
     Q.setFromAxisAngle(Y, rotY); V.set(x, y ?? terrain(x, z), z); S.set(s, sy, s); Mx.compose(V, Q, S); m.get(ck).push({ m: Mx.clone(), color });
   }
-  const pine = (x, z, s, tall = 1) => { add('trunk', x, z, s, s * tall); for (const k of ['c0', 'c1', 'c2']) add(k, x, z, s, s * tall); };
+  const pine = (x, z, s, tall = 1) => { add('trunk', x, z, s, s * tall); for (const k of ['c0', 'c1', 'c2']) add(k, x, z, s, s * tall); add('snowcap', x, z, s, s * tall); };
   const roundTree = (x, z, s, col = 0x2f6a46) => { add('trunk', x, z, s); add('ball', x, z, s, s * (0.8 + rnd() * 0.5), col); };
   const flower = (x, z, col, s = 1) => { add('stem', x, z, s); add('flower', x, z, s, s, col); };
   const shroom = (x, z, col, s = 1) => { add('shroomStem', x, z, s); add('shroomCap', x, z, s, s, col); };
@@ -293,11 +298,12 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     return null;
   };
   const solid = (x, z, r) => solids.push({ x, z, r });
+  const featMats = [];
   const FEATURES = {
     meadow(p) {   // a picket-fenced pea garden and an apple tree
       const g0 = spotNear(p, p.r + 12, 8); if (g0) {
         const G = new THREE.Group(); G.position.copy(g0); G.rotation.y = Math.atan2(p.pos.x - g0.x, p.pos.z - g0.z); feat.add(G);
-        const wood = lam(0xf4ece0), soil = lam(0x4a3424), pea = lam(0x6aa84a);
+        const wood = lam(0xf4ece0), soil = lam(0x4a3424), pea = lam(0x6aa84a); featMats.push(pea);
         mesh(new THREE.BoxGeometry(7, 0.12, 4.6), soil, 0, 0.06, 0, G);
         for (let i = 0; i <= 20; i++) { const t = i / 20, per = 2 * (8 + 5.6); let d = t * per, x, z;
           if (d < 8) { x = -4 + d; z = -2.8; } else if (d < 13.6) { x = 4; z = -2.8 + (d - 8); } else if (d < 21.6) { x = 4 - (d - 13.6); z = 2.8; } else { x = -4; z = 2.8 - (d - 21.6); }
@@ -311,7 +317,8 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
       const t0 = spotNear(p, p.r + 9, 5); if (t0) {
         const T = new THREE.Group(); T.position.copy(t0); feat.add(T);
         mesh(new THREE.CylinderGeometry(0.22, 0.34, 2.2, 7), lam(0x4a3424), 0, 1.1, 0, T);
-        for (const [x, y, z, r] of [[0, 2.9, 0, 1.5], [0.9, 2.6, 0.4, 1.0], [-0.8, 2.7, -0.3, 1.1], [0.2, 3.6, 0.2, 1]]) mesh(new THREE.IcosahedronGeometry(r, 1), lam(0x2f6a46), x, y, z, T);
+        const appleLeaf = lam(0x2f6a46); featMats.push(appleLeaf);
+        for (const [x, y, z, r] of [[0, 2.9, 0, 1.5], [0.9, 2.6, 0.4, 1.0], [-0.8, 2.7, -0.3, 1.1], [0.2, 3.6, 0.2, 1]]) mesh(new THREE.IcosahedronGeometry(r, 1), appleLeaf, x, y, z, T);
         for (let k = 0; k < 14; k++) { const a = k * 2.4, y = 2.3 + (k % 4) * 0.4; mesh(new THREE.SphereGeometry(0.13, 6, 4), lam(0xc8323a, { emissive: 0x300808 }), Math.cos(a) * 1.35, y, Math.sin(a) * 1.35, T); }
         solid(t0.x, t0.z, 0.6);
       }
@@ -400,10 +407,15 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     };
   }
   mergeStatic(feat);
+  const snowcapIMs = [], coloredIMs = [];
   for (const kind in items) for (const [ck, list] of items[kind]) {
     const [g, m] = KINDS[kind]; const im = new THREE.InstancedMesh(g, m, list.length);
-    list.forEach((it, k) => { im.setMatrixAt(k, it.m); im.setColorAt(k, c.setHex(it.color ?? 0xffffff)); });
+    const bases = list.map(it => it.color ?? 0xffffff);
+    list.forEach((it, k) => { im.setMatrixAt(k, it.m); im.setColorAt(k, c.setHex(bases[k])); });
     im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.computeBoundingSphere(); im.userData.near = SMALL.has(kind) ? 120 : 255;   // VIEW * 0.85
+    im.userData.kind = kind; im.userData.baseColors = bases;
+    if (kind === 'snowcap') { im.visible = false; snowcapIMs.push(im); }
+    else coloredIMs.push(im);
     group.add(im); chunked.push(im);
   }
 
@@ -527,7 +539,65 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     ctx.strokeStyle = 'rgba(232,193,90,.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w / 2, hgt / 2, w / 2 - 2, 0, Math.PI * 2); ctx.stroke();
   }
 
-  return { group, places, roads, bounds, heightAt, terrain, roadDist, riverDist, river: riverPts, bridges, biomeAt: (x, z) => pickBiome(x, z, 0.5), update, prewarm, addSolids, collide, solids, pickables, drawMap, signs };
+
+  function recolorTiles() {
+    for (const m of tiles.values()) {
+      const pos = m.geometry.attributes.position, col = m.geometry.attributes.color;
+      for (let k = 0; k < pos.count; k++) { groundColor(pos.getX(k), pos.getZ(k), pos.getY(k), c); col.setXYZ(k, c.r, c.g, c.b); }
+      col.needsUpdate = true;
+    }
+    far.material.color.setHex(seasonFar);
+  }
+  function setSeason(name, pal = {}, { weatherKind } = {}) {
+    const snowy = (pal.snow || 0) > 0 || weatherKind === 'snow';
+    seasonSnow = snowy ? Math.max(pal.snow || 0, weatherKind === 'snow' ? 0.55 : 0) : 0;
+    seasonFar = pal.far || 0x35603f;
+    const shift = name === 'winter' ? 0xd0d8e0 : name === 'autumn' ? 0xc4a050 : name === 'spring' ? 0x6ab050 : null;
+    const amt = name === 'winter' ? 0.7 : name === 'autumn' ? 0.4 : name === 'spring' ? 0.25 : 0;
+    P.forEach((p, i) => {
+      BC[i].setHex(p.B.ground);
+      if (shift) BC[i].lerp(cc.setHex(shift), amt);
+    });
+    WC.setHex(BIOMES.wild.ground);
+    if (shift) WC.lerp(cc.setHex(shift), amt * 0.85);
+    for (const id of Object.keys(grass)) {
+      const base = new THREE.Color(grass[id]);
+      if (shift) base.lerp(cc.setHex(shift), amt);
+      grassNow[id] = base.getHex();
+    }
+    if (KINDS.c0) {
+      KINDS.c0[1].color.setHex(pal.foliage || 0x1f4a35);
+      KINDS.c1[1].color.setHex(pal.foliage2 || 0x24553c);
+      KINDS.c2[1].color.setHex(pal.foliage3 || 0x1a3e2c);
+      KINDS.hedge[1].color.setHex(pal.foliage2 || 0x24553c);
+      KINDS.stem[1].color.setHex(pal.foliage || 0x3f6b45);
+      KINDS.reed[1].color.setHex(pal.foliage2 || 0x5a7a3a);
+    }
+    const leafs = name === 'autumn' ? [0xb45a1e, 0xc48a28, 0xa03018] : null;
+    for (const im of coloredIMs) {
+      if (im.userData.kind !== 'ball' && im.userData.kind !== 'tuft') continue;
+      im.userData.baseColors.forEach((hex, k) => {
+        if (im.userData.kind === 'ball' && leafs) c.setHex(leafs[k % 3]);
+        else if (im.userData.kind === 'ball' && name === 'winter') c.setHex(0x1a3a30);
+        else if (im.userData.kind === 'ball' && name === 'spring') c.setHex(hex).offsetHSL(0.02, 0.05, 0.08);
+        else c.setHex(hex);
+        im.setColorAt(k, c);
+      });
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    }
+    for (const m of featMats) {
+      if (leafs) m.color.setHex(leafs[0]);
+      else if (name === 'winter') m.color.setHex(0x1a3a30);
+      else if (name === 'spring') m.color.setHex(0x4a8a4a);
+      else m.color.setHex(m.userData.base || 0x2f6a46);
+    }
+    for (const im of snowcapIMs) im.visible = snowy;
+    recolorTiles();
+  }
+  // remember summer greens on feature materials
+  for (const m of featMats) m.userData.base = m.color.getHex();
+
+  return { group, places, roads, bounds, heightAt, terrain, roadDist, riverDist, river: riverPts, bridges, biomeAt: (x, z) => pickBiome(x, z, 0.5), update, prewarm, addSolids, collide, solids, pickables, drawMap, signs, setSeason };
 }
 
 // =====================================================================

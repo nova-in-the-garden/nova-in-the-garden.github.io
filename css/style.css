@@ -124,6 +124,7 @@ ul.rooms{list-style:none;padding:0;margin:0}ul.rooms li{display:flex;gap:10px;al
 #sky-clock .rs{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
 #sky-clock.preview .sky-main{border-color:var(--gold)}
 #sky-clock.preview .ph{color:var(--gold2);font-style:italic}
+#sky-clock .sky-sw{margin:0;padding:3px 10px;border-radius:999px;background:rgba(15,23,51,.72);border:1px solid var(--line);color:var(--gold2);font-size:11px;letter-spacing:.02em}
 #sky-more{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;width:min(330px,calc(100vw - 32px));backdrop-filter:blur(8px)}
 #sky-more[hidden]{display:none}
 #sky-more .sky-tw{margin:0 0 6px;color:var(--gold2);font-size:12px}

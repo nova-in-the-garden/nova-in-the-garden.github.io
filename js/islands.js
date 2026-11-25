@@ -5,7 +5,9 @@ import { rng, rule90, mat, glow, mesh, jitter, glowSprite, textSprite, canvasTex
 import { buildCottage } from './house.js';
 import { buildStudio } from './studio.js';
 import { paintFront, CARD_W, CARD_H } from './postcard.js';
-import { feastStage, feastBroadcast, holidayNow } from './holiday.js';
+import { feastStage, feastBroadcast, holidayNow, christmasStage } from './holiday.js';
+import { trackFoliage, trackGrass, trackBlossoms, trackSnowCap } from './seasons.js';
+import { decorateCottage, decorateTree } from './christmas.js';
 import { buildLawn } from './lawn.js';
 
 export const GRASS = { giftShop: 0x2a3a2e, hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c, automataLawn: 0x1d3a28 };
@@ -14,7 +16,7 @@ export function islandBase(isl, r, seed) {
   const R = rng(seed);
   const g = new THREE.Group();
   const topGeo = new THREE.CylinderGeometry(r, r * 0.96, 0.8, 22, 1);
-  const top = mesh(jitter(topGeo, 0.12, R), mat(GRASS[isl.id] ?? 0x22344a), 0, -0.4, 0, g);
+  const top = mesh(jitter(topGeo, 0.12, R), trackGrass(mat(GRASS[isl.id] ?? 0x22344a)), 0, -0.4, 0, g);
   // rocky underside: an upside-down jagged cone
   const rockGeo = jitter(new THREE.ConeGeometry(r * 0.98, r * 1.25, 14, 4), r * 0.09, R);
   const rock = mesh(rockGeo, mat(0x3a3550), 0, -0.8 - r * 0.62, 0, g); rock.rotation.x = Math.PI;
@@ -57,7 +59,17 @@ function lantern(parent, x, z, h = 2.4) {
 function tree(parent, x, z, s = 1) {
   const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); parent.add(g);
   mesh(new THREE.CylinderGeometry(0.15, 0.22, 0.8, 6), mat(0x4a3424), 0, 0.4, 0, g);
-  for (let i = 0; i < 3; i++) mesh(new THREE.ConeGeometry(1.1 - i * 0.28, 1.2, 7), mat(0x1f4a35), 0, 1.1 + i * 0.7, 0, g);
+  const roles = ['foliage', 'foliage2', 'foliage3'];
+  for (let i = 0; i < 3; i++) mesh(new THREE.ConeGeometry(1.1 - i * 0.28, 1.2, 7), trackFoliage(mat(0x1f4a35), roles[i]), 0, 1.1 + i * 0.7, 0, g);
+  const blo = new THREE.Group(); blo.visible = false; g.add(blo);
+  const pink = mat(0xf4c0d4, { emissive: 0x402030, emissiveIntensity: 0.2 }), cream = mat(0xf8eef4);
+  for (let i = 0; i < 11; i++) {
+    const a = i * 2.3, y = 1.15 + (i % 5) * 0.35, rad = 0.55 + (i % 3) * 0.15;
+    mesh(new THREE.SphereGeometry(0.11, 6, 5), i % 2 ? pink : cream, Math.sin(a) * rad, y, Math.cos(a) * rad, blo);
+  }
+  trackBlossoms(blo);
+  const cap = mesh(new THREE.SphereGeometry(0.55, 8, 5), mat(0xeef2f6), 0, 2.55, 0, g);
+  cap.scale.set(1, 0.35, 1); cap.visible = false; trackSnowCap(cap);
   return g;
 }
 
@@ -84,7 +96,12 @@ function christmasTree(parent, x, z) {
   });
   const star = mesh(new THREE.OctahedronGeometry(0.38, 0), glow(0xffe08a, 2.6), 0, 0.7 + H + 0.55, 0, g);
   const halo = glowSprite(2.6, 0xffe08a, 0.9); halo.position.copy(star.position); g.add(halo);
-  return (t) => { star.rotation.y = t; lights.forEach((o, i) => { o.material = (Math.sin(t * 2 + i * 1.7) > -0.6) ? o.material : o.material; o.scale.setScalar(0.8 + 0.35 * (0.5 + 0.5 * Math.sin(t * 2.2 + i * 2.1))); }); };
+  const extras = decorateTree(g);
+  g.visible = false;
+  const tick = (t) => { if (!g.visible) return; star.rotation.y = t; lights.forEach((o, i) => { o.scale.setScalar(0.8 + 0.35 * (0.5 + 0.5 * Math.sin(t * 2.2 + i * 2.1))); }); };
+  tick.group = g;
+  tick.setStage = (stage) => extras.setStage(stage);
+  return tick;
 }
 
 function thanksgivingTable(parent, x, z, rot = 0) {
@@ -499,9 +516,14 @@ const DECOR = {
     const ups = [];
     lantern(g, 0.6, 0.8, 2.6);
     // Nova's House: a walk-in cottage (js/house.js); clicking it steps inside
-    const house = buildCottage(g, -5.1, -4.7, 0.8); house.group.scale.setScalar(1.5); ctx.cottage = house;   // a bit bigger so it reads from orbit ups.push(house.update);
+    const house = buildCottage(g, -5.1, -4.7, 0.8); house.group.scale.setScalar(1.5); ctx.cottage = house;   // a bit bigger so it reads from orbit
+    ups.push(house.update);
+    const cottageXmas = decorateCottage(house);
+    ups.push(t => cottageXmas.tick(t));
     const sign = textSprite("Nova's House", { size: 1.6, sub: 'click to step inside' }); sign.material.sizeAttenuation = false; sign.scale.multiplyScalar(0.026 / 1.6); sign.position.set(1.5, 3.3, 1.9); sign.renderOrder = 9; sign.material.depthTest = false; house.group.add(sign);
-    ups.push(christmasTree(g, 3.8, -3.0));
+    const xmasTree = christmasTree(g, 3.8, -3.0);
+    ups.push(xmasTree);
+    ctx.christmas = { tree: xmasTree, cottage: cottageXmas, setStage(stage) { xmasTree.setStage(stage); cottageXmas.setStage(stage); } };
     ctx.feast = thanksgivingTable(g, 2.4, 5.4, 0);
     ctx.visitorBoard = visitorBoard(g, 5.3, 0.9, -Math.PI / 2 + 0.35);   // the visitor count, by the path in
     ctx.corkWall = corkWall(g, 0.8, -6.1, 0.12);                        // the Visitor Wall (feedback), behind the fire, facing it
@@ -511,6 +533,7 @@ const DECOR = {
       ups.forEach(u => u(t, dt));
       const now = holidayNow();
       ctx.feast.update(t, dt, feastStage(now), feastBroadcast(now));
+      ctx.christmas.setStage(christmasStage(now));
     };
   },
   emergence(g, isl) {

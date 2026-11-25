@@ -16,6 +16,12 @@ export function dirFromLatLon(lat, lon, v = new THREE.Vector3()) {
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function createPlanet(cfg = {}) {
+  let groundMat = null;
+  function setSeason(name) {
+    if (!groundMat) return;
+    const tint = { spring: 0xd5efc8, summer: 0xffffff, autumn: 0xe8c090, winter: 0xc5d2d8 }[name] || 0xffffff;
+    groundMat.color.setHex(tint);
+  }
   const R = cfg.radius || 44;
   const group = new THREE.Group(); group.name = 'planet';
   const places = new Map();
@@ -108,6 +114,7 @@ export function createPlanet(cfg = {}) {
     // split into six chunks (one per cube face direction) so the far side and off-screen parts are skipped
     const terrain = new THREE.Group(); terrain.name = 'terrain'; group.add(terrain);
     const tMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+    groundMat = tMat;
     const parts = AXES.map(() => ({ p: [], c: [] }));
     for (let i = 0; i < pos.count; i += 3) {
       v.set(0, 0, 0); for (let k = 0; k < 3; k++) v.x += pos.getX(i + k), v.y += pos.getY(i + k), v.z += pos.getZ(i + k);
@@ -311,7 +318,7 @@ export function createPlanet(cfg = {}) {
     return t0 > 0 && t0 < L - 0.5;
   }
 
-  return { R, group, cull, place, places, groundR, surface, build, update, routes, addSolid, collide, solids, hidden, inPlace, capOf };
+  return { R, group, cull, place, places, groundR, surface, build, update, routes, addSolid, collide, solids, hidden, inPlace, capOf, setSeason };
 }
 
 // =====================================================================

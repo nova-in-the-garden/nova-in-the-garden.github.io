@@ -11,7 +11,9 @@ import { createRadio } from './radio.js';
 import { openLightbox, lightboxState } from './lightbox.js';
 import { createHouse } from './house.js';
 import { makeClock, skyState, collectGlows, DAY } from './daylight.js';
-import { setHolidayNow, feastStage, feastSitting, ymd } from './holiday.js';
+import { setHolidayNow, feastStage, feastSitting, ymd, season, christmasOn, christmasStage } from './holiday.js';
+import { createWeather } from './weather.js';
+import { applyPalette } from './seasons.js';
 import { skyDir, fmtTime, REF } from './sun.js';
 import { setupSkyClock } from './skyclock.js';
 import { buildArcadeTree, createArcade } from './arcade.js';
@@ -728,6 +730,19 @@ addEventListener('keydown', e => {
 // in Central time. ?time=HH:MM, ?phase=dawn|day|golden|dusk|night, and ?date=YYYY-MM-DD preview a moment.
 const clock = makeClock();
 setHolidayNow(() => clock.now());
+const weather = createWeather(scene);
+weather.setFromDate(clock.now(), { live: clock.live, dateOverride: !!clock.dateOverride });
+let worldSig = '';
+function applyWorldDate(now, force = false) {
+  const name = season(now);
+  const sig = `${ymd(now).key}|${name}|${weather.state.kind}|${weather.state.source}`;
+  if (!force && sig === worldSig) return;
+  worldSig = sig;
+  const pal = applyPalette(name, { weatherKind: weather.state.kind });
+  realm.setSeason?.(name, pal, { weatherKind: weather.state.kind });
+  planet.setSeason?.(name);
+  skyClock.setWorld?.(name, weather.state);
+}
 const applyGlow = collectGlows(scene, o => !!o.userData.nova);
 const _d = [0, 0, 0], _m = [0, 0, 0];
 const fogC = new THREE.Color(), tmpC = new THREE.Color();
@@ -816,6 +831,8 @@ function applySky(date) {
   moon.intensity = p.moonI; warm.intensity = p.warmI;
   sunLight.color.setHex(p.sunCol); sunLight.intensity = p.sunI * THREE.MathUtils.smoothstep(el, -1, 4); LBASE.sun.set(_d[0] * 100, Math.max(_d[1], 0.05) * 100, _d[2] * 100); sunLight.position.copy(LBASE.sun).applyQuaternion(qSky);
   scene.fog.color.setHex(p.fog); fogBase = p.fogD; scene.fog.density = p.fogD; renderer.toneMappingExposure = p.exposure;
+  weather.applySky(p, skyU, scene.fog, d => { fogBase = d; });
+  applyWorldDate(date);
   DAY.glow = p.glow; DAY.halo = p.halo; DAY.night = p.night; DAY.day = p.day; DAY.window = 0.3 + 0.7 * Math.max(p.night, 1 - p.day * 0.85);
   applyGlow(p.glow, p.halo);
   house.daylight?.(st, _d, _m);
@@ -844,6 +861,7 @@ function frame() {
   const now = performance.now(); const rawDt = Math.min((now - last) / 1000, 0.25), dt = Math.min(rawDt, 0.05); last = now; t += dt;
   if (player.isOpen || postcards?.isOpen || cafe.isOpen || giftShop?.isOpen || museum?.isOpen || wall.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game or the postcard maker is open
   skyTick(now); skyU.uTime.value = t;
+  weather.tick(dt, camera);
   if (inArcade) {
     arcade.update(dt, t);
     skyU.uSpace.value = 0;
@@ -889,7 +907,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get lawn() { return ctx.lawn; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
+window.nova = { visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get season() { return season(clock.now()); }, christmas: { get on() { return christmasOn(clock.now()); }, get stage() { return christmasStage(clock.now()); }, get tree() { return ctx.christmas?.tree?.group || null; } }, weather: { get state() { return weather.state; }, place: weather.place }, get lawn() { return ctx.lawn; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;
@@ -905,6 +923,9 @@ window.__lookSky = (az, el = 8) => {
 window.__novaView = (dist = 3.2, h = 1.2, ang = 0, at = 0.65) => { follow = null; const r = novaBody.root; const P = r.parent; P.updateMatrixWorld(true); const p = r.getWorldPosition(new THREE.Vector3()); const a = r.rotation.y + ang; const f = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).transformDirection(P.matrixWorld), up = new THREE.Vector3(0, 1, 0).transformDirection(P.matrixWorld); flyTo(p.clone().addScaledVector(f, dist).addScaledVector(up, h), p.clone().addScaledVector(up, at), 0.01, up); };
 window.__houseView = () => { if (!cottage) return; landAt(hearth, { high: false }); follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
 window.__feastView = (dur = 0.01, from = [3.6, 2.45, 3.5], at = [0, 0.95, 0]) => { const f = ctx.feast; if (!f?.group) return; landAt(hearth, { high: false }); follow = null; f.group.updateMatrixWorld(true); flyTo(f.group.localToWorld(new THREE.Vector3(from[0], from[1], from[2])), f.group.localToWorld(new THREE.Vector3(at[0], at[1], at[2])), dur); };
+window.__hearthView = (dur = 0.01, from = [-0.4, 2.45, 7.2], at = [1.0, 1.3, -2.0]) => { landAt(hearth, { high: false }); follow = null; hearth.group.updateMatrixWorld(true); flyTo(hearth.group.localToWorld(new THREE.Vector3(from[0], from[1], from[2])), hearth.group.localToWorld(new THREE.Vector3(at[0], at[1], at[2])), dur); };
+window.__cottageView = (dur = 0.01, dist = 3.4) => { if (!ctx.cottage) return; landAt(hearth, { high: false }); follow = null; const at = ctx.cottage.doorWorld(); const from = ctx.cottage.doorFront(dist); flyTo(from, at, dur); };
+
 window.__lawnView = (dur = 0.01, from, at) => { const isl = byId('automataLawn'); if (!isl || !ctx.lawn) return; landAt(isl, { high: false }); follow = null; const p = ctx.lawn.viewPoint(); const f = from ? new THREE.Vector3(from[0], from[1], from[2]) : p.from; const a = at ? new THREE.Vector3(at[0], at[1], at[2]) : p.at; isl.group.updateMatrixWorld(true); flyTo(isl.group.localToWorld(f), isl.group.localToWorld(a), dur, placeUp(isl)); ctx.lawn.setActive(true); };
 window.__pick = (x, y) => { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); const h = pickHit(); return h ? { ...h.object.userData, d: +h.distance.toFixed(2), type: h.object.type } : null; };
 window.__arcadeView = (dur = 0.01) => { if (!arcadeExt) return; landAt(byId('arcade'), { high: false }); follow = null; const v = arcadeView(); flyTo(v.pos, v.target, dur); };

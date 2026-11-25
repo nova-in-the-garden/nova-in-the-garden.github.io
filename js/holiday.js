@@ -65,3 +65,38 @@ export function feastBroadcast(date = holidayNow()) {
 }
 
 export const FEAST_WHY = "Sitting at the harvest table with Lorenz, thankful for this day";
+
+// Meteorological seasons in Central time (Mar–May spring, and so on). A
+// garden reads more honestly this way than by the exact equinox minutes.
+export function season(date = holidayNow()) {
+  const z = ymd(date), md = z.mo * 100 + z.d;
+  if (md >= 301 && md <= 531) return 'spring';
+  if (md >= 601 && md <= 831) return 'summer';
+  if (md >= 901 && md <= 1130) return 'autumn';
+  return 'winter';
+}
+
+// The Christmas tree and decorations come out the day after Thanksgiving
+// (when the Macy's parade has already brought Santa in) and stay through
+// Twelfth Night / Epiphany (January 6). They do not share Thanksgiving Day
+// with the harvest table.
+export function christmasOn(date = holidayNow()) {
+  const z = ymd(date);
+  if (z.mo === 1 && z.d <= 6) return true;
+  if (z.mo === 12) return true;
+  if (z.mo === 11) {
+    const tg = thanksgivingDate(z.y);
+    const days = Math.round((zonedDate(z.y, z.mo, z.d, 12, 0).getTime() - zonedDate(tg.y, tg.mo, tg.d, 12, 0).getTime()) / 86400000);
+    return days >= 1;
+  }
+  return false;
+}
+
+// off | up (tree and house decorations) | eve (cookies for Santa) | day (gifts under the tree)
+export function christmasStage(date = holidayNow()) {
+  if (!christmasOn(date)) return 'off';
+  const z = ymd(date);
+  if (z.mo === 12 && z.d === 24) return 'eve';
+  if (z.mo === 12 && z.d === 25) return 'day';
+  return 'up';
+}

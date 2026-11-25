@@ -229,7 +229,7 @@ export function buildCottage(parent, x, z, rot = 0) {
   };
   const doorWorld = () => { const v = new THREE.Vector3(dx, B + 0.75, D / 2 + 0.1); return g.localToWorld(v); };
   const doorFront = (d) => g.localToWorld(new THREE.Vector3(dx + 0.25, B + 1.6, D / 2 + d));
-  return { group: g, update, setDoor: (open) => { doorTarget = open ? 1 : 0; }, doorWorld, doorFront };
+  return { group: g, update, setDoor: (open) => { doorTarget = open ? 1 : 0; }, doorWorld, doorFront, door };
 }
 
 // =====================================================================

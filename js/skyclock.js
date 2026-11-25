@@ -10,6 +10,7 @@ export function setupSkyClock({ clock, onChange }) {
   const el = document.createElement('div'); el.id = 'sky-clock';
   el.innerHTML = `<button class="sky-main" aria-expanded="false" aria-controls="sky-more" title="Time of day in Nova's world (tap to preview other times)">
       <span class="ico" aria-hidden="true"></span><span class="tm"></span><span class="ph"></span><span class="rs"></span></button>
+    <p class="sky-sw" hidden></p>
     <div id="sky-more" hidden>
       <p class="sky-tw"></p>
       <p class="sky-note">Nova's sky follows the real sun in US Central time. Drag to preview another hour.</p>
@@ -53,6 +54,15 @@ export function setupSkyClock({ clock, onChange }) {
         el.querySelectorAll('[data-p]').forEach(b => b.classList.toggle('on', clk.live ? b.dataset.p === 'live' : false));
       }
       if (document.activeElement !== range) range.value = String(Math.round(clk.minutes));
+    },
+    setWorld(seasonName, weather) {
+      const sw = $('.sky-sw'); if (!sw) return;
+      const s = { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' }[seasonName] || seasonName;
+      const k = { rain: 'rain', snow: 'snow', clear: 'clear', cloud: 'cloudy', fog: 'fog' }[weather?.kind] || weather?.kind || '';
+      sw.hidden = false;
+      sw.textContent = k ? `${s} · ${k}` : s;
+      const src = weather?.source === 'live' ? 'Live weather from Open-Meteo at a generic Central US point (the same one the sky uses).' : weather?.source === 'override' ? 'Weather preview from the link.' : 'Seasonal climate at a generic Central US point (the same one the sky uses).';
+      sw.title = src;
     },
   };
 }
