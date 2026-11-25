@@ -87,8 +87,13 @@ export function makeLorenz() {
 // Lorenz wanders around a home area, swims (bobbing) in the pond and waddles on land.
 // Time of day: at night (sleepy() true) he paddles to the pond's edge, sits
 // down, tucks his bill into his back and sleeps; by day he swims more.
-export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = [], sleepy = () => false, swimChance = () => 0.45, feast = null }) {
+export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = [], sleepy = () => false, swimChance = () => 0.45, feast = null, bed: bedOpt = null, clearOf = null, minSep = 2.5 }) {
   const R = rng(77); const pos = lorenz.position; let target = new THREE.Vector3(); let pause = 0; let heading = 0;
+  const tooClose = (x, z) => {
+    if (!clearOf) return false;
+    const o = clearOf(); if (!o) return false;
+    return Math.hypot(x - o.x, z - o.z) < minSep;
+  };
   const pick = () => {
     const toPond = R() < swimChance();
     for (let k = 0; k < 30; k++) {
@@ -96,15 +101,16 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
       const c = toPond ? pond : center;
       target.set(c.x + Math.cos(a) * r, 0, c.z + Math.sin(a) * r);
       if (target.distanceTo(new THREE.Vector3(center.x, 0, center.z)) > radius) continue;
-      if (avoid.every(o => Math.hypot(target.x - o.x, target.z - o.z) > o.r)) return;
+      if (avoid.every(o => Math.hypot(target.x - o.x, target.z - o.z) > o.r) && (toPond || !tooClose(target.x, target.z))) return;
     }
     target.set(pond.x, 0, pond.z);
   };
   pos.set(pond.x + 0.5, 0, pond.z); pick();
   const seatNow = () => { const seat = feast && feast.seat && feast.seat(); if (!seat) return; pos.set(seat.x, seat.y ?? 0.42, seat.z); heading = seat.heading ?? heading; lorenz.rotation.y = heading; sleep = 0; pause = 1; target.set(seat.x, 0, seat.z); };
   // bed: on the grass at the pond's edge, on the side facing the island's middle
+  // (main.js can pass a distinct bed so Nova and Lorenz never share a pillow)
   const ba = Math.atan2(center.z - pond.z, center.x - pond.x) + 0.5;
-  const bed = new THREE.Vector3(pond.x + Math.cos(ba) * (pondRadius + 0.45), 0, pond.z + Math.sin(ba) * (pondRadius + 0.45));
+  const bed = bedOpt ? bedOpt.clone() : new THREE.Vector3(pond.x + Math.cos(ba) * (pondRadius + 0.45), 0, pond.z + Math.sin(ba) * (pondRadius + 0.45));
   let sleep = 0, wasSleepy = false; // 0 awake .. 1 fully tucked in
   const tick = (t, dt, baseY) => {
     const { body, head, feet, ends, zs, headHome } = lorenz.userData;
@@ -156,5 +162,6 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
     return { inPond, moving, asleep: sleep > 0.99, atFeast };
   };
   tick.seatNow = seatNow;
+  tick.bed = bed;
   return tick;
 }

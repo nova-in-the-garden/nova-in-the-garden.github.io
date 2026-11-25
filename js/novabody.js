@@ -354,9 +354,9 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
   function pickSpot(I, near = null, tries = 24) {
     for (let k = 0; k < tries; k++) {
       let x, z;
-      if (near) { const a = R() * Math.PI * 2, r = 0.9 + R() * 0.4; x = near.x + Math.cos(a) * r; z = near.z + Math.sin(a) * r; }
+      if (near) { const a = R() * Math.PI * 2, r = 2.5 + R() * 0.7; x = near.x + Math.cos(a) * r; z = near.z + Math.sin(a) * r; }
       else { const a = R() * Math.PI * 2, r = Math.sqrt(R()) * I.r * 0.7; x = Math.cos(a) * r; z = Math.sin(a) * r; }
-      if (freeAt(I, x, z) && (I !== isl || pathFree(I, pos.x, pos.z, x, z))) return new THREE.Vector3(x, 0, z);
+      if (freeAt(I, x, z) && (I !== isl || pathFree(I, pos.x, pos.z, x, z)) && (I !== hearth || !lorenz || Math.hypot(x - lorenz.position.x, z - lorenz.position.z) >= 2.5)) return new THREE.Vector3(x, 0, z);
     }
     return null;
   }
@@ -379,9 +379,9 @@ export function novaBrain(nova, { scene, islands, hearth, lorenz, avoidHearth = 
     const night = DAY.night > 0.6;
     if (feastOn() && !night) { if (goToFeastSeat()) return; }
     if (isl === hearth && night) {
-      const spot = lorenzBed.clone();
-      if (freeAt(hearth, spot.x, spot.z) && pathFree(hearth, pos.x, pos.z, spot.x, spot.z)) { target = spot; mode = 'toBed'; why = 'Heading to bed next to Lorenz'; return; }
-      const s2 = pickSpot(hearth, lorenzBed) || pickSpot(hearth); if (s2) { lorenzBed.copy(s2); target = s2; mode = 'toBed'; why = 'Heading to bed'; return; }
+      const spot = lorenzBed.clone(); // her own pillow, already a few steps from Lorenz's
+      if (Math.hypot(spot.x - lorenz.position.x, spot.z - lorenz.position.z) >= 2.5 && pathFree(hearth, pos.x, pos.z, spot.x, spot.z)) { target = spot; mode = 'toBed'; why = 'Heading to bed beside Lorenz'; return; }
+      const s2 = pickSpot(hearth, lorenzBed) || pickSpot(hearth); if (s2) { target = s2; mode = 'toBed'; why = 'Heading to bed'; return; }
     }
     if (isl === hearth && R() < 0.38) {
       const L = lorenzLocal();

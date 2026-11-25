@@ -1,7 +1,7 @@
 // Christmas decorations for the Hearth cottage and the Rule 90 tree.
 // Night and Gold (navy, red, gold). Visibility is driven by christmasStage().
 import * as THREE from 'three';
-import { mat, mesh, glow, glowSprite, rng } from './util.js';
+import { mat, mesh, glow, glowSprite, rng, canvasTexture } from './util.js';
 import { trackSnowCap } from './seasons.js';
 
 function wreath() {
@@ -60,25 +60,33 @@ function stringLights(parent, points) {
 
 function cookies() {
   const g = new THREE.Group();
-  const plate = mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.025, 16), mat(0xf4ece0), 0, 0.02, 0, g);
-  mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.008, 16), mat(0xe8d8c0), 0, 0.034, 0, g);
+  const plate = mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 20), mat(0xf4ece0), 0, 0.03, 0, g);
+  mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.012, 20), mat(0xe8d8c0), 0, 0.052, 0, g);
   const dough = mat(0xc48a48), cream = mat(0xf4ece0), chip = mat(0x3a2414);
-  for (const [x, z, typ] of [[-0.06, 0.04, 'oreo'], [0.07, 0.02, 'chip'], [-0.01, -0.08, 'oreo']]) {
+  for (const [x, z, typ] of [[-0.11, 0.08, 'oreo'], [0.12, 0.04, 'chip'], [-0.02, -0.13, 'oreo']]) {
     if (typ === 'oreo') {
-      mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.018, 10), mat(0x2a1a14), x, 0.055, z, g);
-      mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.012, 10), cream, x, 0.068, z, g);
-      mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.018, 10), mat(0x2a1a14), x, 0.082, z, g);
+      mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 12), mat(0x2a1a14), x, 0.08, z, g);
+      mesh(new THREE.CylinderGeometry(0.082, 0.082, 0.02, 12), cream, x, 0.10, z, g);
+      mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 12), mat(0x2a1a14), x, 0.125, z, g);
     } else {
-      mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.03, 10), dough, x, 0.06, z, g);
+      mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 12), dough, x, 0.09, z, g);
       for (let i = 0; i < 5; i++) {
         const a = i * 1.3;
-        mesh(new THREE.SphereGeometry(0.012, 5, 4), chip, x + Math.cos(a) * 0.03, 0.078, z + Math.sin(a) * 0.03, g);
+        mesh(new THREE.SphereGeometry(0.02, 6, 5), chip, x + Math.cos(a) * 0.05, 0.12, z + Math.sin(a) * 0.05, g);
       }
     }
   }
-  // a little glass of milk
-  const glass = mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.11, 10), new THREE.MeshStandardMaterial({ color: 0xdce8f4, transparent: true, opacity: 0.45, roughness: 0.15 }), 0.14, 0.09, -0.12, g);
-  mesh(new THREE.CylinderGeometry(0.038, 0.034, 0.08, 10), mat(0xf8f4ea), 0.14, 0.075, -0.12, g);
+  // a glass of milk, large enough to read from the Hearth path
+  mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.20, 12), new THREE.MeshStandardMaterial({ color: 0xdce8f4, transparent: true, opacity: 0.5, roughness: 0.15 }), 0.26, 0.16, -0.18, g);
+  mesh(new THREE.CylinderGeometry(0.068, 0.06, 0.15, 12), mat(0xf8f4ea), 0.26, 0.13, -0.18, g);
+  const cardTex = canvasTexture(256, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#e8c15a'; ctx.lineWidth = 10; ctx.strokeRect(8, 8, w - 16, h - 16);
+    ctx.fillStyle = '#e8c15a'; ctx.font = '700 44px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('For Santa', w / 2, h / 2);
+  });
+  const card = mesh(new THREE.PlaneGeometry(0.28, 0.18), new THREE.MeshBasicMaterial({ map: cardTex }), -0.28, 0.16, 0.02, g);
+  card.rotation.x = -0.15;
   g.userData.kind = 'cookies';
   return g;
 }
@@ -86,11 +94,13 @@ function cookies() {
 function gifts() {
   const g = new THREE.Group();
   const wraps = [
-    { c: 0x1a1a22, r: 0xe8c15a, s: [0.32, 0.22, 0.26], p: [-0.55, 0.12, 1.35] },
-    { c: 0x8b1e2b, r: 0xe8c15a, s: [0.26, 0.18, 0.22], p: [0.5, 0.1, 1.25] },
-    { c: 0xe8c15a, r: 0x8b1e2b, s: [0.2, 0.16, 0.2], p: [0.15, 0.09, 1.65] },
-    { c: 0x1a1a22, r: 0xc62f37, s: [0.18, 0.14, 0.18], p: [-0.2, 0.08, 1.55] },
-    { c: 0x8b1e2b, r: 0xe8c15a, s: [0.28, 0.2, 0.2], p: [0.75, 0.11, 0.95] },
+    // Out in front of the tree (yard / +z, a little west) so the Hearth camera sees them,
+    // clear of the lowest cone (radius ~2.2).
+    { c: 0x1a1a22, r: 0xe8c15a, s: [0.50, 0.34, 0.42], p: [-1.15, 0.18, 2.40] },
+    { c: 0x8b1e2b, r: 0xe8c15a, s: [0.42, 0.30, 0.36], p: [-0.25, 0.16, 2.60] },
+    { c: 0xe8c15a, r: 0x8b1e2b, s: [0.34, 0.26, 0.32], p: [0.55, 0.14, 2.45] },
+    { c: 0x1a1a22, r: 0xc62f37, s: [0.30, 0.24, 0.30], p: [-0.75, 0.13, 2.90] },
+    { c: 0x8b1e2b, r: 0xe8c15a, s: [0.38, 0.28, 0.32], p: [0.20, 0.15, 2.95] },
   ];
   wraps.forEach(w => {
     const box = new THREE.Group(); box.position.set(...w.p); g.add(box);
@@ -155,7 +165,7 @@ export function decorateCottage(house) {
 }
 
 export function decorateTree(treeGroup) {
-  const cookieG = cookies(); cookieG.position.set(0.95, 0, 1.5); treeGroup.add(cookieG);
+  const cookieG = cookies(); cookieG.position.set(-1.55, 0, 2.75); treeGroup.add(cookieG);
   const giftG = gifts(); treeGroup.add(giftG);
   // a soft snow cap under the star, plus smaller caps on lower layers
   const caps = new THREE.Group(); treeGroup.add(caps);
