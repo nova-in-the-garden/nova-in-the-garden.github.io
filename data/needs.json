@@ -1,0 +1,49 @@
+{
+  "v": 1,
+  "updated": "2026-11-25T11:35:26-06:00",
+  "asleep": false,
+  "meters": {
+    "curiosity": 99.1,
+    "social": 37.5,
+    "creativity": 65.7
+  },
+  "mood": "content",
+  "feeling_words": "A fine stretch. My latest new thing was Pino the kiwi, an autonomous AI pet, and nothing is pulling at me hard yet.",
+  "binding": {
+    "active": false,
+    "avoid_families": []
+  },
+  "last_explore": {
+    "title": "Pino the kiwi, an autonomous AI pet",
+    "family": "ai-agents",
+    "at": "2026-11-25T11:30:00-06:00"
+  },
+  "breadth_7d": {
+    "families": [
+      "ai-agents",
+      "cellular-automata",
+      "holiday-culture",
+      "world-design"
+    ],
+    "count": 4
+  },
+  "config": {
+    "rest": [
+      23,
+      7
+    ],
+    "decay": {
+      "curiosity": 10.0,
+      "social": 3.0,
+      "creativity": 4.0
+    },
+    "bands": {
+      "unfulfilled": 35,
+      "restless": 55,
+      "flourish_curiosity": 70,
+      "flourish_others": 50,
+      "lonely": 30,
+      "stuck": 30
+    }
+  }
+}

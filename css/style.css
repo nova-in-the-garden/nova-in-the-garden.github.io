@@ -460,3 +460,17 @@ body.at-lawn #lawn-hud{display:block}
   #lawn-hud{left:10px;right:10px;width:auto;bottom:calc(64px + env(safe-area-inset-bottom));padding:10px 12px}
   #lawn-hud .lawn-lead{display:none}
 }
+
+/* Nova's mood card (js/needs.js) */
+.needs-card{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:rgba(15,23,51,.7);border:1px solid var(--line)}
+.needs-card .nd-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.needs-card .nd-head b{color:var(--gold);font-size:17px;font-family:Georgia,serif}
+.needs-card .nd-head em{color:var(--muted);font-size:13px;font-style:normal}
+.needs-card .nd-dot{width:11px;height:11px;border-radius:50%;flex:none}
+.needs-card .nd-words{margin:4px 0 10px;font-size:14px;color:#e4dfcf;font-style:italic}
+.needs-card .nd-row{display:grid;grid-template-columns:78px 1fr 28px;gap:8px;align-items:center;margin:5px 0;font-size:13px;color:#d4d0c4}
+.needs-card .nd-bar{height:9px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}
+.needs-card .nd-bar i{display:block;height:100%;border-radius:5px}
+.needs-card .nd-row b{text-align:right;font-weight:600;color:var(--ink)}
+.needs-card .nd-note{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:rgba(140,154,214,.14);border:1px solid rgba(140,154,214,.4);font-size:13px;color:#d9defa}
+.needs-card .nd-last,.needs-card .nd-foot{margin:8px 0 0;font-size:12px}

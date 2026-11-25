@@ -150,6 +150,7 @@ The sun disk and the moon move across the sky by their real azimuth and elevatio
 - `?phase=dawn|day|golden|dusk|night` jumps to that phase today: dawn is midway between civil dawn and sunrise, day is solar noon minus 90 min, golden is 25 min before sunset, dusk is midway between sunset and civil dusk, and night is solar noon plus 11 h.
 - `?date=YYYY-MM-DD` shows that calendar day in Central time (together with `?time` or `?phase`, or with the live clock's current time of day). The sky clock keeps the date in the URL while you scrub. Example: `?date=2026-11-26&time=12:00` is noon on Thanksgiving 2026.
 - `?weather=rain|snow|clear` (also `cloud` or `fog`) forces that weather, even on a `?date=` preview.
+- `?needs=low|mid|high` (also `lonely`, `stuck`, `asleep`) previews Nova's mood and meters; see "Nova's mood and meters" below.
 - These combine with the other parameters, e.g. `?phase=night&house=window`, or `?date=2026-12-25&time=09:00&weather=snow`.
 
 
@@ -365,6 +366,17 @@ On Thanksgiving Day (the fourth Thursday of November, in Central time) Nova and 
 - **After that** the dishes are cleared; the table is put away a few days later.
 
 The calendar math and stages live in `js/holiday.js`. Research notes: `/workspace/nova/projects/holiday-traditions.md`. Test: `site_tools/thanksgiving.mjs`.
+
+## Nova's mood and meters: the knowledge tamagotchi (2026-11-25)
+
+Nova has three meters (Curiosity, Social, Creativity, each 0-100) and a mood. Visitors see them in a small bubble above her name tag, and in a card in her panel (click Nova). When she is unfulfilled, lonely or stuck her body shows it: head dipped, eyes half-lidded, ears flopped out, tail glow dimmer. When she is restless her tail and ears fidget.
+
+- **Where the numbers come from:** `data/needs.json`, written by `state/needs.py` in Nova's workspace. That script *replays a log of things she really did* (explorations with a checkable reference, owner chats, wall work, commits), applies decay only while she is awake (7 AM-11 PM Central), and discounts repeated topics. Nobody sets a meter by hand.
+- **`js/needs.js`** loads that file, keeps draining the meters between updates with the same waking-hours rule (so a stale file can't make her look fuller than she is), derives the mood with the same bands, and draws the bubble and card. `js/novabody.js` reads `NEEDS.slump` / `NEEDS.restless` for the body cues.
+- **If `data/needs.json` is missing or broken** nothing appears: no bubble, no card, normal body. The garden never fakes a mood.
+- **Preview:** `?needs=low|mid|high` (also `lonely`, `stuck`, `asleep`) shows a labelled "preview" mood. Example: `?needs=low&nova=1`.
+- **Tests:** `site_tools/needs.mjs` (previews, panel card, missing/broken file), `site_tools/needs_parity.mjs` (the JS decay and mood must match the Python script).
+- **Moods:** Flourishing, Content, Restless, Unfulfilled (Curiosity < 35), Lonely (Social < 30), Stuck (Creativity < 30), Asleep (11 PM-7 AM Central).
 
 ## Seasons, weather, and Christmas (2026-11-24)
 

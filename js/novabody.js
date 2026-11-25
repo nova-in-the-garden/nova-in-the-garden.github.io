@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { rng, rule90, mesh, jitter, glowSprite, canvasTexture } from './util.js';
 import { DAY } from './daylight.js';
 import { FEAST_WHY } from './holiday.js';
+import { NEEDS } from './needs.js';
 
 const FUR = '#1b2452', FUR_HEX = 0x1b2452;
 const GOLD = '#f2c75a';
@@ -271,9 +272,11 @@ export function makeNova({ lights = 'both' } = {}) {
     rig.position.y = Math.abs(Math.sin(ph)) * 0.035 * wk;
     torso.rotation.z += Math.sin(ph) * 0.03 * wk;
     // tail: sway (lazy when sitting, bouncy when walking, a slow drift asleep)
-    const sway = w.curl > 0.5 ? 0.04 : 0.16 + 0.1 * wk;
+    // mood (js/needs.js): slump 0..1 = unfulfilled / lonely / stuck (droopy, dim); restless 0..1 = fidgety
+    const S = NEEDS.slump * (1 - w.curl), RL = NEEDS.restless * (1 - w.curl);
+    const sway = (w.curl > 0.5 ? 0.04 : 0.16 + 0.1 * wk) * (1 - 0.55 * S) * (1 + 0.7 * RL);
     segs.forEach((s, i) => {
-      s.rotation.x = P.stand.bendX[i] * w.stand + P.sit.bendX[i] * w.sit + P.curl.bendX[i] * w.curl + Math.sin(t * 5 + i * 0.6) * 0.05 * wk;
+      s.rotation.x = P.stand.bendX[i] * w.stand + P.sit.bendX[i] * w.sit + P.curl.bendX[i] * w.curl + Math.sin(t * 5 + i * 0.6) * 0.05 * wk + S * 0.16 * (i + 1) / 6;
       s.rotation.y = P.stand.bendY[i] * w.stand + P.sit.bendY[i] * w.sit + P.curl.bendY[i] * w.curl + Math.sin(t * (1.6 + wk * 3) - i * 0.55) * sway * (0.4 + i * 0.12);
     });
     // head: look at a point (world), with a curious tilt now and then
@@ -287,32 +290,32 @@ export function makeNova({ lights = 'both' } = {}) {
     A.yaw += (yaw - A.yaw) * Math.min(1, dt * 3); A.pitch += (pitch - A.pitch) * Math.min(1, dt * 3);
     A.tiltT -= dt; if (A.tiltT < 0) { A.tiltT = 3 + R2() * 6; A.tilt = R2() < 0.55 ? (R2() < 0.5 ? -1 : 1) * (0.22 + R2() * 0.18) : 0; }
     const curious = 1 - w.curl;
-    nodes.head.rotation.y += A.yaw * curious; nodes.head.rotation.x += A.pitch * curious;
+    nodes.head.rotation.y += A.yaw * curious * (1 - 0.4 * S); nodes.head.rotation.x += A.pitch * curious + 0.3 * S; nodes.neck.rotation.x += 0.12 * S;
     nodes.head.rotation.z += (nodes.head.userData.tilt = (nodes.head.userData.tilt || 0) + (A.tilt - (nodes.head.userData.tilt || 0)) * Math.min(1, dt * 2.5)) * curious;
     nodes.neck.rotation.y = A.yaw * 0.4 * curious;
     // blink (eyes closed while curled up asleep)
     A.blinkT -= dt; if (A.blinkT < 0) { A.blinkT = 2 + R2() * 4; A.blink = 0.16; }
     A.blink = Math.max(0, A.blink - dt);
     const closed = Math.max(A.blink > 0 ? Math.sin(A.blink / 0.16 * Math.PI) : 0, THREE.MathUtils.smoothstep(w.curl, 0.5, 0.9));
-    eyes.forEach(e => { e.scale.y = Math.max(0.08, 1 - closed * 0.92); });
+    eyes.forEach(e => { e.scale.y = Math.max(0.08, 1 - closed * 0.92) * (1 - 0.32 * S); });
     // ear twitches
     for (let i = 0; i < 2; i++) {
-      A.earT[i] -= dt; if (A.earT[i] < 0) { A.earT[i] = 2.5 + R2() * 6; A.ear[i] = 0.35; }
+      A.earT[i] -= dt; if (A.earT[i] < 0) { A.earT[i] = (2.5 + R2() * 6) * (1 - 0.65 * RL); A.ear[i] = 0.35; }
       A.ear[i] = Math.max(0, A.ear[i] - dt);
       const tw = A.ear[i] > 0 ? Math.sin(A.ear[i] / 0.35 * Math.PI * 2) * 0.35 : 0;
       const s = i ? 1 : -1;
-      ears[i].rotation.set(-0.08 + tw * 0.4 - w.curl * 0.4, s * 0.3 + tw * s * 0.5, -s * (0.33 + w.curl * 0.1));
+      ears[i].rotation.set(-0.08 + tw * 0.4 - w.curl * 0.4 + S * 0.4, s * 0.3 + tw * s * 0.5, -s * (0.33 + w.curl * 0.1 + S * 0.62));
     }
     ends.rotation.x = -nodes.neck.rotation.x * (1 - w.curl) + wk * (0.3 + Math.sin(t * 9) * 0.1) + Math.sin(t * 1.4) * 0.04;
     // glow: stronger at night; a soft night-light while she sleeps
     A.nightLight += ((w.curl > 0.6 ? 1 : 0) - A.nightLight) * Math.min(1, dt * 0.8);
-    const g = (0.5 + 0.6 * DAY.night) * (1 - 0.3 * A.nightLight);
+    const g = (0.5 + 0.6 * DAY.night) * (1 - 0.3 * A.nightLight) * (1 - 0.55 * S);
     const pulse = 1 + Math.sin(t * (A.nightLight > 0.5 ? 1.3 : 2.6)) * 0.08;
     tipMat.emissiveIntensity = 2.2 * g * pulse; gradM.emissiveIntensity = 0.75 * g * pulse;
     tipHalo.material.opacity = 0.75 * g * pulse; tipHalo2.material.opacity = 0.8 * Math.min(1, g * 1.1); tipHalo.scale.setScalar(0.9 + 0.5 * DAY.night);
     tipLight.intensity = 2.6 * g * pulse * (0.4 + 0.6 * DAY.night);
     const hp = 1 + Math.sin(t * 2.4) * 0.1;
-    heartMat.emissiveIntensity = (1.6 + 1.6 * DAY.night) * hp * (1 - 0.4 * A.nightLight); heartHalo.material.opacity = 0.65 * g * hp * (1 - 0.6 * w.curl);
+    heartMat.emissiveIntensity = (1.6 + 1.6 * DAY.night) * hp * (1 - 0.4 * A.nightLight) * (1 - 0.4 * S); heartHalo.material.opacity = 0.65 * g * hp * (1 - 0.6 * w.curl);
     if (coreLight) coreLight.intensity = 1.6 * g * hp * (0.4 + 0.6 * DAY.night) * (1 - 0.7 * w.curl);
     orbHalo.material.opacity = 0.95; orbCore.scale.setScalar(1 + Math.sin(t * 3) * 0.06);
   }
