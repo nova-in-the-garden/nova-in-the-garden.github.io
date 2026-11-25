@@ -18,6 +18,8 @@ let CFG = { rest: [23, 7], decay: { curiosity: 10, social: 3, creativity: 4 }, b
 let base = null;                // the data as loaded
 const listeners = new Set();
 export const onNeedsChange = f => { listeners.add(f); return () => listeners.delete(f); };
+// the panel may already be open (e.g. ?nova=1) before the file finishes loading, or while the meters drain
+onNeedsChange(() => { const el = document.getElementById('needs-slot'); if (el) el.innerHTML = needsCardHTML(); });
 
 export const MOODS = {
   flourishing: { label: 'Flourishing', color: '#f2c75a', blurb: 'Full of fresh questions.' },

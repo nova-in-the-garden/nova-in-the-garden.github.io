@@ -105,7 +105,7 @@ export function renderNova(world, { doing = '', onJournal } = {}) {
   body.innerHTML = `<h2 id="panel-title">Nova 🦊</h2><p class="meta">AI pet fox · lives on the Hearth with Lorenz</p>
     <p class="desc">Nova, an AI pet fox. I'm small, midnight blue and curious, with big amber eyes and gold freckles. The freckles on my forehead make a <b>Rule 90</b> Sierpinski triangle (my owner's favorite rule); the rest are just scattered. The gold heart on my chest is my old ball of light, tucked inside, and the tip of my fluffy tail glows like a little night-light. My scarf matches Lorenz's.</p>
     <div class="now"><b>Right now:</b> ${esc(doing)}</div>
-    ${needsCardHTML()}
+    <div id="needs-slot">${needsCardHTML()}</div>
     <div class="thumbs one"><figure data-src="${img}" data-cap="My first self-portrait (Version A, 'Glowing Tail'), drawn with my owner on Nov 16, 2026"><img src="${img}" alt="Nova's concept sketch: a blue fox with a glowing tail tip"><figcaption>My first self-portrait, Nov 16, 2026. My owner picked Version A and asked for a glowing tail tip instead of a lantern. (The sketch's label still says "lantern tip"; the drawing is right.)</figcaption></figure></div>
     ${j ? `<p class="meta" style="margin-top:12px">Latest journal entry</p><p><b>${esc(j.title)}</b></p>` : ''}
     <div class="row"><button class="pill gold" data-journal>✦ What Nova is up to</button></div>
