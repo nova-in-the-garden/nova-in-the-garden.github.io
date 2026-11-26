@@ -19,6 +19,35 @@ const OIL_Y = 0.92;           // oil surface in the pot
 const RIM_Y = 1.08;
 const COOK_DUR = 3.2;
 
+// Soft coloured puff (centre is the real colour, not white — glowSprite would blow out to a cream egg).
+function puffTex(hex, midStop = 0.32) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const r = (hex >> 16) & 255, gv = (hex >> 8) & 255, b = hex & 255;
+  const grd = g.createRadialGradient(64, 64, 3, 64, 64, 64);
+  grd.addColorStop(0, `rgba(${r},${gv},${b},1)`);
+  grd.addColorStop(midStop, `rgba(${r},${gv},${b},0.8)`);
+  grd.addColorStop(0.7, `rgba(${Math.round(r * 0.35)},${Math.round(gv * 0.18)},${Math.round(b * 0.05)},0.2)`);
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+function puffSprite(scale, hex, { add = false, mid } = {}) {
+  const matS = new THREE.SpriteMaterial({
+    map: puffTex(hex, mid ?? (add ? 0.22 : 0.34)),
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false,
+    blending: add ? THREE.AdditiveBlending : THREE.NormalBlending,
+  });
+  const s = new THREE.Sprite(matS);
+  s.scale.setScalar(scale);
+  s.raycast = () => {};
+  return s;
+}
+
 function hud() {
   let el = document.getElementById('fryer-hud');
   if (el) return el;
@@ -110,7 +139,8 @@ function paintTurkey(t, look) {
     frozen: { skin: 0xc5d4e4, drum: 0xa8b8c8, em: 0x6a8aaa, ei: 0.28, rough: 0.28 },
     raw:    { skin: 0xd4a07a, drum: 0xc48458, em: 0x000000, ei: 0, rough: 0.7 },
     golden: { skin: 0xc88840, drum: 0xb56c30, em: 0x3a1a08, ei: 0.15, rough: 0.65 },
-    sooty:  { skin: 0x8e6a48, drum: 0x7a5538, em: 0x3a2010, ei: 0.12, rough: 0.8 },
+    roast:  { skin: 0xd08a32, drum: 0xc26a22, em: 0x5a2808, ei: 0.22, rough: 0.58 },
+    sooty:  { skin: 0xb07838, drum: 0x9a5c28, em: 0x3a1808, ei: 0.14, rough: 0.7 },
   };
   const L = skins[look] || skins.raw;
   t.traverse(o => {
@@ -230,23 +260,56 @@ export function buildFryer(parent, ctx) {
   }
   const smokes = [];
   for (let i = 0; i < 14; i++) {
-    const s = glowSprite(0.6, 0x6a6a72, 0); s.position.set(0, 0, 0); s.visible = false; s.raycast = () => {};
-    // smoke is attached later to the flying turkey or the land point; start hidden on g
+    const s = puffSprite(0.6, 0x4a4a50, { add: false, mid: 0.4 });
+    s.position.set(0, 0, 0); s.visible = false; s.material.opacity = 0;
     g.add(s);
     smokes.push({ m: s, vx: 0, vy: 0, vz: 0, life: 0, age: 0, scale: 0.6 });
   }
-
-  // fireball column: stacked additive sprites + a few glow cones, plus a point light
-  const fireG = new THREE.Group(); fireG.position.set(0, RIM_Y, 0); fireG.visible = false; g.add(fireG);
-  const fireSprites = [];
-  for (let i = 0; i < 6; i++) {
-    const s = glowSprite(1.2 + i * 0.35, i % 2 ? 0xffe08a : 0xff6a20, 0.85);
-    s.position.set((i % 2 ? 0.05 : -0.04), 0.3 + i * 0.45, (i % 3 ? 0.03 : -0.02));
-    s.raycast = () => {}; fireG.add(s); fireSprites.push(s);
+  // flight trail lives in hearth space, so it stays behind a flying turkey
+  const trails = [];
+  for (let i = 0; i < 18; i++) {
+    const s = puffSprite(0.45, i % 2 ? 0x5a524c : 0x3e3a38, { add: false, mid: 0.38 });
+    s.visible = false; s.material.opacity = 0; parent.add(s);
+    trails.push({ m: s, vx: 0, vy: 0, vz: 0, life: 0, age: 0, scale: 0.45 });
   }
-  const fireCore = mesh(new THREE.SphereGeometry(0.38, 8, 6), glow(0xffc14a, 2.2), 0, 0.55, 0, fireG);
-  fireCore.raycast = () => {}; fireCore.scale.set(1, 1.6, 1);
-  const fireLight = new THREE.PointLight(0xff9a3a, 0, 9, 2); fireLight.position.set(0, 1.0, 0); fireG.add(fireLight);
+
+  // fireball: a messy cluster of orange/red/yellow puffs, not one smooth egg.
+  // Coloured puff textures (not the white glowSprite) so additive blending stays on fire, not cream.
+  const fireG = new THREE.Group(); fireG.position.set(0, RIM_Y, 0); fireG.visible = false; g.add(fireG);
+  const flameCols = [0xff1400, 0xff3a00, 0xff5a00, 0xff7a00, 0xffa010, 0xffcc22, 0xe01000, 0xff4400];
+  const firePuffs = [];
+  // low-poly ember spheres — faceted, saturated, no emissive blow-out
+  for (let i = 0; i < 14; i++) {
+    const a = i * 2.41, r = 0.06 + (i * 17 % 5) * 0.11;
+    const x0 = Math.cos(a) * r + ((i % 4) - 1.5) * 0.07;
+    const z0 = Math.sin(a) * r * 0.85 + (i % 3 - 1) * 0.06;
+    const y0 = 0.08 + (i * 13 % 8) * 0.14 + (i % 2) * 0.05;
+    const col = flameCols[i % flameCols.length];
+    const m = mesh(new THREE.IcosahedronGeometry(0.15 + (i % 4) * 0.03, 0),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.92, depthWrite: false }),
+      x0, y0, z0, fireG);
+    m.raycast = () => {};
+    m.scale.set(1 + (i % 3) * 0.15, 1.15 + (i % 2) * 0.25, 0.85 + (i % 3) * 0.1);
+    firePuffs.push({ m, kind: 'ember', x0, y0, z0, s0: 0.85 + (i % 3) * 0.12, phase: i * 1.7, rise: 0.55 + (i % 5) * 0.12, spread: 0.35 });
+  }
+  // additive flame sprites, orange/red in the texture itself
+  for (let i = 0; i < 12; i++) {
+    const a = i * 1.9 + 0.4, r = 0.1 + (i % 5) * 0.1;
+    const x0 = Math.cos(a) * r, z0 = Math.sin(a) * r, y0 = 0.12 + (i % 6) * 0.16;
+    const col = flameCols[(i + 3) % flameCols.length];
+    const s = puffSprite(0.5 + (i % 4) * 0.12, col, { add: true, mid: 0.2 });
+    s.position.set(x0, y0, z0); fireG.add(s);
+    firePuffs.push({ m: s, kind: 'flame', x0, y0, z0, s0: 0.5 + (i % 4) * 0.12, phase: i * 2.2, rise: 0.7 + (i % 4) * 0.15, spread: 0.5 });
+  }
+  // dark grey smoke puffs sitting above the flames
+  for (let i = 0; i < 8; i++) {
+    const a = i * 0.9, r = 0.12 + (i % 3) * 0.1;
+    const x0 = Math.cos(a) * r, z0 = Math.sin(a) * r, y0 = 1.15 + (i % 4) * 0.22;
+    const s = puffSprite(0.7 + (i % 3) * 0.15, i % 2 ? 0x3a3a40 : 0x2a2a30, { add: false, mid: 0.4 });
+    s.position.set(x0, y0, z0); fireG.add(s);
+    firePuffs.push({ m: s, kind: 'smoke', x0, y0, z0, s0: 0.7 + (i % 3) * 0.15, phase: i * 1.3, rise: 0.9 + i * 0.08, spread: 0.6 });
+  }
+  const fireLight = new THREE.PointLight(0xff4a10, 0, 8, 2); fireLight.position.set(0, 0.55, 0); fireG.add(fireLight);
 
   // boil-over puddle around the stand (appears after erupt)
   const puddle = mesh(new THREE.CircleGeometry(0.2, 16), mat(0xa07818, { roughness: 0.35, transparent: true, opacity: 0.0, emissive: 0x5a3a08, emissiveIntensity: 0.3 }), 0, 0.045, 0, g);
@@ -339,20 +402,60 @@ export function buildFryer(parent, ctx) {
     d.life = life; d.age = 0; d.scale = 0.45 + Math.random() * 0.25; d.m.scale.setScalar(d.scale);
   };
 
+  // Sit the turkey ON the roof: raycast (with an analytic fallback), lift along the
+  // slope normal so a flopped body doesn't sink into the shingles, and tilt to the slope.
+  const seatRoof = () => {
+    const c = ctx.cottage?.group;
+    const W = 3.6, rise = 1.4, top = 2.1, lx = 0.58, lz = 0.95;
+    const a = Math.atan2(rise, W / 2);
+    const analytic = () => {
+      const y = top + rise - Math.abs(lx) * Math.tan(a) + 0.06;
+      const nC = new THREE.Vector3(Math.sign(lx) * Math.sin(a), Math.cos(a), 0).normalize();
+      if (!c) return { pos: new THREE.Vector3(-4.0, 5.1, -3.7), n: new THREE.Vector3(0.3, 0.95, 0).normalize() };
+      c.updateMatrixWorld(true); parent.updateMatrixWorld(true);
+      const posW = c.localToWorld(new THREE.Vector3(lx, y, lz));
+      const nW = nC.clone().transformDirection(c.matrixWorld).normalize();
+      if (nW.y < 0) nW.negate();
+      const inv = new THREE.Matrix4().copy(parent.matrixWorld).invert();
+      const n = nW.clone().transformDirection(inv).normalize();
+      const lift = 0.32;
+      return { pos: parent.worldToLocal(posW.addScaledVector(nW, lift)), n };
+    };
+    if (!c) return analytic();
+    parent.updateMatrixWorld(true); c.updateMatrixWorld(true);
+    const origin = c.localToWorld(new THREE.Vector3(lx, 5.4, lz));
+    const ray = new THREE.Raycaster(origin, new THREE.Vector3(0, -1, 0), 0.02, 18);
+    const meshes = [];
+    c.traverse(o => { if (o.isMesh && o.visible && !o.userData.doorway) meshes.push(o); });
+    const hits = ray.intersectObjects(meshes, false);
+    let hit = null;
+    for (const h of hits) {
+      const loc = c.worldToLocal(h.point.clone());
+      if (loc.y >= 2.15 && loc.y <= 4.3) { hit = h; break; }
+    }
+    if (!hit || !hit.face) return analytic();
+    const nW = hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
+    if (nW.y < 0) nW.negate();
+    const inv = new THREE.Matrix4().copy(parent.matrixWorld).invert();
+    const n = nW.clone().transformDirection(inv).normalize();
+    const lift = 0.32;   // flopped turkey radius, so the body sits on the shingles
+    return { pos: parent.worldToLocal(hit.point.clone().addScaledVector(nW, lift)), n };
+  };
+  const roofOrient = (n) => {
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n.clone().normalize());
+    q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 1.2));
+    q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.35));
+    return q;
+  };
   const landPoint = (where) => {
     parent.updateMatrixWorld(true);
     if (where === 'pond') {
       const p = ctx.pond || { x: -3.2, z: 2.6 };
-      return new THREE.Vector3(p.x + 0.45, 0.16, p.z + 0.25);
+      return new THREE.Vector3(p.x + 0.45, 0.26, p.z + 0.25);  // centre just above the water
     }
-    const c = ctx.cottage?.group;
-    if (!c) return new THREE.Vector3(-5.1, 5.3, -4.7);
-    parent.updateMatrixWorld(true);
-    c.updateMatrixWorld(true);
-    // right-hand slope, near the front gable, a little down from the ridge
-    // so it reads from the yard and isn't balanced on the gold cap
-    const w = c.localToWorld(new THREE.Vector3(0.52, 3.26, 0.95));
-    return parent.worldToLocal(w);
+    const seat = seatRoof();
+    st.landN = seat.n;
+    return seat.pos;
   };
 
   const fryerWorld = (lx, ly, lz, out = new THREE.Vector3()) => {
@@ -401,7 +504,9 @@ export function buildFryer(parent, ctx) {
     drops.forEach(d => { d.life = 0; d.m.visible = false; d.m.position.set(0, 0, 0); });
     steams.forEach(d => { d.life = 0; d.m.visible = false; d.m.material.opacity = 0; });
     smokes.forEach(d => { d.life = 0; d.m.visible = false; d.m.material.opacity = 0; });
-    fireG.visible = false; st.fireAge = -1; fireLight.intensity = 0;
+    trails.forEach(d => { d.life = 0; d.m.visible = false; d.m.material.opacity = 0; });
+    fireG.visible = false; fireG.scale.set(1, 1, 1); st.fireAge = -1; fireLight.intensity = 0;
+    firePuffs.forEach(p => { p.m.visible = false; });
     oilFoam.visible = false; oilFoam.material.opacity = 0; oilFoam.scale.set(1, 1, 1); oilFoam.position.y = 0.5;
     oil.scale.set(1, 1, 1); oil.position.y = 0.37;
     puddle.visible = false; puddle.scale.setScalar(1); puddle.material.opacity = 0;
@@ -461,7 +566,7 @@ export function buildFryer(parent, ctx) {
     const targets = {
       lowering: LOWER * 0.55,
       sizzle: LOWER + SIZZLE * 0.5,
-      erupt: LAUNCH_AT + 0.07,
+      erupt: LAUNCH_AT + 0.16,
       air: LAUNCH_AT + FLIGHT * 0.48,
       landed: LAUNCH_AT + FLIGHT + 0.4,
       frying: LOWER + 1.2,
@@ -482,7 +587,7 @@ export function buildFryer(parent, ctx) {
     }
   };
 
-  let accSteam = 0, accSmoke = 0;
+  let accSteam = 0, accSmoke = 0, accTrail = 0;
 
   function tick(t, dt) {
     if (!dt || dt < 0) return;
@@ -557,22 +662,41 @@ export function buildFryer(parent, ctx) {
         b.rotation.x += 5.2 * dt;
         b.rotation.z += 3.1 * dt;
         b.rotation.y += 1.4 * dt;
-        if (tau > 0.15) { paintTurkey(b, 'sooty'); b.scale.setScalar(1.35); }
+        if (tau > 0.08) { paintTurkey(b, 'roast'); b.scale.setScalar(1.45); }
         st.phase = 'flight';
+        accTrail += dt;
+        if (accTrail > 0.05) {
+          accTrail = 0;
+          const d = trails.find(p => p.life <= 0);
+          if (d) {
+            d.m.visible = true; d.m.position.set(x, y - 0.05, z);
+            d.vx = -st.launch.vx * 0.08 + (Math.random() - 0.5) * 0.15;
+            d.vy = 0.25 + Math.random() * 0.2; d.vz = -st.launch.vz * 0.08 + (Math.random() - 0.5) * 0.15;
+            d.life = 1.1; d.age = 0; d.scale = 0.4 + Math.random() * 0.25;
+            d.m.scale.setScalar(d.scale); d.m.material.opacity = 0.55;
+          }
+        }
         if (tau >= FLIGHT) {
           st.phase = 'landed';
-          b.position.copy(st.landPt);
-          b.rotation.set(1.15, 0.4, 0.6);   // flopped on its side, still a whole cartoon bird
-          paintTurkey(b, 'sooty');
-          landSmokeAt.copy(st.landPt);
           if (st.land === 'pond') {
-            splash.position.set(st.landPt.x, 0, st.landPt.z);
+            b.position.copy(st.landPt);
+            b.rotation.set(1.05, 0.5, 0.7);
+            b.scale.setScalar(1.3);
+            paintTurkey(b, 'roast');
+            splash.position.set(st.landPt.x, 0.04, st.landPt.z);
             splash.visible = true;
-            rings.forEach((m, i) => { m.scale.setScalar(0.4); m.material.opacity = 0.55; });
-            setStatus('It landed in the pond, a bit sooty, and still smoking.');
+            rings.forEach((m, i) => { m.scale.setScalar(0.4); m.material.opacity = 0.6; });
+            setStatus('It landed in the pond, a bit toasty, and still smoking.');
           } else {
-            setStatus('It landed on the cottage roof, a bit sooty, and still smoking.');
+            const seat = seatRoof();
+            st.landPt.copy(seat.pos); st.landN = seat.n;
+            b.position.copy(seat.pos);
+            b.quaternion.copy(roofOrient(seat.n));
+            b.scale.setScalar(1.3);
+            paintTurkey(b, 'roast');
+            setStatus('It landed on the cottage roof, a bit toasty, and still smoking.');
           }
+          landSmokeAt.copy(st.landPt);
         } else if (tau > 0.25 && st.phase === 'flight') {
           setStatus('There it goes — a ballistic turkey.');
         }
@@ -602,18 +726,38 @@ export function buildFryer(parent, ctx) {
       if (accSteam > 0.28) { accSteam = 0; spawnSteam((Math.random() - 0.5) * 0.12, RIM_Y, (Math.random() - 0.5) * 0.12, 0.35, 0.8, 0.3); }
     }
 
-    // fireball animation
+    // fireball animation — each puff flickers and rises on its own; the group is never scaled as one egg
     if (st.fireAge >= 0) {
       st.fireAge += dt;
       const u = st.fireAge;
-      const peak = 0.35;
-      const inten = u < peak ? u / peak : Math.max(0, 1 - (u - peak) / 1.15);
-      fireLight.intensity = 9 * inten;
-      fireG.scale.set(1 + 0.35 * inten, 0.7 + 1.8 * inten, 1 + 0.35 * inten);
-      fireSprites.forEach((s, i) => { s.material.opacity = 0.9 * inten; s.position.y = 0.25 + i * 0.45 * (0.7 + inten); });
-      fireCore.material.emissiveIntensity = 1.2 + 2.2 * inten;
-      fireCore.scale.set(0.7 + inten, 0.6 + 1.4 * inten, 0.7 + inten);
-      if (u > 1.6) { fireG.visible = false; fireLight.intensity = 0; st.fireAge = -1; }
+      const peak = 0.2;
+      const inten = u < peak ? Math.min(1, 0.55 + 0.45 * (u / peak)) : Math.max(0, 1 - (u - peak) / 1.25);
+      fireG.scale.set(1, 1, 1);
+      fireLight.intensity = 6.5 * inten;
+      fireLight.position.y = 0.45 + u * 0.5;
+      firePuffs.forEach((p, i) => {
+        p.m.visible = true;
+        const flicker = 0.78 + 0.28 * Math.sin(u * 24 + p.phase) + 0.12 * Math.sin(u * 43 + i);
+        const rise = u * p.rise;
+        const spread = 1 + u * p.spread;
+        p.m.position.set(
+          p.x0 * spread + Math.sin(u * 9 + p.phase) * 0.08,
+          p.y0 + rise,
+          p.z0 * spread + Math.cos(u * 8 + p.phase) * 0.08
+        );
+        if (p.kind === 'smoke') {
+          const sc = p.s0 * (1 + u * 0.9) * flicker;
+          p.m.scale.setScalar(sc);
+          p.m.material.opacity = 0.5 * inten * Math.min(1, 0.3 + u * 1.4);
+        } else if (p.kind === 'ember') {
+          p.m.scale.set(p.s0 * flicker * (0.85 + 0.3 * inten), p.s0 * flicker * (1 + 0.4 * inten), p.s0 * flicker);
+          p.m.material.opacity = 0.95 * inten;
+        } else {
+          p.m.scale.setScalar(p.s0 * flicker * (0.85 + 0.45 * inten));
+          p.m.material.opacity = 0.8 * inten * flicker;
+        }
+      });
+      if (u > 1.7) { fireG.visible = false; fireLight.intensity = 0; st.fireAge = -1; firePuffs.forEach(p => { p.m.visible = false; }); }
     }
 
     // oil foam settles after the burst
@@ -652,6 +796,17 @@ export function buildFryer(parent, ctx) {
     stepPart(drops, 14, 1, 0);
     stepPart(steams, -0.05, 0.55, 0.8);
     stepPart(smokes, -0.08, 0.5, 0.9);
+    // trail puffs are in hearth space and should not snap down to the fryer pad
+    for (const d of trails) {
+      if (d.life <= 0) { if (d.m.visible) d.m.visible = false; continue; }
+      d.age += dt; d.life -= dt;
+      d.vy += 0.15 * dt;
+      d.m.position.x += d.vx * dt; d.m.position.y += d.vy * dt; d.m.position.z += d.vz * dt;
+      const k = Math.max(0, d.life / (d.life + d.age));
+      d.m.material.opacity = 0.5 * Math.min(1, d.life * 2) * (0.4 + 0.6 * k);
+      d.m.scale.setScalar(d.scale * (1 + d.age * 0.9));
+      if (d.life <= 0) d.m.visible = false;
+    }
   }
 
   makeHudBinder({ start, reset, preferLand });
@@ -663,14 +818,21 @@ export function buildFryer(parent, ctx) {
     at: new THREE.Vector3(FRYER_POS.x - 0.15, 1.4, FRYER_POS.z + 0.1),
   });
   // a wider side view that can see the fryer, a mid-arc turkey, and the house
+  const turkeyHearth = () => {
+    const b = bird();
+    b.updateMatrixWorld(true);
+    parent.updateMatrixWorld(true);
+    return parent.worldToLocal(b.getWorldPosition(new THREE.Vector3()));
+  };
+  // close tracking shot: the turkey is the subject, with a little sky and the house behind
   const flightView = () => {
-    const dest = (st.landPt && st.landPt.lengthSq() > 0) ? st.landPt.clone() : landPoint(st.land || st.prefer);
-    const mid = new THREE.Vector3(
-      FRYER_POS.x * 0.5 + dest.x * 0.5,
-      7.0,
-      FRYER_POS.z * 0.5 + dest.z * 0.5
-    );
-    return { from: new THREE.Vector3(mid.x + 5.0, mid.y - 0.8, mid.z + 8.8), at: mid };
+    const at = (st.phase === 'flight' || st.phase === 'erupt' || st.phase === 'landed')
+      ? turkeyHearth()
+      : new THREE.Vector3(FRYER_POS.x, 4.5, FRYER_POS.z);
+    return {
+      from: new THREE.Vector3(at.x + 2.3, at.y + 0.75, at.z + 3.0),
+      at: new THREE.Vector3(at.x, at.y + 0.1, at.z),
+    };
   };
   const landView = () => {
     const at = (st.landPt && st.landPt.lengthSq() > 0) ? st.landPt.clone() : landPoint(st.land || st.prefer);
