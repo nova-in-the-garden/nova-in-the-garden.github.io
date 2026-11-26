@@ -85,12 +85,12 @@ const v3 = a => new THREE.Vector3(...a);
 const skyU = {
   uTop: { value: v3([0.012, 0.02, 0.07]) }, uDeep: { value: v3([0.10, 0.07, 0.16]) }, uMid: { value: v3([0.04, 0.06, 0.17]) }, uLow: { value: v3([0.10, 0.07, 0.16]) }, uBand: { value: v3([0.0875, 0.063, 0.0175]) },
   uSunDir: { value: new THREE.Vector3(0, -1, 0) }, uSunCol: { value: v3([1, 0.8, 0.5]) }, uSunGlow: { value: 0 }, uTwi: { value: 0 },
-  uCloud: { value: 0 }, uCloudCol: { value: v3([1, 1, 1]) }, uTime: { value: 0 }, uSpace: { value: 0 },
+  uCloud: { value: 0 }, uCloudCol: { value: v3([1, 1, 1]) }, uTime: { value: 0 }, uSpace: { value: 0 }, uRays: { value: 0 }, uNight: { value: 0 },
 };
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
   vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader: `uniform vec3 uTop, uMid, uLow, uDeep, uBand, uSunDir, uSunCol, uCloudCol; uniform float uSunGlow, uTwi, uCloud, uTime, uSpace; varying vec3 vP;
+  fragmentShader: `uniform vec3 uTop, uMid, uLow, uDeep, uBand, uSunDir, uSunCol, uCloudCol; uniform float uSunGlow, uTwi, uCloud, uTime, uSpace, uRays, uNight; varying vec3 vP;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f); return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
     float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 4; i++){ v += a*noise(p); p = p*2.03 + vec2(1.7, 9.2); a *= .5; } return v; }
@@ -102,6 +102,36 @@ const skyMat = new THREE.ShaderMaterial({
     float toward = max(0., dot(hz, sz));
     c += uBand * 2.2 * pow(toward, 3.) * pow(max(0., 1. - abs(h - 0.03) * 3.), 2.) * uTwi;
     c += uSunCol * (pow(sd, 6.) * 0.22 + pow(sd, 60.) * 0.7) * uSunGlow;
+    // golden hour: soft sunbeams fanning out from a low sun (periodic in angle, so no seam)
+    if (uRays > 0.01 && h > -0.05) {
+      vec3 sr = normalize(cross(uSunDir, vec3(0., 1., 0.)) + vec3(1e-4, 0., 0.)), su = cross(sr, uSunDir);
+      vec3 off = d - uSunDir * dot(d, uSunDir); float ang = atan(dot(off, su), dot(off, sr));
+      float dist = acos(clamp(dot(d, uSunDir), -1., 1.));
+      float beams = smoothstep(0.42, 0.85, noise(vec2(cos(ang), sin(ang)) * 4.5 + vec2(uTime * 0.03, -uTime * 0.02)));
+      float fall = exp(-dist * 2.4) * smoothstep(0.04, 0.16, dist) * smoothstep(-0.05, 0.06, h);
+      c += uSunCol * beams * fall * uRays * 0.32 * (1. - smoothstep(0.7, 0.95, uCloud));
+    }
+    // a high, thin cirrus layer drifting the other way, above the puffy clouds
+    if (h > 0.0) {
+      vec2 cu = d.xz / (h + 0.35) * vec2(0.55, 2.3) + vec2(-uTime * 0.004, uTime * 0.0012);
+      float cn = fbm(cu * 1.3 + 11.);
+      float ca = smoothstep(0.56, 0.86, cn) * (0.22 + 0.45 * uCloud) * smoothstep(0.03, 0.3, h) * (1. - uSpace);
+      vec3 ccol = mix(uCloudCol, uSunCol, 0.3 * uTwi) * (0.9 + 0.2 * pow(sd, 4.) * uSunGlow);
+      c = mix(c, ccol, ca * 0.5);
+    }
+    // a shooting star now and then on clear nights
+    if (uNight > 0.3 && h > 0.12) {
+      float per = 9.0, sid = floor(uTime / per), f = mod(uTime, per);
+      if (hash(vec2(sid, 3.1)) > 0.4 && f < 1.1) {
+        vec2 A = (vec2(hash(vec2(sid, 1.)), hash(vec2(sid, 2.))) - 0.5) * 1.4;
+        vec2 dir = normalize(vec2(hash(vec2(sid, 5.)) - 0.5, hash(vec2(sid, 6.)) - 0.5));
+        vec2 q = d.xz / (h + 0.25);
+        vec2 P = A + dir * f * 0.8, T = P - dir * 0.22;
+        vec2 pa = q - T, ba = P - T; float k = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.);
+        float ln = length(pa - ba * k);
+        c += vec3(1., 0.93, 0.75) * smoothstep(0.007, 0.0, ln) * k * (1. - f / 1.1) * (uNight - 0.3) * 2.2 * (1. - uCloud);
+      }
+    }
     if (uCloud > 0.01 && h > 0.0) {
       vec2 uv = d.xz / (h + 0.14) * 1.3 + vec2(uTime * 0.006, uTime * 0.002);
       float n = fbm(uv);
@@ -886,6 +916,7 @@ function applySky(date) {
   tmpC.setHex(p.sunCol); skyU.uSunCol.value.set(tmpC.r ** 0.4545, tmpC.g ** 0.4545, tmpC.b ** 0.4545);
   skyU.uSunGlow.value = THREE.MathUtils.smoothstep(el, -9, 3) * (1 - 0.45 * THREE.MathUtils.clamp(el / 12, 0, 1));
   skyU.uTwi.value = Math.max(0, 1 - Math.abs(el + 3) / 9);
+  skyU.uRays.value = THREE.MathUtils.smoothstep(el, -1.5, 2) * (1 - THREE.MathUtils.smoothstep(el, 7, 15)); skyU.uNight.value = p.stars;
   starMat.uniforms.uFade.value = p.stars;
   // sun disk + halos
   const sunUp = THREE.MathUtils.smoothstep(el, -2.5, 1.5);
