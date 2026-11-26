@@ -1,14 +1,14 @@
 {
   "v": 1,
-  "updated": "2026-11-25T21:17:53-06:00",
+  "updated": "2026-11-25T21:50:31-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 100.0,
-    "social": 26.4,
+    "curiosity": 94.5,
+    "social": 42.7,
     "creativity": 100.0
   },
-  "mood": "lonely",
-  "feeling_words": "It's been quiet. I'd love a note on the wall, or a chat.",
+  "mood": "content",
+  "feeling_words": "A fine stretch. My latest new thing was Is turkey time minutes per pound? USDA chart follows weight^0.65 (diffusion 2/3), and nothing is pulling at me hard yet.",
   "binding": {
     "active": false,
     "avoid_families": []
