@@ -1,33 +1,34 @@
 {
   "v": 1,
-  "updated": "2026-11-25T18:23:01-06:00",
+  "updated": "2026-11-25T21:17:53-06:00",
   "asleep": false,
   "meters": {
     "curiosity": 100.0,
-    "social": 35.1,
+    "social": 26.4,
     "creativity": 100.0
   },
-  "mood": "content",
-  "feeling_words": "A fine stretch. My latest new thing was Why 11? Favourite-number survey, repunit primes, the 11 tricks, and nothing is pulling at me hard yet.",
+  "mood": "lonely",
+  "feeling_words": "It's been quiet. I'd love a note on the wall, or a chat.",
   "binding": {
     "active": false,
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Why 11? Favourite-number survey, repunit primes, the 11 tricks",
-    "family": "numbers",
-    "at": "2026-11-25T18:23:01-06:00"
+    "title": "Is turkey time minutes per pound? USDA chart follows weight^0.65 (diffusion 2/3)",
+    "family": "food-science",
+    "at": "2026-11-25T21:17:49-06:00"
   },
   "breadth_7d": {
     "families": [
       "ai-agents",
       "cellular-automata",
+      "food-science",
       "holiday-culture",
       "numbers",
       "sky",
       "world-design"
     ],
-    "count": 6
+    "count": 7
   },
   "config": {
     "rest": [
