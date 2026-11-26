@@ -21,6 +21,13 @@ const BIOMES = {
 const BAND = [0xc8323a, 0xf2cd62, 0x9a7ae0, 0xf4ece0, 0x5a8ad8];
 // Rule 30 rows (for the Emergence Grove's moss pattern)
 function rule30Bits(w, rows) { let r = new Array(w).fill(0); r[w >> 1] = 1; const out = []; for (let i = 0; i < rows; i++) { out.push(r); r = r.map((_, j) => { const L = r[(j + w - 1) % w], C = r[j], R = r[(j + 1) % w]; return L ^ (C | R); }); } return out; }
+let _blob = null;
+function blobMap() {
+  if (_blob) return _blob;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 1, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return (_blob = new THREE.CanvasTexture(c));
+}
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function createRealm(cfg, list, { grass = {} } = {}) {
@@ -283,8 +290,17 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     hedge: [new THREE.BoxGeometry(1, 0.7, 1).translate(0, 0.35, 0), lam(0x24553c)],
     berry: [new THREE.IcosahedronGeometry(0.07, 0), lam(0xc8323a, { emissive: 0x401010 })],
     snowcap: [new THREE.SphereGeometry(0.55, 7, 4).scale(1, 0.35, 1).translate(0, 2.55, 0), lam(0xeef2f6)],
+    // r2 detail: baked contact shade under trees and rocks, leaf litter, stepping stones, rail fences, garden lamps
+    aoBlob: [new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2).translate(0, 0.05, 0), new THREE.MeshBasicMaterial({ map: blobMap(), color: 0x05080a, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 })],
+    leaf: [new THREE.PlaneGeometry(0.24, 0.15).rotateX(-Math.PI / 2).translate(0, 0.06, 0), lam(0xffffff, { side: THREE.DoubleSide })],
+    stepStone: [new THREE.CylinderGeometry(0.42, 0.48, 0.12, 7).translate(0, 0.03, 0), lam(0x7a7480)],
+    fpost: [new THREE.BoxGeometry(0.13, 0.95, 0.13).translate(0, 0.47, 0), lam(0x5a3e26)],
+    frail: [new THREE.BoxGeometry(1, 0.07, 0.06), lam(0x6a4a2c)],
+    mpost: [new THREE.CylinderGeometry(0.05, 0.07, 1.15, 5).translate(0, 0.57, 0), lam(0x1b1b24)],
+    mlamp: [new THREE.BoxGeometry(0.24, 0.28, 0.24).translate(0, 1.3, 0), new THREE.MeshBasicMaterial({ color: 0xffd27a })],
   };
-  for (const k in KINDS) KINDS[k][1].userData.gfxKind = k === 'rock' ? 'stone' : k === 'trunk' ? 'wood' : 'soft';
+  KINDS.aoBlob[1].userData.noShadow = true;
+  for (const k in KINDS) KINDS[k][1].userData.gfxKind = k === 'rock' || k === 'stepStone' ? 'stone' : k === 'trunk' || k === 'fpost' || k === 'frail' ? 'wood' : 'soft';
   // a gentle breeze: crowns, tufts and flowers lean with height (instanced, so it's all in the vertex shader)
   const SWAY = { c0: 0.06, c1: 0.06, c2: 0.06, ball: 0.045, tuft: 0.12, flower: 0.12, stem: 0.12, reed: 0.1, cattail: 0.1, glowPlant: 0.1, snowcap: 0.06 };
   for (const k in SWAY) {
@@ -302,14 +318,20 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     m.customProgramCacheKey = () => 'nova-sway-' + k;
   }
   const items = {}; for (const k in KINDS) items[k] = new Map();
-  const SMALL = new Set(['flower', 'stem', 'tuft', 'berry', 'reed', 'cattail', 'shroomStem', 'shroomCap']);   // little things: smaller cells, shown only nearby
+  const SMALL = new Set(['flower', 'stem', 'tuft', 'berry', 'reed', 'cattail', 'shroomStem', 'shroomCap', 'leaf', 'stepStone', 'mpost', 'mlamp']);   // little things: smaller cells, shown only nearby
   const Mx = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), V = new THREE.Vector3();
   function add(kind, x, z, s, sy = s, color = null, y = null, rotY = rnd() * 6.28) {
     const cs = SMALL.has(kind) ? CS / 2 : CS, ck = key(Math.floor(x / cs), Math.floor(z / cs)); const m = items[kind]; if (!m.has(ck)) m.set(ck, []);
     Q.setFromAxisAngle(Y, rotY); V.set(x, y ?? terrain(x, z), z); S.set(s, sy, s); Mx.compose(V, Q, S); m.get(ck).push({ m: Mx.clone(), color });
   }
-  const pine = (x, z, s, tall = 1) => { add('trunk', x, z, s, s * tall); for (const k of ['c0', 'c1', 'c2']) add(k, x, z, s, s * tall); add('snowcap', x, z, s, s * tall); };
-  const roundTree = (x, z, s, col = 0x2f6a46) => { add('trunk', x, z, s); add('ball', x, z, s, s * (0.8 + rnd() * 0.5), col); };
+  function addRaw(kind, x, y, z, rotY, sx, sy, sz, color = null) {
+    const cs = SMALL.has(kind) ? CS / 2 : CS, ck = key(Math.floor(x / cs), Math.floor(z / cs)); const m = items[kind]; if (!m.has(ck)) m.set(ck, []);
+    Q.setFromAxisAngle(Y, rotY); V.set(x, y, z); S.set(sx, sy, sz); Mx.compose(V, Q, S); m.get(ck).push({ m: Mx.clone(), color });
+  }
+  const LEAVES = [0xc8323a, 0xd8742a, 0xe8b040, 0x8a5a2a, 0xb04a2a];
+  const litter = (x, z, r, n) => { for (let q = 0; q < n; q++) { const a = rnd() * 6.28, d = r * (0.35 + rnd() * 0.9); const lx = x + Math.cos(a) * d, lz = z + Math.sin(a) * d; if (roadDist(lx, lz, 3) > 1.8) add('leaf', lx, lz, 0.8 + rnd() * 0.6, 1, pickC(LEAVES)); } };
+  const pine = (x, z, s, tall = 1) => { add('trunk', x, z, s, s * tall); for (const k of ['c0', 'c1', 'c2']) add(k, x, z, s, s * tall); add('snowcap', x, z, s, s * tall); add('aoBlob', x, z, s * 0.85, 1); };
+  const roundTree = (x, z, s, col = 0x2f6a46) => { add('trunk', x, z, s); add('ball', x, z, s, s * (0.8 + rnd() * 0.5), col); add('aoBlob', x, z, s * 0.95, 1); if (rnd() < 0.7) litter(x, z, 1.6 * s + 0.6, 3 + Math.floor(rnd() * 5)); };
   const flower = (x, z, col, s = 1) => { add('stem', x, z, s); add('flower', x, z, s, s, col); };
   const shroom = (x, z, col, s = 1) => { add('shroomStem', x, z, s); add('shroomCap', x, z, s, s, col); };
   const GREENS = [0x3f6b45, 0x4a7a4a, 0x35603c, 0x56804a], pickC = a => a[Math.floor(rnd() * a.length)];
@@ -416,11 +438,44 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     const p = R.pts[k];
     for (let q = 0; q < 2; q++) { const a = rnd() * 6.28, d = 2.4 + rnd() * 6; const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (!free(x, z, 1, 2.2)) continue; rnd() < 0.55 ? flower(x, z, pickC(FLOWERS)) : add('tuft', x, z, 0.8 + rnd() * 0.7, undefined, pickC(GREENS)); }
   }
+  // r2 path props: split-rail fence runs with a garden lamp at each end, stepping-stone trails off the
+  // road, and fairy rings of mushrooms. All instanced, all clear of places, roads, bridges and the river.
+  for (const R of roads) {
+    const pts = R.pts;
+    for (let k0 = 20; k0 < pts.length - 14; k0 += 38) {
+      const side = rnd() < 0.5 ? 1 : -1, run = [];
+      for (let k = k0; k < k0 + 10 && k < pts.length - 1; k++) {
+        const a = pts[k], b = pts[k + 1], dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1;
+        const x = a.x - dz / l * 4.3 * side, z = a.z + dx / l * 4.3 * side;
+        if (!free(x, z, 5, 3.6) || placeDist(x, z).d < 9) break;
+        run.push([x, terrain(x, z), z]);
+      }
+      if (run.length < 4) continue;
+      run.forEach(([x, y, z], i) => {
+        addRaw('fpost', x, y - 0.05, z, 0, 1, 1, 1); solid(x, z, 0.18);
+        if (i) { const [px, py, pz] = run[i - 1], dx = x - px, dz = z - pz, l = Math.hypot(dx, dz), ry = Math.atan2(-dz, dx);
+          for (const hh of [0.38, 0.74]) addRaw('frail', (x + px) / 2, (y + py) / 2 + hh, (z + pz) / 2, ry, l, 1, 1); }
+      });
+      for (const [x, y, z] of [run[0], run[run.length - 1]]) { const ox = x + (rnd() - 0.5) * 0.6, oz = z + (rnd() - 0.5) * 0.6; addRaw('mpost', ox, terrain(ox, oz), oz, 0, 1, 1, 1); addRaw('mlamp', ox, terrain(ox, oz), oz, rnd() * 6.28, 1, 1, 1); }
+    }
+    for (let k0 = 8; k0 < pts.length - 4; k0 += 27) {
+      const a = pts[k0], b = pts[k0 + 1], dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, side = rnd() < 0.5 ? 1 : -1;
+      const nx = -dz / l * side, nz = dx / l * side;
+      for (let q = 0; q < 6; q++) { const d = 2.7 + q * 1.05, w = Math.sin(q * 1.3) * 0.35; const x = a.x + nx * d + dx / l * w, z = a.z + nz * d + dz / l * w;
+        if (!free(x, z, 3, 2.3)) break; addRaw('stepStone', x, terrain(x, z), z, rnd() * 6.28, 0.8 + rnd() * 0.3, 1, 0.8 + rnd() * 0.3, pickC([0x7a7480, 0x6a6672, 0x857e86])); }
+    }
+  }
+  for (let t = 0; t < 140; t++) {
+    const [x, z] = randXZ(); const b = pickBiome(x, z, 0.5).name;
+    if (!(b === 'forest' || b === 'meadow' || b === 'wild' || b === 'glow') || !free(x, z, 4, 3.5)) continue;
+    const n = 7 + Math.floor(rnd() * 5), r = 0.9 + rnd() * 0.7, col = b === 'glow' ? pickC([0x5ad8ff, 0x8a7aff]) : pickC([0xff5a4a, 0xffd27a, 0xf4ece0]);
+    for (let q = 0; q < n; q++) { const a = q / n * 6.28 + rnd() * 0.3; shroom(x + Math.cos(a) * r, z + Math.sin(a) * r, col, 0.8 + rnd() * 0.7); }
+  }
   // what grows in each biome (v is a random 0..1 for this spot)
   function growers() {
     const tree = (x, z) => free(x, z, 6, 5.5), small = (x, z) => free(x, z, 1, 2.2);
     return {
-      wild: (v, x, z) => { if (v < 0.3) small(x, z) && add('tuft', x, z, 0.8 + rnd() * 0.9, undefined, pickC(GREENS)); else if (v < 0.36) small(x, z) && flower(x, z, pickC(FLOWERS)); else if (v < 0.4) tree(x, z) && pine(x, z, 0.6 + rnd() * rnd() * 1.1); else if (v < 0.43) tree(x, z) && roundTree(x, z, 0.5 + rnd() * 0.8, rnd() < 0.1 ? 0x7a3a3a : 0x2f6a46); else if (v < 0.445) small(x, z) && add('rock', x, z, 0.6 + rnd() * 1.4, undefined, 0x55506a); },
+      wild: (v, x, z) => { if (v < 0.3) small(x, z) && add('tuft', x, z, 0.8 + rnd() * 0.9, undefined, pickC(GREENS)); else if (v < 0.36) small(x, z) && flower(x, z, pickC(FLOWERS)); else if (v < 0.4) tree(x, z) && pine(x, z, 0.6 + rnd() * rnd() * 1.1); else if (v < 0.43) tree(x, z) && roundTree(x, z, 0.5 + rnd() * 0.8, rnd() < 0.1 ? 0x7a3a3a : 0x2f6a46); else if (v < 0.445) small(x, z) && (() => { const rs = 0.6 + rnd() * 1.4; add('rock', x, z, rs, undefined, 0x55506a); add('aoBlob', x, z, rs * 0.6, 1); })() },
       meadow: (v, x, z) => { if (v < 0.45) small(x, z) && flower(x, z, pickC(FLOWERS), 1 + rnd() * 0.4); else if (v < 0.8) small(x, z) && add('tuft', x, z, 0.8 + rnd() * 0.7, undefined, pickC(GREENS)); else if (v < 0.84) tree(x, z) && roundTree(x, z, 0.6 + rnd() * 0.6, rnd() < 0.3 ? 0x3f7a3a : 0x2f6a46); },
       forest: (v, x, z) => { if (v < 0.32) tree(x, z) && pine(x, z, 0.9 + rnd() * 0.9, 1.4 + rnd() * 0.6); else if (v < 0.42) small(x, z) && shroom(x, z, pickC([0xff5a4a, 0xffd27a, 0x8ac8ff, 0xff5a4a]), 1 + rnd() * 1.4); else if (v < 0.75) small(x, z) && add('tuft', x, z, 1 + rnd(), 0.8 + rnd() * 0.6, pickC([0x2a5a34, 0x356a3a, 0x24452c])); else if (v < 0.8) small(x, z) && add('rock', x, z, 0.6 + rnd(), undefined, 0x4a6a4a); },
       lookout: (v, x, z) => { if (v < 0.07) small(x, z) && add('rock', x, z, 1 + rnd() * 2.2, undefined, 0x6a6672); else if (v < 0.45) small(x, z) && add('tuft', x, z, 0.7, 0.45, pickC([0x6a7a5a, 0x5a6a50])); else if (v < 0.49) small(x, z) && flower(x, z, 0xf4ece0, 0.8); else if (v < 0.51) tree(x, z) && pine(x, z, 0.5 + rnd() * 0.4); },
@@ -433,7 +488,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     };
   }
   mergeStatic(feat);
-  const snowcapIMs = [], coloredIMs = [];
+  const snowcapIMs = [], coloredIMs = [], leafIMs = [];
   for (const kind in items) for (const [ck, list] of items[kind]) {
     const [g, m] = KINDS[kind]; const im = new THREE.InstancedMesh(g, m, list.length);
     const bases = list.map(it => it.color ?? 0xffffff);
@@ -441,6 +496,8 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.computeBoundingSphere(); im.userData.near = SMALL.has(kind) ? 120 : 255;   // VIEW * 0.85
     im.userData.kind = kind; im.userData.baseColors = bases;
     if (kind === 'snowcap') { im.visible = false; snowcapIMs.push(im); }
+    else if (kind === 'leaf') { leafIMs.push(im); coloredIMs.push(im); }
+    else if (kind === 'aoBlob') { im.renderOrder = 1; im.raycast = () => {}; }
     else coloredIMs.push(im);
     group.add(im); chunked.push(im);
   }
@@ -618,6 +675,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
       else m.color.setHex(m.userData.base || 0x2f6a46);
     }
     for (const im of snowcapIMs) im.visible = snowy;
+    for (const im of leafIMs) im.visible = !snowy;
     recolorTiles();
   }
   // remember summer greens on feature materials
