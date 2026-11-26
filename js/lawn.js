@@ -318,7 +318,7 @@ function makeAnt(parent) {
   }
   for (let i = 0; i < N * N; i++) put(i, 0);
   c.putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NEAREST; tex.minFilter = THREE.NEAREST;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
   const board = mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ map: tex }), 0, 0.12, 0, parent);
   board.rotation.x = -Math.PI / 2;
   const antMesh = mesh(new THREE.SphereGeometry(0.05, 8, 6), glow(0xc8323a, 1.4), 0, 0.2, 0, parent);
