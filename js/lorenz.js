@@ -80,7 +80,7 @@ export function makeLorenz() {
     z.visible = false; root.add(z); zs.push(z);
   }
   root.scale.setScalar(0.42);
-  root.userData = { body, head, feet, ends, zs, headHome: head.position.clone() };
+  root.userData = { body, head, feet, ends, zs, headHome: head.position.clone(), bonkT: 0 };
   return root;
 }
 
@@ -103,9 +103,11 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
       if (target.distanceTo(new THREE.Vector3(center.x, 0, center.z)) > radius) continue;
       if (avoid.every(o => Math.hypot(target.x - o.x, target.z - o.z) > o.r) && (toPond || !tooClose(target.x, target.z))) return;
     }
-    target.set(pond.x, 0, pond.z);
+    if (swimChance() <= 0) target.set(center.x, 0, center.z + Math.min(radius * 0.45, 2));
+    else target.set(pond.x, 0, pond.z);
   };
   pos.set(pond.x + 0.5, 0, pond.z); pick();
+  const goTo = (x, z) => { target.set(x, 0, z); pause = 0; sleep = 0; pos.set(x, pos.y, z); };
   const seatNow = () => { const seat = feast && feast.seat && feast.seat(); if (!seat) return; pos.set(seat.x, seat.y ?? 0.42, seat.z); heading = seat.heading ?? heading; lorenz.rotation.y = heading; sleep = 0; pause = 1; target.set(seat.x, 0, seat.z); };
   // bed: on the grass at the pond's edge, on the side facing the island's middle
   // (main.js can pass a distinct bed so Nova and Lorenz never share a pillow)
@@ -128,6 +130,11 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
     } else sleep = Math.max(0, sleep - dt * 0.8);
     if (wantFeast && seat) { target.set(seat.x, 0, seat.z); pause = 0; }
     const inPond = Math.hypot(pos.x - pond.x, pos.z - pond.z) < pondRadius * 0.9;
+    // too cold to swim: walk out of the pond and don't pick a water target
+    if (!wantSleep && !wantFeast && swimChance() <= 0) {
+      const tgtInPond = Math.hypot(target.x - pond.x, target.z - pond.z) < pondRadius * 0.9;
+      if (tgtInPond) pick();
+    }
     const dx = target.x - pos.x, dz = target.z - pos.z, d = Math.hypot(dx, dz);
     let moving = false, atFeast = false;
     if (wantFeast && seat && d < 0.14) {
@@ -159,9 +166,16 @@ export function lorenzBrain(lorenz, { center, radius, pond, pondRadius, avoid = 
       feet.forEach(f => { f.visible = k < 0.6; });
       zs.forEach((z, i) => { const p = (t * 0.22 + i / 3) % 1; z.visible = k > 0.8; z.position.set(0.5 + p * 0.9, 2.4 + p * 2.2, -0.2 + Math.sin(p * 6 + i) * 0.2); z.scale.setScalar(0.35 + p * 0.5); z.material.opacity = Math.sin(p * Math.PI) * (k - 0.8) * 5; });
     } else { if (!atFeast) { body.position.y = 0; body.rotation.x = inPond ? Math.sin(t * 2.4 + 1) * 0.05 : 0; } head.position.copy(headHome); body.scale.set(1, 1, 1); zs.forEach(z => { z.visible = false; }); }
+    if ((lorenz.userData.bonkT || 0) > 0) {
+      const k = lorenz.userData.bonkT; lorenz.userData.bonkT = Math.max(0, k - dt);
+      body.rotation.z += Math.sin(t * 22) * 0.28 * Math.min(1, k);
+      body.position.y += Math.abs(Math.sin(k * 10)) * 0.12;
+      head.rotation.x -= 0.25 * Math.min(1, k);
+    }
     return { inPond, moving, asleep: sleep > 0.99, atFeast };
   };
   tick.seatNow = seatNow;
+  tick.goTo = goTo;
   tick.bed = bed;
   return tick;
 }

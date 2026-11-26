@@ -170,7 +170,7 @@ function makeParticles(scene) {
 }
 
 export function createWeather(scene) {
-  const override = parseWeatherQuery();
+  let override = parseWeatherQuery();
   let state = applyOverride(override || 'clear', fallbackWeather(new Date()));
   if (!override) state = { ...fallbackWeather(new Date()), source: 'fallback' };
   const parts = makeParticles(scene);
@@ -221,11 +221,19 @@ export function createWeather(scene) {
     }
   }
 
+  function setKind(kind) {
+    if (kind && !KINDS.has(kind)) return state.kind;
+    override = kind || null;
+    if (override) adopt(applyOverride(override, fallbackWeather(new Date())));
+    else adopt({ ...fallbackWeather(new Date()), source: 'fallback' });
+    return state.kind;
+  }
   return {
     get state() { return state; },
     get override() { return override; },
     place: WEATHER_PLACE,
     setFromDate,
+    setKind,
     applySky,
     tick(dt, cam) { parts.tick(dt, cam, state.kind); },
   };

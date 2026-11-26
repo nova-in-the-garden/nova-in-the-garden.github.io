@@ -111,8 +111,13 @@ export function createInteract({
     if (hintEl) {
       const snow = weatherKind() === 'snow';
       hintEl.textContent = snow
-        ? 'Tap Nova to pet her · drag to look around'
+        ? 'Tap Nova · throw snowballs at Lorenz · tap the snowman to build him · drag to look'
         : 'Tap Nova to pet her · tap the grass to feed the birds · drag to look around';
+    }
+    const sc = document.getElementById('play-score');
+    if (sc) {
+      const snow = weatherKind() === 'snow' && inRealm();
+      sc.hidden = !snow;
     }
   }
 

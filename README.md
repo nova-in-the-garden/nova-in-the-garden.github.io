@@ -398,8 +398,9 @@ Visitors in the Realm can tap (not drag) things to play with them. A small hint 
 
 - **Pet Nova.** Tapping the fox makes her wag her tail, perk her ears, bounce a little, and send up floating hearts. The 🦊 Nova chip still opens her bio. Each counted pet is stored by the Visitor Wall worker (`POST /pet`, `GET /pets`): one counted pet per visitor every 30 seconds, and at most 20 per Central-time day. `needs.py pets` (also run from `start` and `check`) syncs new counts into the Social meter with diminishing returns and a daily cap of +15, so pets alone cannot max the meter.
 - **Feed the birds.** Tapping the grass (not a camera drag) drops a small pile of seeds. Some of the flock swoop down, land, and peck; tapping near them or flicking the pointer quickly flushes them back into the air. At most 6 piles at once (4 on medium, 3 on low), and they fade after a short while or once they've been pecked over. Birds stay in the air at night and in rain or snow.
+- **Snowball fight with Lorenz, and a snowman.** In snow (`?weather=snow`, a snowy December day, or the ❄️ Snow chip) a tap throws a snowball in an arc that splats on the ground or on Lorenz (he flinches, and the score ticks up). He often lobs one back. A snowman plot sits in the yard past the pond: tap to roll the base, body and head, then add a carrot nose and a scarf like Lorenz's. If it isn't snowing, the ❄️ Snow chip (or `?weather=snow`) lets it snow.
 
-Code: `js/interact.js`, `js/novabody.js` (`pet()`), `js/life.js`. Tests: `site_tools/pet.mjs`, `site_tools/birds.mjs`.
+Code: `js/interact.js`, `js/novabody.js` (`pet()`), `js/life.js`, `js/snowplay.js`. Tests: `site_tools/pet.mjs`, `site_tools/birds.mjs`, `site_tools/snow.mjs`.
 
 ## Nova's mood and meters: the knowledge tamagotchi (2026-11-25)
 

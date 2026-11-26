@@ -15,6 +15,9 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;font-weight:600;letter-spac
 #play-hud{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom));z-index:4;display:flex;align-items:center;gap:10px;pointer-events:none;max-width:min(560px,calc(100vw - 24px));text-shadow:0 1px 6px #000}
 #play-hud[hidden]{display:none}
 #play-count{flex:none;background:rgba(20,12,18,.55);border:1px solid rgba(255,180,200,.45);color:#ffd0dc;font-weight:700;font-size:13px;padding:3px 9px;border-radius:999px;letter-spacing:.02em}
+#play-score{flex:none;background:rgba(20,28,36,.55);border:1px solid rgba(200,220,255,.4);color:#e8f2ff;font-weight:700;font-size:13px;padding:3px 9px;border-radius:999px}
+#play-score[hidden]{display:none}
+#snow-flash{position:fixed;inset:0;background:#f4f8fc;opacity:0;pointer-events:none;z-index:25;transition:none}
 #play-hint{margin:0;color:var(--muted);font-size:12.5px;line-height:1.3}
 body.in-house #play-hud,body.in-arcade #play-hud,body.walking #play-hud,body.pc-open #play-hud,body.cafe-open #play-hud,body.gs-open #play-hud,body.mu-open #play-hud,body.wl-open #play-hud{display:none}
 #chips{position:fixed;left:0;right:0;bottom:max(12px,env(safe-area-inset-bottom));display:flex;gap:8px;padding:0 14px;overflow-x:auto;scrollbar-width:none;justify-content:center;z-index:4}
@@ -77,8 +80,8 @@ ol.curious{padding-left:1.3em}ol.curious li{margin:8px 0;font-size:14px;color:#d
   #btn-upto{font-size:13px;padding:7px 11px}
   #chips{justify-content:flex-start}
   #hint{font-size:11px;bottom:calc(60px + env(safe-area-inset-bottom))}
-  #play-hud{bottom:calc(60px + env(safe-area-inset-bottom))}
-  #play-hint{font-size:11px}
+  #play-hud{left:10px;transform:none;right:138px;max-width:none;bottom:calc(60px + env(safe-area-inset-bottom));flex-wrap:wrap;gap:6px 8px}
+  #play-hint{font-size:11px;flex:1 1 auto}
   .sheet{top:auto;bottom:0;height:58vh;width:100vw;border-left:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;transform:translateY(105%)}
   .sheet.open{transform:none}
 }
