@@ -41,11 +41,13 @@ export function createSnowPlay({ scene, camera, realm, hearth, lorenz, gfx, inRe
   parts.head = mesh(new THREE.SphereGeometry(0.34, 14, 12), snow, 0, 2.04, 0, group);
   const twig = mat(0x5a3a22, { roughness: 0.9, flatShading: true });
   const arms = new THREE.Group(); group.add(arms); parts.arms = arms;
+  // body is at (0, 1.38, 0), r=0.5; plant each stick inside that surface and angle it out
   for (const s of [-1, 1]) {
-    const arm = mesh(new THREE.CylinderGeometry(0.028, 0.04, 0.85, 5), twig, s * 0.62, 1.48, 0, arms);
-    arm.rotation.z = s * Math.PI / 2.6;
-    const tw = mesh(new THREE.CylinderGeometry(0.016, 0.02, 0.22, 4), twig, s * 0.9, 1.62, 0.05, arms);
-    tw.rotation.set(0.5, 0, s * 0.9);
+    const arm = new THREE.Group();
+    arm.position.set(s * 0.28, 1.50, 0.05);
+    arm.rotation.z = -s * (Math.PI / 2 - 0.22);
+    arms.add(arm);
+    mesh(new THREE.CylinderGeometry(0.018, 0.032, 0.82, 5), twig, 0, 0.41, 0, arm);
   }
   const face = new THREE.Group(); face.position.set(0, 2.04, 0); group.add(face); parts.face = face;
   mesh(new THREE.SphereGeometry(0.035, 8, 6), coal, -0.11, 0.06, 0.28, face);
@@ -191,6 +193,8 @@ export function createSnowPlay({ scene, camera, realm, hearth, lorenz, gfx, inRe
       const b = balls[i]; if (!b.live) continue;
       b.t += dt; b.v.y -= GRAV * dt;
       b.mesh.position.addScaledVector(b.v, dt);
+      // don't fill the lens with a ball that just left the camera
+      b.mesh.visible = b.who !== 'you' || (b.t > 0.2 && b.mesh.position.distanceTo(camera.position) > 1.5);
       const p = b.mesh.position;
       const gy = realm.heightAt(p.x, p.z);
       let hit = null;
