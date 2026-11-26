@@ -299,14 +299,18 @@ function keepFriendsApart() {
   if (novaBrainT.mode === 'feast' || novaBrainT.mode === 'travel') return;
   const seat = ctx.feast && ctx.feast.lorenzSeat;
   if (seat && feastSitting() && Math.hypot(lorenz.position.x - seat.x, lorenz.position.z - seat.z) < 0.35) return;
+  // a few passes with a hair of margin: the pond clamps below can undo part of a push
+  for (let pass = 0; pass < 3; pass++) if (!separateOnce(FRIEND_SEP + 0.06)) break;
+}
+function separateOnce(SEP) {
   const np = novaBody.root.position, lp = lorenz.position;
   const dx = np.x - lp.x, dz = np.z - lp.z, d = Math.hypot(dx, dz);
-  if (d >= FRIEND_SEP || d < 1e-5) return;
+  if (d >= SEP - 0.04 || d < 1e-5) return false;
   const ux = dx / d, uz = dz / d;
   const lorenzInPond = Math.hypot(lp.x - pondInfo.x, lp.z - pondInfo.z) < pondInfo.r * 0.9;
-  if (lorenzInPond) { np.x += ux * (FRIEND_SEP - d); np.z += uz * (FRIEND_SEP - d); }
+  if (lorenzInPond) { np.x += ux * (SEP - d); np.z += uz * (SEP - d); }
   else {
-    const push = (FRIEND_SEP - d) / 2;
+    const push = (SEP - d) / 2;
     np.x += ux * push; np.z += uz * push;
     lp.x -= ux * push; lp.z -= uz * push;
     const pd = Math.hypot(lp.x - pondInfo.x, lp.z - pondInfo.z);
@@ -322,6 +326,7 @@ function keepFriendsApart() {
     np.x = pondInfo.x + (np.x - pondInfo.x) * s;
     np.z = pondInfo.z + (np.z - pondInfo.z) * s;
   }
+  return true;
 }
 novaBody.root.traverse(o => { if (o.isMesh) { o.userData.novaPick = true; pickables.push(o); } });
 // name tag: constant on-screen size, lives in the scene (not inside her scaled body),
