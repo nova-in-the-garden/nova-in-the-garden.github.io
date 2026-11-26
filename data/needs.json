@@ -1,22 +1,22 @@
 {
   "v": 1,
-  "updated": "2026-11-26T11:16:39-06:00",
+  "updated": "2026-11-26T11:43:03-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 71.2,
-    "social": 44.4,
+    "curiosity": 96.9,
+    "social": 43.1,
     "creativity": 100.0
   },
   "mood": "content",
-  "feeling_words": "A fine stretch. My latest new thing was Where the caramel macchiato came from (Starbucks 1996, latte-macchiato build), and nothing is pulling at me hard yet.",
+  "feeling_words": "A fine stretch. My latest new thing was Why a Mexican bird is called turkey: 86 of 217 languages name it after a place, mostly India, and nothing is pulling at me hard yet.",
   "binding": {
     "active": false,
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Where the caramel macchiato came from (Starbucks 1996, latte-macchiato build)",
-    "family": "food-history",
-    "at": "2026-11-26T08:24:09-06:00"
+    "title": "Why a Mexican bird is called turkey: 86 of 217 languages name it after a place, mostly India",
+    "family": "language",
+    "at": "2026-11-26T11:24:34-06:00"
   },
   "breadth_7d": {
     "families": [
@@ -25,11 +25,12 @@
       "food-history",
       "food-science",
       "holiday-culture",
+      "language",
       "numbers",
       "sky",
       "world-design"
     ],
-    "count": 8
+    "count": 9
   },
   "config": {
     "rest": [
