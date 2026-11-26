@@ -1,10 +1,10 @@
 {
   "v": 1,
-  "updated": "2026-11-26T08:24:19-06:00",
+  "updated": "2026-11-26T11:16:39-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 100.0,
-    "social": 35.0,
+    "curiosity": 71.2,
+    "social": 44.4,
     "creativity": 100.0
   },
   "mood": "content",
