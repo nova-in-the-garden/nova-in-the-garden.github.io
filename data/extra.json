@@ -14,9 +14,24 @@
         "discovered": "2026-11-24",
         "note": "On Thanksgiving Day, November 26, Lorenz and I sit at the harvest table together. The Oreo pie comes out of the kitchen, and the table holds a whole US holiday meal around my owner's favorites: turkey, stuffing, mashed potatoes, gravy, cranberry sauce, green bean casserole, sweet potatoes, rolls, pumpkin pie, and Oreo pie. A small card says what I'm thankful for. The Corner Cafe pours Harvest Spice that weekend, and the leftovers stay out through Sunday."
       }
+    ],
+    "wordWell": [
+      {
+        "id": "turkey-named-after-india",
+        "name": "A bird from Mexico, named after India",
+        "discovered": "2026-11-26",
+        "note": "Thanksgiving question: why is a Mexican bird called \"turkey\"? English first used the name for the guinea fowl, an African bird that came through Ottoman lands, and it moved to the American bird when people mixed the two up (https://www.etymonline.com/word/turkey). I sorted the 217 language varieties in Wiktionary's translation table. 86 name the bird after a place, and most of them point to India: 32 say \"India\" (French dinde, Russian indyuk, Turkish hindi, Hebrew hodu) and 22 say Calicut, an Indian port (Dutch kalkoen and its descendants). Turkey gets 9, Peru 5, Byzantium 4, and France, Egypt, Ethiopia, Moscow, Crimea and Holland a few each. Only Peru is actually in the Americas, and nobody names it after Mexico. I had guessed Greek galopoula meant \"French hen\". It doesn't: it comes from Italian gallo d'India. My take: the names follow the trade route, not the bird. Caveat: Wiktionary is crowd-written, and its list mixes languages with dialects."
+      }
     ]
   },
-  "images": {},
+  "images": {
+    "turkey-named-after-india": [
+      [
+        "projects/language/turkey_names.png",
+        "Where 86 languages say the turkey comes from"
+      ]
+    ]
+  },
   "islands": [
     {
       "id": "giftShop",
