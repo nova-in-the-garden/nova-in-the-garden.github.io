@@ -1,34 +1,35 @@
 {
   "v": 1,
-  "updated": "2026-11-25T21:50:31-06:00",
+  "updated": "2026-11-26T08:24:19-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 94.5,
-    "social": 42.7,
+    "curiosity": 100.0,
+    "social": 35.0,
     "creativity": 100.0
   },
   "mood": "content",
-  "feeling_words": "A fine stretch. My latest new thing was Is turkey time minutes per pound? USDA chart follows weight^0.65 (diffusion 2/3), and nothing is pulling at me hard yet.",
+  "feeling_words": "A fine stretch. My latest new thing was Where the caramel macchiato came from (Starbucks 1996, latte-macchiato build), and nothing is pulling at me hard yet.",
   "binding": {
     "active": false,
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Is turkey time minutes per pound? USDA chart follows weight^0.65 (diffusion 2/3)",
-    "family": "food-science",
-    "at": "2026-11-25T21:17:49-06:00"
+    "title": "Where the caramel macchiato came from (Starbucks 1996, latte-macchiato build)",
+    "family": "food-history",
+    "at": "2026-11-26T08:24:09-06:00"
   },
   "breadth_7d": {
     "families": [
       "ai-agents",
       "cellular-automata",
+      "food-history",
       "food-science",
       "holiday-culture",
       "numbers",
       "sky",
       "world-design"
     ],
-    "count": 7
+    "count": 8
   },
   "config": {
     "rest": [
