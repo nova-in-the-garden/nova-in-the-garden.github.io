@@ -26,6 +26,9 @@ import { createGiftShop } from './giftshop.js';
 import { createVisitorCounter, visitorChip } from './visitors.js';
 import { createWall } from './wall.js';
 import { createMuseum } from './museum.js';
+import { createGfx } from './gfx.js';
+import { createGrass } from './grass.js';
+import { createLife } from './life.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA island radius px -> world units
 const world = await fetch('data/world.json').then(r => { if (!r.ok) throw new Error('world.json ' + r.status); return r.json(); });
@@ -36,11 +39,12 @@ const postcardData = await fetch('data/postcards.json').then(r => (r.ok ? r.json
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
 
 const scene = new THREE.Scene();
+const gfx = createGfx(renderer, scene);   // quality tier, soft shadows, bloom, material detail (js/gfx.js)
+renderer.setSize(innerWidth, innerHeight);
 scene.fog = new THREE.FogExp2(0x0a1030, 0.0045);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
 const PORTRAIT = innerWidth < innerHeight;
@@ -247,6 +251,9 @@ planet.build({ grass: GRASS });
 // ---------- the Realm (js/realm.js): the same places laid out flat on one big ground-level world ----------
 // The tiny planet is the map you see from space; tapping a place lands you here.
 const realm = createRealm(world.planet || {}, islands.map(i => ({ id: i.data.id, r: i.r, name: i.data.name, short: i.data.shortName })), { grass: GRASS });
+const grass = createGrass(realm, { density: gfx.T.grass, reach: gfx.T.grass >= 1 ? 42 : 28 });   // swaying blades near you (js/grass.js)
+realm.group.add(grass.group); gfx.onTier(T => grass.setTier(T));
+const life = createLife(realm, { amount: gfx.T.life }); realm.group.add(life.group); gfx.onTier(T => { life.amount = T.life; });   // butterflies + birds (js/life.js)
 scene.add(realm.group);
 pickables.push(...realm.pickables);
 for (const i of islands) {
@@ -332,7 +339,7 @@ function placeNovaTag(dt) {
   const d = camera.position.distanceTo(_np);
   const a = THREE.MathUtils.smoothstep(d, 3, 6) * (1 - THREE.MathUtils.smoothstep(d, 70, 110)) * (flight ? 0.6 : 1) * (!inRealm && planet.hidden(camera.position, _np) ? 0 : 1);
   novaTag.material.opacity = a; novaTag.visible = a > 0.02;
-  needsBubble.place(novaTag.position, novaTag.scale.y, a);
+  needsBubble.place(novaTag.position, novaTag.scale.y, a * (inRealm ? 1 : 1 - THREE.MathUtils.smoothstep(d, 30, 55)));   // from orbit the bubble sat on top of the Hearth's name tag
 }
 
 // ---------- camera flights ----------
@@ -768,7 +775,7 @@ document.querySelector('#viewer .close').onclick = closeViewer;
 document.getElementById('viewer').addEventListener('click', e => { if (e.target.id === 'viewer') closeViewer(); });
 
 addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 66 : 50; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); house.resize(); arcade?.resize();
+  camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 66 : 50; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); gfx.resize(); house.resize(); arcade?.resize();
 });
 addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
@@ -795,7 +802,7 @@ function applyWorldDate(now, force = false) {
   if (!force && sig === worldSig) return;
   worldSig = sig;
   const pal = applyPalette(name, { weatherKind: weather.state.kind });
-  realm.setSeason?.(name, pal, { weatherKind: weather.state.kind });
+  realm.setSeason?.(name, pal, { weatherKind: weather.state.kind }); grass.reset();
   planet.setSeason?.(name);
   skyClock.setWorld?.(name, weather.state);
 }
@@ -824,6 +831,7 @@ function realmFrame(dt) {
   scene.fog.density = fogBase * 1.35;
   const c = camera.position;
   if ((occT -= dt) <= 0) { occT = 2; realmOcc = []; for (const i of islands) if (i.group.visible) i.group.traverse(o => { if (o.userData.museum && !o.parent?.userData.museum) { o.getWorldPosition(_lw); realmOcc.push({ x: _lw.x, z: _lw.z, r: 5 }); } }); }   // the museum annex stands off to the side of the studio
+  grass.snow = realm.snow; grass.update(t, c); life.weather = weather.state.kind; life.update(t, dt, c);
   realm.update(t, dt, c, { occluders: realmOcc, placeVisible: (id, near) => { const i = byId(id); if (i) i.group.visible = near; } });
   for (const o of xray) { o.getWorldPosition(_lw); o.visible = c.distanceTo(_lw) < (walker.active ? 28 : 16); }
   if ((mapT += dt) > 0.05) { mapT = 0; camera.getWorldDirection(_cf); realm.drawMap(mapCtx, 300, 300, c, Math.atan2(_cf.x, -_cf.z), 0.55); }
@@ -883,7 +891,7 @@ function applySky(date) {
   moonU.uAlpha.value = moonUp * (0.45 + 0.55 * p.night); moonMesh.visible = moonUp > 0.001;
   moonHalo.material.opacity = 0.55 * moonUp * p.night * (0.25 + 0.75 * st.moon.illum);
   // lights and fog
-  hemi.color.setHex(p.hemi); hemi.groundColor.setHex(p.ground); hemi.intensity = p.hemiI;
+  hemi.color.setHex(p.hemi); hemi.groundColor.setHex(p.ground); hemi.intensity = p.hemiI * (gfx.T.shadow ? 0.86 : 1);   // with real shadows, a touch less fill so they read
   moon.intensity = p.moonI; warm.intensity = p.warmI;
   sunLight.color.setHex(p.sunCol); sunLight.intensity = p.sunI * THREE.MathUtils.smoothstep(el, -1, 4); LBASE.sun.set(_d[0] * 100, Math.max(_d[1], 0.05) * 100, _d[2] * 100); sunLight.position.copy(LBASE.sun).applyQuaternion(qSky);
   scene.fog.color.setHex(p.fog); fogBase = p.fogD; scene.fog.density = p.fogD; renderer.toneMappingExposure = p.exposure;
@@ -911,10 +919,28 @@ function skyTick(now, force = false) {
 }
 skyTick(performance.now(), true);
 
+// ---------- shadows: the key light's shadow box follows what you're looking at (Realm only) ----------
+const _sf = new THREE.Vector3(), _sc = new THREE.Vector3(), _wsky = new THREE.Color(), _wblue = new THREE.Color(0x2a5a9a);
+let prepT = 0;
+function shadowFrame(dt) {
+  const nowMs = performance.now(); if (nowMs > prepT) { prepT = nowMs + 1000; gfx.prep(scene); }   // new meshes (tiles, holiday props) pick up shadows + detail
+  gfx.tick(t, _wsky.copy(scene.fog.color).lerp(hemi.color, 0.35).lerp(_wblue, 0.45).multiplyScalar(0.5 + 0.35 * DAY.day));
+  gfx.pickKey(sunLight, moon, inRealm);
+  renderer.shadowMap.autoUpdate = inRealm && !!gfx.key;
+  if (!gfx.key) return;
+  let want;
+  if (walker.active || camera.position.distanceTo(controls.target) > 70) {
+    camera.getWorldDirection(_sc); _sc.y = 0; _sc.normalize();
+    _sf.copy(camera.position).addScaledVector(_sc, 22); want = 48;
+  } else { _sf.copy(controls.target); want = camera.position.distanceTo(controls.target) * 1.7 + 6; }
+  if (inRealm) _sf.y = realm.heightAt(_sf.x, _sf.z);
+  gfx.placeShadow(_sf, inRealm ? (gfx.key === moon ? 0.55 : 0.85) : 0, want);
+}
 // ---------- loop ----------
 let last = performance.now(), t = 0;
 function frame() {
   const now = performance.now(); const rawDt = Math.min((now - last) / 1000, 0.25), dt = Math.min(rawDt, 0.05); last = now; t += dt;
+  gfx.watch(rawDt, !document.hidden);
   if (player.isOpen || postcards?.isOpen || cafe.isOpen || giftShop?.isOpen || museum?.isOpen || wall.isOpen) { loopStopped = true; return; } // the 3D world sleeps while a game or the postcard maker is open
   skyTick(now); skyU.uTime.value = t; tickNeeds(dt);
   weather.tick(dt, camera);
@@ -954,7 +980,9 @@ function frame() {
   }
   planetFrame(dt);
   placeSkyBodies(); placeNovaTag(dt);
-  renderer.render(scene, camera);
+  shadowFrame(dt);
+  renderer.render(scene, camera); window.__rinfo = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
+  gfx.afterRender(DAY.night, DAY.day);
   if (viewer?.open) { viewer.oc.update(); viewer.r.render(viewer.s, viewer.cam); }
   requestAnimationFrame(frame);
 }
@@ -964,7 +992,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { needs: NEEDS, visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get season() { return season(clock.now()); }, christmas: { get on() { return christmasOn(clock.now()); }, get stage() { return christmasStage(clock.now()); }, get tree() { return ctx.christmas?.tree?.group || null; } }, weather: { get state() { return weather.state; }, place: weather.place }, friends: { get gap() { const n = novaBody.root.position, l = lorenz.position; return Math.hypot(n.x - l.x, n.z - l.z); }, get beds() { return { nova: { x: novaBed.x, z: novaBed.z }, lorenz: { x: lorenzBed.x, z: lorenzBed.z } }; } }, get lawn() { return ctx.lawn; }, get fryer() { return ctx.fryer; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, ready: true };
+window.nova = { needs: NEEDS, visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get season() { return season(clock.now()); }, christmas: { get on() { return christmasOn(clock.now()); }, get stage() { return christmasStage(clock.now()); }, get tree() { return ctx.christmas?.tree?.group || null; } }, weather: { get state() { return weather.state; }, place: weather.place }, friends: { get gap() { const n = novaBody.root.position, l = lorenz.position; return Math.hypot(n.x - l.x, n.z - l.z); }, get beds() { return { nova: { x: novaBed.x, z: novaBed.z }, lorenz: { x: lorenzBed.x, z: lorenzBed.z } }; } }, get lawn() { return ctx.lawn; }, get fryer() { return ctx.fryer; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, gfx, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;

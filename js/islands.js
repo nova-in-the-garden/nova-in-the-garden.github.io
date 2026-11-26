@@ -386,7 +386,7 @@ function thanksgivingTable(parent, x, z, rot = 0) {
 
 function pond(parent, x, z, r) {
   const water = mesh(new THREE.CircleGeometry(r, 24), new THREE.MeshStandardMaterial({ color: 0x1d3466, emissive: 0x0a1638, roughness: 0.15, metalness: 0.3 }), x, 0.03, z, parent);
-  water.rotation.x = -Math.PI / 2;
+  water.rotation.x = -Math.PI / 2; water.userData.water = true;
   const shore = mesh(new THREE.TorusGeometry(r, 0.12, 5, 28), mat(0x6a6070), x, 0.03, z, parent); shore.rotation.x = Math.PI / 2;
   for (let i = 0; i < 3; i++) { const p = mesh(new THREE.CircleGeometry(0.3, 7), mat(0x3e7a4a), x + Math.cos(i * 2.2) * r * 0.6, 0.05, z + Math.sin(i * 2.2) * r * 0.6, parent); p.rotation.x = -Math.PI / 2; }
   return water;

@@ -133,6 +133,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
   // ---------- ground tiles (smooth, vertex-coloured by biome; built lazily, culled by distance) ----------
   const TS = 128, SEG = 32;
   const tMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const wind = { value: 0 };
   const tiles = new Map();
   const c = new THREE.Color(), cc = new THREE.Color(), acc = new THREE.Color();
   const bed = new THREE.Color(0x3a3324), rockC = new THREE.Color(0x5e5a66), mossC = new THREE.Color(0x2f8a7a);
@@ -164,11 +165,11 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     const ox = (i + 0.5) * TS, oz = (j + 0.5) * TS;
     for (let k = 0; k < pos.count; k++) { const x = pos.getX(k) + ox, z = pos.getZ(k) + oz, y = terrain(x, z); pos.setXYZ(k, x, y, z); groundColor(x, z, y, c); col.set([c.r, c.g, c.b], k * 3); }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals(); geo.computeBoundingSphere();
-    const m = new THREE.Mesh(geo, tMat); m.userData.ground = true; group.add(m); return m;
+    const m = new THREE.Mesh(geo, tMat); m.userData.ground = true; m.receiveShadow = true; group.add(m); return m;
   }
   // beyond the tiles: one big plain (the fog hides its edge)
   const far = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x35603f }));
-  far.position.set((minX + maxX) / 2, -4.2, (minZ + maxZ) / 2); group.add(far);
+  far.userData.ground = true; far.position.set((minX + maxX) / 2, -4.2, (minZ + maxZ) / 2); group.add(far);
 
   // ---------- water ----------
   if (riverPts.length > 1) {
@@ -257,11 +258,19 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
   const lam = (col, o = {}) => new THREE.MeshLambertMaterial({ color: col, flatShading: true, ...o });
   const white = o => lam(0xffffff, o);
   const trunkG = new THREE.CylinderGeometry(0.15, 0.22, 0.9, 6).translate(0, 0.45, 0);
-  const coneGs = [0, 1, 2].map(i => new THREE.ConeGeometry(1.1 - i * 0.28, 1.25, 7).translate(0, 1.15 + i * 0.7, 0));
-  const ballG = new THREE.IcosahedronGeometry(1, 0).translate(0, 1.6, 0);
+  // baked "ambient occlusion": a vertex-colour gradient, darker low down / underneath
+  const shadeY = (g, y0, y1, lo = 0.62) => { g = g.index ? g.toNonIndexed() : g; const p = g.attributes.position, c = new Float32Array(p.count * 3); for (let k = 0; k < p.count; k++) { const v = lo + (1 - lo) * smooth(y0, y1, p.getY(k)); c[k * 3] = c[k * 3 + 1] = c[k * 3 + 2] = v; } g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.computeVertexNormals(); return g; };
+  const mergeG = gs => { const n = gs.reduce((a, g) => a + g.attributes.position.count, 0), P = new Float32Array(n * 3), C = new Float32Array(n * 3); let k = 0; for (const g of gs) { P.set(g.attributes.position.array, k * 3); C.set(g.attributes.color.array, k * 3); k += g.attributes.position.count; } const o = new THREE.BufferGeometry(); o.setAttribute('position', new THREE.BufferAttribute(P, 3)); o.setAttribute('color', new THREE.BufferAttribute(C, 3)); o.computeVertexNormals(); return o; };
+  const coneGs = [0, 1, 2].map(i => shadeY(new THREE.ConeGeometry(1.1 - i * 0.28, 1.25, 7).translate(0, 1.15 + i * 0.7, 0), 0.55 + i * 0.7, 1.5 + i * 0.7, 0.58));
+  // round trees: a main crown with two smaller lumps, so they read as leafy clumps, not single gems
+  const ballG = mergeG([
+    shadeY(new THREE.IcosahedronGeometry(1, 0).translate(0, 1.6, 0), 0.7, 2.4),
+    shadeY(new THREE.IcosahedronGeometry(0.68, 0).rotateY(0.7).translate(0.62, 1.25, 0.25), 0.7, 1.9),
+    shadeY(new THREE.IcosahedronGeometry(0.6, 0).rotateX(0.5).translate(-0.5, 2.05, -0.3), 1.5, 2.6, 0.75),
+  ]);
   const KINDS = {
-    trunk: [trunkG, lam(0x4a3424)], c0: [coneGs[0], lam(0x1f4a35)], c1: [coneGs[1], lam(0x24553c)], c2: [coneGs[2], lam(0x1f4a35)],
-    ball: [ballG, white()], flower: [new THREE.OctahedronGeometry(0.2, 0).translate(0, 0.42, 0), white({ emissive: 0x221a10 })],
+    trunk: [trunkG, lam(0x4a3424)], c0: [coneGs[0], lam(0x1f4a35, { vertexColors: true })], c1: [coneGs[1], lam(0x24553c, { vertexColors: true })], c2: [coneGs[2], lam(0x1f4a35, { vertexColors: true })],
+    ball: [ballG, white({ vertexColors: true })], flower: [new THREE.OctahedronGeometry(0.2, 0).translate(0, 0.42, 0), white({ emissive: 0x221a10 })],
     stem: [new THREE.CylinderGeometry(0.02, 0.02, 0.42, 3).translate(0, 0.21, 0), lam(0x3f6b45)],
     tuft: [new THREE.ConeGeometry(0.16, 0.75, 3).translate(0, 0.37, 0), white()],
     rock: [new THREE.DodecahedronGeometry(0.5, 0), white()],
@@ -275,6 +284,23 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
     berry: [new THREE.IcosahedronGeometry(0.07, 0), lam(0xc8323a, { emissive: 0x401010 })],
     snowcap: [new THREE.SphereGeometry(0.55, 7, 4).scale(1, 0.35, 1).translate(0, 2.55, 0), lam(0xeef2f6)],
   };
+  for (const k in KINDS) KINDS[k][1].userData.gfxKind = k === 'rock' ? 'stone' : k === 'trunk' ? 'wood' : 'soft';
+  // a gentle breeze: crowns, tufts and flowers lean with height (instanced, so it's all in the vertex shader)
+  const SWAY = { c0: 0.06, c1: 0.06, c2: 0.06, ball: 0.045, tuft: 0.12, flower: 0.12, stem: 0.12, reed: 0.1, cattail: 0.1, glowPlant: 0.1, snowcap: 0.06 };
+  for (const k in SWAY) {
+    const m = KINDS[k][1], amp = SWAY[k];
+    m.onBeforeCompile = sh => {
+      sh.uniforms.uWind = wind;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWind;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        { vec3 ip = instanceMatrix[3].xyz; float h = max(0.0, position.y);
+          float w = sin(uWind * 1.1 + ip.x * 0.08 + ip.z * 0.06) * 0.7 + sin(uWind * 2.3 + ip.x * 0.31) * 0.3;
+          transformed.x += w * ${amp.toFixed(3)} * h * h * 0.5; transformed.z += w * ${(amp * 0.5).toFixed(3)} * h * h * 0.5; }
+        #endif`);
+    };
+    m.customProgramCacheKey = () => 'nova-sway-' + k;
+  }
   const items = {}; for (const k in KINDS) items[k] = new Map();
   const SMALL = new Set(['flower', 'stem', 'tuft', 'berry', 'reed', 'cattail', 'shroomStem', 'shroomCap']);   // little things: smaller cells, shown only nearby
   const Mx = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), V = new THREE.Vector3();
@@ -469,7 +495,7 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
   // ---------- per-frame: stream tiles, cull plants, landmarks, fireflies ----------
   const VIEW = 300, LAND = 230;
   function update(t, dt, cam, { placeVisible, occluders: extraOcc } = {}) {
-    const cx = cam.x, cz = cam.z;
+    const cx = cam.x, cz = cam.z; wind.value = t;
     const i0 = Math.floor((Math.max(minX, cx - VIEW)) / TS), i1 = Math.floor((Math.min(maxX, cx + VIEW)) / TS), j0 = Math.floor((Math.max(minZ, cz - VIEW)) / TS), j1 = Math.floor((Math.min(maxZ, cz + VIEW)) / TS);
     let built = 0;
     for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
@@ -597,7 +623,16 @@ export function createRealm(cfg, list, { grass = {} } = {}) {
   // remember summer greens on feature materials
   for (const m of featMats) m.userData.base = m.color.getHex();
 
-  return { group, places, roads, bounds, heightAt, terrain, roadDist, riverDist, river: riverPts, bridges, biomeAt: (x, z) => pickBiome(x, z, 0.5), update, prewarm, addSolids, collide, solids, pickables, drawMap, signs, setSeason };
+  // where grass blades may grow (0..1 density): not on places, roads, or in the river
+  function grassOK(x, z, y) {
+    if (y < -0.25) return 0;
+    const pd = placeDist(x, z).d; if (pd < 0.5) return 0;
+    const rd = roadDist(x, z, 4); if (rd < 1.75) return 0;
+    let k = smooth(0.5, 6, pd) * smooth(1.75, 2.7, rd);
+    if (riverPts.length) { const vd = riverDist(x, z, 10); if (vd < 6.2) return 0; k *= smooth(6.2, 7.6, vd); }
+    return k;
+  }
+  return { group, places, roads, bounds, heightAt, terrain, grassOK, groundColorAt: groundColor, get snow() { return seasonSnow; }, roadDist, riverDist, river: riverPts, bridges, biomeAt: (x, z) => pickBiome(x, z, 0.5), update, prewarm, addSolids, collide, solids, pickables, drawMap, signs, setSeason };
 }
 
 // =====================================================================

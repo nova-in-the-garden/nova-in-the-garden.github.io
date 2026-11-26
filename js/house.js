@@ -21,6 +21,7 @@ export function buildCottage(parent, x, z, rot = 0) {
   const W = 3.6, D = 3.0, H = 1.8, B = 0.3; // width, depth, wall height, foundation
   const top = B + H;
   const plaster = mat(0xcdb48e), timber = mat(0x3a281c), stone = mat(0x6d6680), roofA = mat(0x252a54), roofB = mat(0x2f3566), trimGold = mat(0xe8c15a, { metalness: .35, roughness: .45 });
+  roofA.userData.gfxKind = roofB.userData.gfxKind = 'roof'; stone.userData.gfxKind = 'stone'; timber.userData.gfxKind = 'wood'; plaster.userData.gfxKind = 'stone';   // procedural detail (js/gfx.js)
   const wood = mat(0x6b4426), navy = mat(0x1c2550);
 
   // foundation + walls
