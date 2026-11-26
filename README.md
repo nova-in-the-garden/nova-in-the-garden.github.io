@@ -51,6 +51,28 @@ Useful URLs: `?island=cornerCup` lands straight at a place in the Realm, `?loren
 | `vendor/three/` | three.js r187 (MIT, see `vendor/three/LICENSE`): module build, OrbitControls, STLLoader |
 | `screenshots/` | Test screenshots |
 
+## Graphics and quality tiers (2026-11-26)
+
+`js/gfx.js` picks a quality tier and runs the extra rendering. Add `?quality=low`, `?quality=medium` or `?quality=high` to force one. Otherwise desktops start at **high** and phones and tablets at **medium** (or **low** on smaller devices). If frames stay slow (about 30 ms or more on high, 40 ms on medium, for 4 s), it steps down one tier for the rest of the visit, and that choice is kept in `sessionStorage` as `nova.gfx`. `nova.gfx.tier` reports the current tier, and `nova.gfx.setTier('low')` switches it by hand.
+
+| | high | medium | low |
+|---|---|---|---|
+| Pixel ratio cap | 2 | 1.5 | 1 |
+| Soft shadows (Realm) | 2048 px, ±48 units | 1024 px, ±36 | off |
+| Bloom | on | off | off |
+| Grass blades | full, out to 42 units | 45%, out to 28 | none |
+| Procedural detail | on | on | off |
+| Butterflies and birds | all | 60% | 30% |
+
+- **Shadows.** One key light casts: the sun by day, or the moon at night with softer shadows. Its shadow box follows what you're looking at, snaps to whole texels so edges don't crawl, and shrinks for close-ups so they stay sharp. Shadows are only on in the Realm. From orbit they're switched off, and the shadow map isn't redrawn. `gfx.prep()` runs once a second and tags any new mesh (ground tiles, holiday props) to cast and receive. Glowing, transparent and very large things don't cast.
+- **Bloom.** The frame is rendered exactly as before. Then the frame on screen is copied (`FramebufferTexture`), and a blurred glow from its brightest pixels is added on top (`js/bloom.js` is three's UnrealBloomPass with an `overlay` mode). This keeps the custom sky and moon shaders looking exactly as before. The threshold is high (0.9–0.95), so only lanterns, the tail tip, the heart core and lit windows glow, and the mood bubble stays crisp.
+- **Procedural detail.** `addDetail(material, kind)` mixes world-space value noise into a material's colour. The kinds are `ground` (big patches, clover and speckle), `wood` (grain), `stone`, `roof` (shingle rows) and `soft`. The fine detail fades with distance so it never shimmers. A material can choose its kind with `material.userData.gfxKind`. Nova, Lorenz, labels and anything textured are left alone.
+- **Water.** `waterify(material)` adds moving ripples (perturbed normals catch the sun and moon) and a fresnel sky sheen. Any mesh with `userData.water` gets it: the river and the ponds.
+- **Grass** (`js/grass.js`). Instanced blades, three triangles each, are built in 12×12 chunks around you, two chunks a frame. They take the colour of the ground underneath, sway in world-space wind, shrink away at the edge of their reach, whiten and shorten in snow, and carry a few flower heads. They never grow on places, roads or the river (`realm.grassOK`).
+- **Trees and plants** (`js/realm.js`). Round trees are three-lump crowns. Pines and crowns have a baked vertex-colour gradient, darker low down, as cheap ambient occlusion. Crowns, tufts, flowers and reeds lean in a gentle breeze in the vertex shader.
+- **Ambient life** (`js/life.js`). Butterflies flit over the grass by day, and three loose V flocks of birds circle overhead. They hide at night and in rain or snow. The fireflies at night are in `js/realm.js`.
+- **Tests.** `site_tools/gfx_shots.mjs before|after` takes the comparison set (use `Q=high` to force a tier). `site_tools/gfx_quick.mjs '<query>' out.png` takes one shot and prints the tier, draw calls, shadow state and weather.
+
 ## Growing the world (every session)
 
 1. Update the sources as usual:
