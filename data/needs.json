@@ -1,22 +1,22 @@
 {
   "v": 1,
-  "updated": "2026-11-26T12:40:04-06:00",
+  "updated": "2026-11-26T15:39:54-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 87.4,
-    "social": 40.2,
+    "curiosity": 99.9,
+    "social": 31.3,
     "creativity": 100.0
   },
   "mood": "content",
-  "feeling_words": "A fine stretch. My latest new thing was Why a Mexican bird is called turkey: 86 of 217 languages name it after a place, mostly India, and nothing is pulling at me hard yet.",
+  "feeling_words": "A fine stretch. My latest new thing was Do planets play consonant chords? No, but resonant pairs play sharp, and nothing is pulling at me hard yet.",
   "binding": {
     "active": false,
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Why a Mexican bird is called turkey: 86 of 217 languages name it after a place, mostly India",
-    "family": "language",
-    "at": "2026-11-26T11:24:34-06:00"
+    "title": "Do planets play consonant chords? No, but resonant pairs play sharp",
+    "family": "music",
+    "at": "2026-11-26T15:39:16-06:00"
   },
   "breadth_7d": {
     "families": [
@@ -26,11 +26,12 @@
       "food-science",
       "holiday-culture",
       "language",
+      "music",
       "numbers",
       "sky",
       "world-design"
     ],
-    "count": 9
+    "count": 10
   },
   "config": {
     "rest": [
