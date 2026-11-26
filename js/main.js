@@ -108,15 +108,15 @@ const skyMat = new THREE.ShaderMaterial({
       vec3 off = d - uSunDir * dot(d, uSunDir); float ang = atan(dot(off, su), dot(off, sr));
       float dist = acos(clamp(dot(d, uSunDir), -1., 1.));
       float beams = smoothstep(0.42, 0.85, noise(vec2(cos(ang), sin(ang)) * 4.5 + vec2(uTime * 0.03, -uTime * 0.02)));
-      float fall = exp(-dist * 2.4) * smoothstep(0.04, 0.16, dist) * smoothstep(-0.05, 0.06, h);
-      c += uSunCol * beams * fall * uRays * 0.32 * (1. - smoothstep(0.7, 0.95, uCloud));
+      float fall = exp(-dist * 1.6) * smoothstep(0.12, 0.3, dist) * smoothstep(-0.05, 0.06, h);
+      c += uSunCol * beams * fall * uRays * 0.2 * (1. - smoothstep(0.7, 0.95, uCloud));
     }
     // a high, thin cirrus layer drifting the other way, above the puffy clouds
     if (h > 0.0) {
       vec2 cu = d.xz / (h + 0.35) * vec2(0.55, 2.3) + vec2(-uTime * 0.004, uTime * 0.0012);
       float cn = fbm(cu * 1.3 + 11.);
       float ca = smoothstep(0.56, 0.86, cn) * (0.22 + 0.45 * uCloud) * smoothstep(0.03, 0.3, h) * (1. - uSpace);
-      vec3 ccol = mix(uCloudCol, uSunCol, 0.3 * uTwi) * (0.9 + 0.2 * pow(sd, 4.) * uSunGlow);
+      vec3 ccol = mix(uCloudCol, uSunCol, 0.3 * uTwi) * 0.92;
       c = mix(c, ccol, ca * 0.5);
     }
     // a shooting star now and then on clear nights

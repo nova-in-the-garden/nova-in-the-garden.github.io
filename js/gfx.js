@@ -206,7 +206,7 @@ export function createGfx(renderer, scene) {
     const w = renderer.domElement.width, h = renderer.domElement.height;
     if (fbTex.image.width !== w || fbTex.image.height !== h) setupBloom();
     renderer.copyFramebufferToTexture(fbTex, _v2.set(0, 0));
-    bloom.strength = 0.12 + 0.33 * night; bloom.threshold = 0.95 - 0.05 * night; bloom.radius = 0.45;
+    bloom.strength = 0.08 + 0.37 * night; bloom.threshold = 0.99 - 0.09 * night;   // by day only near-white bits glow, so the bright sky round a low sun doesn't wash out bloom.radius = 0.45;
     bloom.render(renderer, null, fb, 0, false);
   }
 
