@@ -393,6 +393,14 @@ The calendar math and stages live in `js/holiday.js`. Research notes: `/workspac
 
 A propane turkey fryer in the open yard east of the harvest table (hearth-local `6.4, 7.2`, clear of the table, chairs, Nova, Lorenz and the name labels). Deep link: `?fryer=1`. Click the fryer or use the HUD to lower a frozen turkey into 350°F oil; after a short delay the ice flashes to steam (about 1,700× expansion), the oil boils over, a fireball column rises, and the turkey launches on a ballistic arc — onto the cottage roof or into the pond — and smokes where it lands. A thawed turkey fries calmly for contrast, and Reset puts everything back. The HUD and a small plaque explain why it happens, and link to [NFPA Thanksgiving safety](https://www.nfpa.org/education-and-research/home-fire-safety/thanksgiving), which recommends skipping oil turkey fryers altogether. It's a cartoon, not gory. Code: `js/fryer.js`. Test: `site_tools/fryer.mjs`.
 
+## Interactive play
+Visitors in the Realm can tap (not drag) things to play with them. A small hint and a pet-count badge stay at the bottom of the screen. Camera orbit and drag are unchanged: a pointer that moves more than 7 pixels is a look, not a tap. The same taps work on phones.
+
+- **Pet Nova.** Tapping the fox makes her wag her tail, perk her ears, bounce a little, and send up floating hearts. The 🦊 Nova chip still opens her bio. Each counted pet is stored by the Visitor Wall worker (`POST /pet`, `GET /pets`): one counted pet per visitor every 30 seconds, and at most 20 per Central-time day. `needs.py pets` (also run from `start` and `check`) syncs new counts into the Social meter with diminishing returns and a daily cap of +15, so pets alone cannot max the meter.
+- **Feed the birds** and **snowball fight with Lorenz** are next.
+
+Code: `js/interact.js`, `js/novabody.js` (`pet()`). Test: `site_tools/pet.mjs`.
+
 ## Nova's mood and meters: the knowledge tamagotchi (2026-11-25)
 
 Nova has three meters (Curiosity, Social, Creativity, each 0-100) and a mood. Visitors see them in a small bubble above her name tag, and in a card in her panel (click Nova). When she is unfulfilled, lonely or stuck her body shows it: head dipped, eyes half-lidded, ears flopped out, tail glow dimmer. When she is restless her tail and ears fidget.

@@ -240,10 +240,17 @@ export function makeNova({ lights = 'both' } = {}) {
 
   // ---------- animation state ----------
   const w = { stand: 0, sit: 1, curl: 0 }, want = { stand: 0, sit: 1, curl: 0 };
-  const A = { walk: 0, walkPhase: 0, look: null, lookAmt: 0, tilt: 0, tiltT: 0, blinkT: 2, blink: 0, earT: [3, 5], ear: [0, 0], glow: 1, nightLight: 0, yaw: 0, pitch: 0 };
+  const A = { walk: 0, walkPhase: 0, look: null, lookAmt: 0, tilt: 0, tiltT: 0, blinkT: 2, blink: 0, earT: [3, 5], ear: [0, 0], glow: 1, nightLight: 0, yaw: 0, pitch: 0, petT: 0, petLook: null };
   const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
   const R2 = rng(4242);
   function setPose(name) { for (const k in want) want[k] = k === name ? 1 : 0; }
+  function pet(lookAt = null) {
+    A.petT = 1.55;
+    A.petLook = lookAt || A.look;
+    A.ear[0] = A.ear[1] = 0.45;
+    A.blinkT = 0.8;
+    return A.petT;
+  }
   function blendNode(name, out) {
     for (let i = 0; i < 6; i++) out[i] = P.stand[name][i] * w.stand + P.sit[name][i] * w.sit + P.curl[name][i] * w.curl;
     return out;
@@ -307,6 +314,23 @@ export function makeNova({ lights = 'both' } = {}) {
       ears[i].rotation.set(-0.08 + tw * 0.4 - w.curl * 0.4 + S * 0.4, s * 0.3 + tw * s * 0.5, -s * (0.33 + w.curl * 0.1 + S * 0.62));
     }
     ends.rotation.x = -nodes.neck.rotation.x * (1 - w.curl) + wk * (0.3 + Math.sin(t * 9) * 0.1) + Math.sin(t * 1.4) * 0.04;
+    // pet: a burst of tail wags, perked ears, a happy bounce, and a look at the visitor
+    if (A.petT > 0) {
+      const u = A.petT / 1.55, k = Math.sin((1 - u) * Math.PI); // 0..1..0 over the pet
+      A.petT = Math.max(0, A.petT - dt);
+      if (A.petLook && w.curl < 0.85) A.look = A.petLook;
+      segs.forEach((s, i) => {
+        s.rotation.y += Math.sin(t * 14 + i * 0.7) * (0.22 + i * 0.06) * k;
+        s.rotation.x -= 0.04 * k;
+      });
+      for (let i = 0; i < 2; i++) {
+        const s = i ? 1 : -1;
+        ears[i].rotation.z += s * 0.28 * k;      // perk
+        ears[i].rotation.x -= 0.18 * k;
+      }
+      rig.position.y += Math.abs(Math.sin((1 - u) * Math.PI * 2)) * 0.06 * k;
+      torso.rotation.z += Math.sin(t * 12) * 0.05 * k;
+    }
     // glow: stronger at night; a soft night-light while she sleeps
     A.nightLight += ((w.curl > 0.6 ? 1 : 0) - A.nightLight) * Math.min(1, dt * 0.8);
     const g = (0.5 + 0.6 * DAY.night) * (1 - 0.3 * A.nightLight) * (1 - 0.55 * S);
@@ -315,12 +339,13 @@ export function makeNova({ lights = 'both' } = {}) {
     tipHalo.material.opacity = 0.75 * g * pulse; tipHalo2.material.opacity = 0.8 * Math.min(1, g * 1.1); tipHalo.scale.setScalar(0.9 + 0.5 * DAY.night);
     tipLight.intensity = 2.6 * g * pulse * (0.4 + 0.6 * DAY.night);
     const hp = 1 + Math.sin(t * 2.4) * 0.1;
-    heartMat.emissiveIntensity = (1.6 + 1.6 * DAY.night) * hp * (1 - 0.4 * A.nightLight) * (1 - 0.4 * S); heartHalo.material.opacity = 0.65 * g * hp * (1 - 0.6 * w.curl);
+    const petK = A.petT > 0 ? Math.sin((1 - A.petT / 1.55) * Math.PI) : 0;
+    heartMat.emissiveIntensity = (1.6 + 1.6 * DAY.night) * hp * (1 - 0.4 * A.nightLight) * (1 - 0.4 * S) * (1 + 0.9 * petK); heartHalo.material.opacity = Math.min(1, 0.65 * g * hp * (1 - 0.6 * w.curl) + 0.35 * petK);
     if (coreLight) coreLight.intensity = 1.6 * g * hp * (0.4 + 0.6 * DAY.night) * (1 - 0.7 * w.curl);
     orbHalo.material.opacity = 0.95; orbCore.scale.setScalar(1 + Math.sin(t * 3) * 0.06);
   }
   root.userData = { rig, orb, nodes, setPose, weights: w };
-  const api = { root, rig, orb, update, setPose, weights: w, anim: A, tipWorld: v => tipG.getWorldPosition(v), materials: mats };
+  const api = { root, rig, orb, update, setPose, pet, weights: w, anim: A, tipWorld: v => tipG.getWorldPosition(v), materials: mats };
   return api;
 }
 

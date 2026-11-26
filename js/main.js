@@ -29,6 +29,7 @@ import { createMuseum } from './museum.js';
 import { createGfx, addRim, contactShadow } from './gfx.js';
 import { createGrass } from './grass.js';
 import { createLife } from './life.js';
+import { createInteract } from './interact.js';
 
 const SCALE = 1 / 9;               // WORLD_DATA island radius px -> world units
 const world = await fetch('data/world.json').then(r => { if (!r.ok) throw new Error('world.json ' + r.status); return r.json(); });
@@ -359,6 +360,11 @@ function separateOnce(SEP) {
   return true;
 }
 novaBody.root.traverse(o => { if (o.isMesh) { o.userData.novaPick = true; pickables.push(o); } });
+let toastFn = () => {};
+const interact = createInteract({
+  scene, camera, renderer, realm, novaBody, novaBrain: novaBrainT, lorenz, gfx,
+  inRealm: () => inRealm, toast: (m) => toastFn(m),
+});
 // character polish (js/gfx.js): a soft gold rim on both silhouettes, and a contact shadow under each
 addRim(novaBody.root, 1); addRim(lorenz, 0.8);
 contactShadow(novaBody.rig, 0.55, 0.4);
@@ -503,7 +509,11 @@ canvas.addEventListener('pointerup', e => {
   if (hit && !inRealm && !hit.object.userData.novaPick && !hit.object.userData.lorenz && hit.object.userData.islandId) return visit(hit.object.userData.islandId);
   if (hit?.object.userData.painting) return openPainting(hit.object.userData.painting);
   if (hit?.object.userData.radio) { radio.toggle(); if (!radio.state.on) radio.show(); return; }
-  if (hit?.object.userData.novaPick) return meetNova();
+  if (hit?.object.userData.novaPick) {
+    if (!inRealm) meetNova({ panel: false });
+    interact.petNova();
+    return;
+  }
   if (hit?.object.userData.lorenz) return meetLorenz();
   if (hit?.object.userData.house) return enterHouse();
   if (hit?.object.userData.arcadeDoor) return enterArcade();
@@ -682,6 +692,7 @@ async function exitHouse() {
 const toastEl = document.getElementById('toast');
 let toastT = 0;
 function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.hidden = true; }, 2600); }
+toastFn = toast;
 let inArcade = false, loopStopped = false;
 const arcadeScores = {};
 const player = createArcadePlayer({
@@ -1020,7 +1031,7 @@ function frame() {
     else { const cd = camera.position.length(), gmin = planet.groundR(_fa.copy(camera.position).divideScalar(cd)) + 0.7; if (cd < gmin) camera.position.setLength(gmin); }
   }
   planetFrame(dt);
-  placeSkyBodies(); placeNovaTag(dt);
+  placeSkyBodies(); placeNovaTag(dt); interact.tick(t, dt);
   shadowFrame(dt);
   renderer.render(scene, camera); window.__rinfo = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
   gfx.afterRender(DAY.night, DAY.day);
@@ -1033,7 +1044,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { needs: NEEDS, visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get season() { return season(clock.now()); }, christmas: { get on() { return christmasOn(clock.now()); }, get stage() { return christmasStage(clock.now()); }, get tree() { return ctx.christmas?.tree?.group || null; } }, weather: { get state() { return weather.state; }, place: weather.place }, friends: { get gap() { const n = novaBody.root.position, l = lorenz.position; return Math.hypot(n.x - l.x, n.z - l.z); }, get beds() { return { nova: { x: novaBed.x, z: novaBed.z }, lorenz: { x: lorenzBed.x, z: lorenzBed.z } }; } }, get lawn() { return ctx.lawn; }, get fryer() { return ctx.fryer; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, gfx, ready: true };
+window.nova = { needs: NEEDS, visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, play: interact, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get season() { return season(clock.now()); }, christmas: { get on() { return christmasOn(clock.now()); }, get stage() { return christmasStage(clock.now()); }, get tree() { return ctx.christmas?.tree?.group || null; } }, weather: { get state() { return weather.state; }, place: weather.place }, friends: { get gap() { const n = novaBody.root.position, l = lorenz.position; return Math.hypot(n.x - l.x, n.z - l.z); }, get beds() { return { nova: { x: novaBed.x, z: novaBed.z }, lorenz: { x: lorenzBed.x, z: lorenzBed.z } }; } }, get lawn() { return ctx.lawn; }, get fryer() { return ctx.fryer; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, gfx, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;
