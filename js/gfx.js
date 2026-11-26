@@ -97,6 +97,41 @@ export function waterify(m, amp = 0.16) {
   return m;
 }
 // guess a detail kind from a material's colour (browns = wood, greys = stone, greens = soft)
+// ---------- character polish: a soft gold rim on the silhouette, and a contact shadow blob ----------
+export const RIM = { uRimCol: { value: new THREE.Color(0, 0, 0) } };
+export function addRim(root, amt = 1) {
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+      if (!m || m.userData.gfxRim || !(m.isMeshStandardMaterial || m.isMeshLambertMaterial)) continue;
+      m.userData.gfxRim = amt;
+      const prev = m.onBeforeCompile;
+      m.onBeforeCompile = (sh, r) => {
+        prev?.call(m, sh, r);
+        sh.uniforms.uRimCol = RIM.uRimCol;
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRimCol;')
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          { float rimF = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+            totalEmissiveRadiance += uRimCol * ${amt.toFixed(2)} * pow(rimF, 3.0); }`);
+      };
+      const pk = m.customProgramCacheKey?.bind(m);
+      m.customProgramCacheKey = () => (pk ? pk() : '') + '|rim';
+      m.needsUpdate = true;
+    }
+  });
+}
+let blobTex = null;
+export function contactShadow(root, r = 0.5, opacity = 0.42) {
+  if (!blobTex) {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); blobTex = new THREE.CanvasTexture(c);
+  }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, opacity, depthWrite: false, color: 0x05060c, polygonOffset: true, polygonOffsetFactor: -4 }));
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.02; m.renderOrder = 1; m.userData.noShadow = true; m.userData.contact = true; m.raycast = () => {};
+  m.name = 'contact-shadow'; root.add(m); return m;
+}
+
 function kindFor(m) {
   if (m.userData.gfxKind) return m.userData.gfxKind;
   const c = m.color; if (!c || m.vertexColors) return 'soft';
@@ -164,7 +199,9 @@ export function createGfx(renderer, scene) {
   }
   setupBloom();
   const _v2 = new THREE.Vector2();
+  const _rimDay = new THREE.Color(0xffe3a8), _rimNight = new THREE.Color(0xffc45a);
   function afterRender(night = 0, day = 1) {
+    RIM.uRimCol.value.copy(_rimDay).lerp(_rimNight, night).multiplyScalar(T.detail >= 1 ? 0.07 + 0.16 * night : 0);
     if (!bloom) return;
     const w = renderer.domElement.width, h = renderer.domElement.height;
     if (fbTex.image.width !== w || fbTex.image.height !== h) setupBloom();

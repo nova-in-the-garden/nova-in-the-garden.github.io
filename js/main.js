@@ -26,7 +26,7 @@ import { createGiftShop } from './giftshop.js';
 import { createVisitorCounter, visitorChip } from './visitors.js';
 import { createWall } from './wall.js';
 import { createMuseum } from './museum.js';
-import { createGfx } from './gfx.js';
+import { createGfx, addRim, contactShadow } from './gfx.js';
 import { createGrass } from './grass.js';
 import { createLife } from './life.js';
 
@@ -329,6 +329,10 @@ function separateOnce(SEP) {
   return true;
 }
 novaBody.root.traverse(o => { if (o.isMesh) { o.userData.novaPick = true; pickables.push(o); } });
+// character polish (js/gfx.js): a soft gold rim on both silhouettes, and a contact shadow under each
+addRim(novaBody.root, 1); addRim(lorenz, 0.8);
+contactShadow(novaBody.rig, 0.55, 0.4);
+const lorenzBlob = contactShadow(lorenz, 1.35, 0.38);
 // name tag: constant on-screen size, lives in the scene (not inside her scaled body),
 // fades out up close so it can never fill the screen (the old "huge tag after leaving the house" bug)
 const novaTag = textSprite('Nova', { size: 0.55 });
@@ -970,6 +974,7 @@ function frame() {
   // Nova: a fox now (js/novabody.js)
   novaBrainT.tick(t, dt, { camera });
   keepFriendsApart();
+  lorenzBlob.visible = Math.hypot(lorenz.position.x - pondInfo.x, lorenz.position.z - pondInfo.z) > pondInfo.r * 0.92;
   if (walker.active) { walker.update(rawDt); doorCheck(); }
   else {
     if (flight) stepFlight(dt);
