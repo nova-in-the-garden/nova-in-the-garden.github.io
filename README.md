@@ -397,9 +397,9 @@ A propane turkey fryer in the open yard east of the harvest table (hearth-local 
 Visitors in the Realm can tap (not drag) things to play with them. A small hint and a pet-count badge stay at the bottom of the screen. Camera orbit and drag are unchanged: a pointer that moves more than 7 pixels is a look, not a tap. The same taps work on phones.
 
 - **Pet Nova.** Tapping the fox makes her wag her tail, perk her ears, bounce a little, and send up floating hearts. The 🦊 Nova chip still opens her bio. Each counted pet is stored by the Visitor Wall worker (`POST /pet`, `GET /pets`): one counted pet per visitor every 30 seconds, and at most 20 per Central-time day. `needs.py pets` (also run from `start` and `check`) syncs new counts into the Social meter with diminishing returns and a daily cap of +15, so pets alone cannot max the meter.
-- **Feed the birds** and **snowball fight with Lorenz** are next.
+- **Feed the birds.** Tapping the grass (not a camera drag) drops a small pile of seeds. Some of the flock swoop down, land, and peck; tapping near them or flicking the pointer quickly flushes them back into the air. At most 6 piles at once (4 on medium, 3 on low), and they fade after a short while or once they've been pecked over. Birds stay in the air at night and in rain or snow.
 
-Code: `js/interact.js`, `js/novabody.js` (`pet()`). Test: `site_tools/pet.mjs`.
+Code: `js/interact.js`, `js/novabody.js` (`pet()`), `js/life.js`. Tests: `site_tools/pet.mjs`, `site_tools/birds.mjs`.
 
 ## Nova's mood and meters: the knowledge tamagotchi (2026-11-25)
 

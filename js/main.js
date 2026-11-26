@@ -361,8 +361,10 @@ function separateOnce(SEP) {
 }
 novaBody.root.traverse(o => { if (o.isMesh) { o.userData.novaPick = true; pickables.push(o); } });
 let toastFn = () => {};
+let weatherKindFn = () => 'clear';
 const interact = createInteract({
-  scene, camera, renderer, realm, novaBody, novaBrain: novaBrainT, lorenz, gfx,
+  scene, camera, renderer, realm, novaBody, novaBrain: novaBrainT, lorenz, gfx, life,
+  hearth, pond: pondInfo, weatherKind: () => weatherKindFn(),
   inRealm: () => inRealm, toast: (m) => toastFn(m),
 });
 // character polish (js/gfx.js): a soft gold rim on both silhouettes, and a contact shadow under each
@@ -526,12 +528,24 @@ canvas.addEventListener('pointerup', e => {
   if (hit?.object.userData.fryer) return openFryer({ walk: walker.active });
   if (hit?.object.userData.signpost) return signpostTravel(hit.object.userData.signpost);
   if (hit && walker.active) { openPanel(hit.object.userData.islandId); setChip(hit.object.userData.islandId); return; }   // walking: read about it, stay on foot
+  if (inRealm) {
+    const g = pickGround();
+    if (g && interact.dropSeed(g.point)) return;
+  }
   if (hit) visit(hit.object.userData.islandId);
 });
+function pickGround() {
+  if (!inRealm) return null;
+  const hits = ray.intersectObjects([realm.group, ...islands.map(i => i.group)], true).filter(h => shown(h.object));
+  const first = hits[0];
+  return first && first.object.userData.ground ? first : null;
+}
 canvas.addEventListener('pointermove', e => {
-  if (inside || inArcade || e.pointerType !== 'mouse' || e.buttons) return;
+  if (inside || inArcade) return;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
-  canvas.style.cursor = pickHit() ? 'pointer' : 'grab';
+  if (inRealm) { const g = pickGround(); if (g) interact.pointerMove(g.point, performance.now()); }
+  if (e.pointerType !== 'mouse' || e.buttons) return;
+  canvas.style.cursor = pickHit() || pickGround() ? 'pointer' : 'grab';
 });
 
 // ---------- UI ----------
@@ -844,6 +858,7 @@ addEventListener('keydown', e => {
 const clock = makeClock();
 setHolidayNow(() => clock.now());
 const weather = createWeather(scene);
+weatherKindFn = () => weather.state.kind;
 weather.setFromDate(clock.now(), { live: clock.live, dateOverride: !!clock.dateOverride });
 let worldSig = '';
 function applyWorldDate(now, force = false) {
@@ -1044,7 +1059,7 @@ setTimeout(() => document.getElementById('loading').remove(), 900);
 setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = 0; }, 9000);
 
 // small hooks for tests and future sessions
-window.nova = { needs: NEEDS, visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, play: interact, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get season() { return season(clock.now()); }, christmas: { get on() { return christmasOn(clock.now()); }, get stage() { return christmasStage(clock.now()); }, get tree() { return ctx.christmas?.tree?.group || null; } }, weather: { get state() { return weather.state; }, place: weather.place }, friends: { get gap() { const n = novaBody.root.position, l = lorenz.position; return Math.hypot(n.x - l.x, n.z - l.z); }, get beds() { return { nova: { x: novaBed.x, z: novaBed.z }, lorenz: { x: lorenzBed.x, z: lorenzBed.z } }; } }, get lawn() { return ctx.lawn; }, get fryer() { return ctx.fryer; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, gfx, ready: true };
+window.nova = { needs: NEEDS, visit, home, meetLorenz, meetNova, showNova, novaBody, novaBrain: novaBrainT, novaTag, play: interact, life, get doing() { return novaDoing(); }, enterHouse, exitHouse, house, world, clock, get sky() { return sky0 && { phase: sky0.phase.id, name: sky0.phase.name, elevation: +sky0.sun.elevation.toFixed(2), azimuth: +sky0.sun.azimuth.toFixed(1), sunrise: fmtTime(sky0.times.sunrise), sunset: fmtTime(sky0.times.sunset), dawn: fmtTime(sky0.times.dawn), dusk: fmtTime(sky0.times.dusk), moon: { el: +sky0.moon.elevation.toFixed(1), illum: +sky0.moon.illum.toFixed(2) }, shown: fmtTime(sky0.date), date: ymd(sky0.date).key, live: clock.live, dateOverride: !!clock.dateOverride }; }, feast: { get stage() { return feastStage(clock.now()); }, get sitting() { return feastSitting(clock.now()); }, get seats() { return ctx.feast && { nova: ctx.feast.novaSeat, lorenz: ctx.feast.lorenzSeat }; }, seatNow() { novaBrainT.seatNow(); lorenzTick.seatNow?.(); } }, get season() { return season(clock.now()); }, christmas: { get on() { return christmasOn(clock.now()); }, get stage() { return christmasStage(clock.now()); }, get tree() { return ctx.christmas?.tree?.group || null; } }, weather: { get state() { return weather.state; }, place: weather.place }, friends: { get gap() { const n = novaBody.root.position, l = lorenz.position; return Math.hypot(n.x - l.x, n.z - l.z); }, get beds() { return { nova: { x: novaBed.x, z: novaBed.z }, lorenz: { x: lorenzBed.x, z: lorenzBed.z } }; } }, get lawn() { return ctx.lawn; }, get fryer() { return ctx.fryer; }, ref: REF, get inside() { return inside; }, get busy() { return busy; }, enterArcade, exitArcade, openGame, arcade, arcadeData, player, arcadeScores, get inArcade() { return inArcade; }, get loopStopped() { return loopStopped; }, studio, radio, openPainting, get lightbox() { return lightboxState(); }, postcards, openPostcards, cafe, openCafe, giftShop, openGiftShop, museum, openMuseum, visitors, visitorUI, wall, openWall, scopeView, planet, realm, get inRealm() { return inRealm; }, backToSpace, setRealm, landAt: id => landAt(byId(id)), signpostTravel, walker, startWalking, stopWalking, get walking() { return walker.active; }, walkTo: id => { const isl = byId(id); if (!isl) return; landAt(isl, { high: false }); startWalking(walkStartFor(isl)); }, gfx, ready: true };
 window.__renderer = renderer; window.__scene = scene;
 window.__camPos = () => camera.position.clone();
 window.__flying = () => !!flight;
@@ -1058,6 +1073,21 @@ window.__lookSky = (az, el = 8) => {
 };
 // test helper: stand in front of Nova (dist, height, sideways offset; angle in radians around her)
 window.__novaView = (dist = 3.2, h = 1.2, ang = 0, at = 0.65) => { follow = null; const r = novaBody.root; const P = r.parent; P.updateMatrixWorld(true); const p = r.getWorldPosition(new THREE.Vector3()); const a = r.rotation.y + ang; const f = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).transformDirection(P.matrixWorld), up = new THREE.Vector3(0, 1, 0).transformDirection(P.matrixWorld); flyTo(p.clone().addScaledVector(f, dist).addScaledVector(up, h), p.clone().addScaledVector(up, at), 0.01, up); };
+window.__seedView = (dur = 0.01, which = 'side') => {
+  landAt(hearth, { high: false }); follow = null; hearth.group.updateMatrixWorld(true);
+  // open grass south of the hearth, clear of the cottage, pond, table and fryer
+  const poses = {
+    side: { from: [9.4, 1.6, -3.1], at: [6.5, 0.2, -6.0] },
+    dive: { from: [11.0, 5.8, 2.2], at: [6.5, 1.6, -6.0] },
+    startle: { from: [10.0, 3.4, -1.2], at: [6.5, 1.0, -6.0] },
+  };
+  const P = poses[which] || poses.side;
+  const at = hearth.group.localToWorld(new THREE.Vector3(...P.at));
+  const from = hearth.group.localToWorld(new THREE.Vector3(...P.from));
+  flyTo(from, at, dur, placeUp(hearth));
+  return { at, from };
+};
+window.__seedSpot = () => { hearth.group.updateMatrixWorld(true); const p = hearth.group.localToWorld(new THREE.Vector3(6.5, 0, -6.0)); p.y = realm.heightAt(p.x, p.z); return p; };
 window.__houseView = () => { if (!cottage) return; landAt(hearth, { high: false }); follow = null; flyTo(cottage.group.localToWorld(new THREE.Vector3(2.2, 3.2, 7.5)), cottage.group.localToWorld(new THREE.Vector3(0, 1.4, 0)), 0.01); };
 window.__feastView = (dur = 0.01, from = [3.6, 2.45, 3.5], at = [0, 0.95, 0]) => { const f = ctx.feast; if (!f?.group) return; landAt(hearth, { high: false }); follow = null; f.group.updateMatrixWorld(true); flyTo(f.group.localToWorld(new THREE.Vector3(from[0], from[1], from[2])), f.group.localToWorld(new THREE.Vector3(at[0], at[1], at[2])), dur); };
 window.__hearthView = (dur = 0.01, from = [-0.4, 2.45, 7.2], at = [1.0, 1.3, -2.0]) => { landAt(hearth, { high: false }); follow = null; hearth.group.updateMatrixWorld(true); flyTo(hearth.group.localToWorld(new THREE.Vector3(from[0], from[1], from[2])), hearth.group.localToWorld(new THREE.Vector3(at[0], at[1], at[2])), dur); };

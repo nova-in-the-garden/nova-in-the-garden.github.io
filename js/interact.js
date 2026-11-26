@@ -1,4 +1,4 @@
-// Interactive play in the Realm: pet Nova (and, later, feed the birds / snowball fight).
+// Interactive play in the Realm: pet Nova, feed the birds, and (later) a snowball fight.
 // Taps are distinguished from camera drags by the caller (pointer movement ≤ 7 px).
 import * as THREE from 'three';
 import { canvasTexture } from './util.js';
@@ -28,7 +28,8 @@ function heartTexture() {
 }
 
 export function createInteract({
-  scene, camera, renderer, realm, novaBody, novaBrain, lorenz, gfx,
+  scene, camera, renderer, realm, novaBody, novaBrain, lorenz, gfx, life,
+  hearth, pond = null, weatherKind = () => 'clear',
   inRealm = () => false, toast = () => {},
 }) {
   const group = new THREE.Group(); group.name = 'play'; group.userData.noDetail = true;
@@ -108,7 +109,10 @@ export function createInteract({
         : 'Pet counts load when the wall is reachable';
     }
     if (hintEl) {
-      hintEl.textContent = 'Tap Nova to pet her · drag to look around';
+      const snow = weatherKind() === 'snow';
+      hintEl.textContent = snow
+        ? 'Tap Nova to pet her · drag to look around'
+        : 'Tap Nova to pet her · tap the grass to feed the birds · drag to look around';
     }
   }
 
@@ -173,6 +177,102 @@ export function createInteract({
     };
   }
 
+
+  // ----- feed the birds -----
+  const seeds = [];
+  let seedSeq = 1;
+  let lastPtr = null, lastPtrT = 0;
+  const grainGeo = new THREE.SphereGeometry(0.045, 6, 4);
+  const grainMats = [
+    new THREE.MeshLambertMaterial({ color: 0xc4a056 }),
+    new THREE.MeshLambertMaterial({ color: 0x8a6a32 }),
+    new THREE.MeshLambertMaterial({ color: 0xddc07a }),
+  ];
+  function seedCap() {
+    const a = gfx?.T?.life ?? 1;
+    return a >= 0.99 ? 6 : a >= 0.5 ? 4 : 3;
+  }
+  function grainBudget() {
+    const a = gfx?.T?.life ?? 1;
+    return a >= 0.99 ? 8 : a >= 0.5 ? 6 : 4;
+  }
+  function inPond(x, z) {
+    if (!pond || !hearth?.group) return false;
+    const w = hearth.group.localToWorld(new THREE.Vector3(pond.x, 0, pond.z));
+    return Math.hypot(x - w.x, z - w.z) < (pond.r + 0.6);
+  }
+  function canDropAt(x, z) {
+    if (weatherKind() === 'snow' || weatherKind() === 'rain' || weatherKind() === 'storm') return false;
+    if (inPond(x, z)) return false;
+    if (realm.riverDist && realm.riverDist(x, z, 4) < 1.6) return false;
+    return true;
+  }
+  function makePile(at) {
+    const g = new THREE.Group(); g.position.copy(at);
+    const n = grainBudget();
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(grainGeo, grainMats[i % grainMats.length]);
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.4;
+      const r = 0.04 + Math.random() * 0.1;
+      m.position.set(Math.cos(a) * r, 0.03 + (i % 3) * 0.02, Math.sin(a) * r);
+      m.scale.setScalar(0.7 + Math.random() * 0.8);
+      m.castShadow = false; g.add(m);
+    }
+    group.add(g);
+    return g;
+  }
+  function evictOldest() {
+    const s = seeds.shift();
+    if (!s) return;
+    life?.removeSeed(s.id);
+    group.remove(s.mesh); s.mesh.traverse(o => { if (o.geometry && o.geometry !== grainGeo) o.geometry.dispose(); });
+  }
+  function dropSeed(point) {
+    const x = point.x, z = point.z, y = point.y ?? realm.heightAt(x, z);
+    if (!canDropAt(x, z)) return null;
+    // click near landed birds: flush them instead of adding another pile
+    if (life?.landedNear(x, z, 3.2)) {
+      const n = life.startle(x, z, 5.5);
+      return { startled: n, seed: null };
+    }
+    while (seeds.length >= seedCap()) evictOldest();
+    const id = seedSeq++;
+    const mesh = makePile(new THREE.Vector3(x, y, z));
+    const s = { id, x, y, z, mesh, age: 0, life: 16 + Math.random() * 5 };
+    seeds.push(s);
+    const fed = life?.feed({ id, x, y, z }) || { assigned: 0 };
+    s.assigned = fed.assigned || 0;
+    return { startled: 0, seed: s };
+  }
+  function startleAt(x, z, r) { return life?.startle(x, z, r) || 0; }
+  function tickSeeds(dt) {
+    for (let i = seeds.length - 1; i >= 0; i--) {
+      const s = seeds[i]; s.age += dt;
+      const live = life?.seeds.find(x => x.id === s.id);
+      const eaten = live && live.pecks > 10;
+      const u = Math.max(0, 1 - s.age / s.life);
+      if (s.age > s.life - 1.2 || eaten) {
+        const fade = eaten ? Math.max(0, 1 - (s.age - (s._eat0 ?? (s._eat0 = s.age))) / 0.8) : Math.max(0, (s.life - s.age) / 1.2);
+        s.mesh.scale.setScalar(Math.max(0.01, fade));
+        if (fade <= 0.02) { life?.removeSeed(s.id); group.remove(s.mesh); seeds.splice(i, 1); }
+      }
+    }
+  }
+  function pointerMove(world, now) {
+    if (!world || !inRealm()) { lastPtr = world; lastPtrT = now; return 0; }
+    if (lastPtr) {
+      const dt = Math.max(0.016, (now - lastPtrT) / 1000);
+      const speed = Math.hypot(world.x - lastPtr.x, world.z - lastPtr.z) / dt;
+      // a fast swipe near pecking birds flushes them (camera orbit close-up included)
+      if (speed > 14 && life?.landedNear(world.x, world.z, 6)) {
+        lastPtr = world; lastPtrT = now;
+        return life.startle(world.x, world.z, 6);
+      }
+    }
+    lastPtr = world; lastPtrT = now;
+    return 0;
+  }
+
   refreshCounts();
   renderHud();
 
@@ -181,10 +281,16 @@ export function createInteract({
     pets,
     petNova,
     projectNova,
+    dropSeed,
+    startleAt,
+    pointerMove,
+    canDropAt,
     refreshCounts,
     renderHud,
-    tick(t, dt) { tickHearts(dt); renderHud(); },
+    tick(t, dt) { tickHearts(dt); tickSeeds(dt); renderHud(); },
     get petting() { return (novaBody.anim?.petT || 0) > 0; },
     get heartCount() { return hearts.length; },
+    get seeds() { return seeds; },
+    get seedCap() { return seedCap(); },
   };
 }
