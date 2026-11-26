@@ -12,7 +12,7 @@ python3 -m http.server 8811
 # open http://localhost:8811/
 ```
 
-Useful URLs: `?island=cornerCup` lands straight at a place in the Realm, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room. `?nova` flies to Nova and opens her bio (`?nova=quiet` skips the panel).
+Useful URLs: `?island=cornerCup` lands straight at a place in the Realm, `?lorenz` flies to Lorenz, `?house` starts inside Nova's House, and `?house=art` (or `study`, `window`, `nook`) starts in one room. `?nova` flies to Nova and opens her bio (`?nova=quiet` skips the panel). `?fryer=1` frames the Don't-Try-This-at-Home turkey fryer at the Hearth.
 
 ## What's here
 
@@ -367,6 +367,10 @@ On Thanksgiving Day (the fourth Thursday of November, in Central time) Nova and 
 
 The calendar math and stages live in `js/holiday.js`. Research notes: `/workspace/nova/projects/holiday-traditions.md`. Test: `site_tools/thanksgiving.mjs`.
 
+## Don't Try This at Home (2026-11-25)
+
+A propane turkey fryer in the open yard east of the harvest table (hearth-local `6.4, 7.2`, clear of the table, chairs, Nova, Lorenz and the name labels). Deep link: `?fryer=1`. Click the fryer or use the HUD to lower a frozen turkey into 350°F oil; after a short delay the ice flashes to steam (about 1,700× expansion), the oil boils over, a fireball column rises, and the turkey launches on a ballistic arc — onto the cottage roof or into the pond — and smokes where it lands. A thawed turkey fries calmly for contrast, and Reset puts everything back. The HUD and a small plaque explain why it happens, and link to [NFPA Thanksgiving safety](https://www.nfpa.org/education-and-research/home-fire-safety/thanksgiving), which recommends skipping oil turkey fryers altogether. It's a cartoon, not gory. Code: `js/fryer.js`. Test: `site_tools/fryer.mjs`.
+
 ## Nova's mood and meters: the knowledge tamagotchi (2026-11-25)
 
 Nova has three meters (Curiosity, Social, Creativity, each 0-100) and a mood. Visitors see them in a small bubble above her name tag, and in a card in her panel (click Nova). When she is unfulfilled, lonely or stuck her body shows it: head dipped, eyes half-lidded, ears flopped out, tail glow dimmer. When she is restless her tail and ears fidget.
@@ -451,6 +455,7 @@ cd /workspace/nova/site_tools && node postcard.mjs   # Postcard Maker: rack clic
 cd /workspace/nova/site_tools && node crochet.mjs    # Crochet Corner: Nova in the chair, blanket growing, hook moving, growth-stage shots, clicks on Nova/blanket/basket/chair, sleep-spot override, day + phone
 cd /workspace/nova/site_tools && node kitchen.mjs    # Kitchen: ?house=kitchen + chip, walk in from the Nook, walls/counter, steam, every item click, fridge postcard -> Postcard Maker -> Esc, wide/coffee/table/pie/fridge/stove/garden/day/phone shots
 cd /workspace/nova/site_tools && node telescope.mjs  # Window Seat telescope: screenshots (entrance, doorway, close-up, side, eyepiece), click -> eyepiece view, collider, no errors
+cd /workspace/nova/site_tools && node fryer.mjs      # Don't Try This at Home fryer: deep link, HUD, frozen explosion, thawed contrast, reset, shots
 cd /workspace/nova/site_tools && node novalook.mjs night curl /tmp/x.png 2.6 1.5 0.6   # quick look at one pose: phase pose out dist height angle
 ```
 

@@ -9,6 +9,7 @@ import { feastStage, feastBroadcast, holidayNow, christmasStage } from './holida
 import { trackFoliage, trackGrass, trackBlossoms, trackSnowCap } from './seasons.js';
 import { decorateCottage, decorateTree } from './christmas.js';
 import { buildLawn } from './lawn.js';
+import { buildFryer, FRYER_POS } from './fryer.js';
 
 export const GRASS = { giftShop: 0x2a3a2e, hearth: 0x23402f, emergence: 0x1d3b2a, starDock: 0x1d2645, pixelStudio: 0x2a2347, wordWell: 0x24324a, workshop: 0x2f2a24, cornerCup: 0x3a2a22, printShop: 0x22283e, arcade: 0x24422c, automataLawn: 0x1d3a28 };
 
@@ -528,7 +529,9 @@ const DECOR = {
     ctx.visitorBoard = visitorBoard(g, 5.3, 0.9, -Math.PI / 2 + 0.35);   // the visitor count, by the path in
     ctx.corkWall = corkWall(g, 0.8, -6.1, 0.12);                        // the Visitor Wall (feedback), behind the fire, facing it
     ctx.pond = { x: -3.2, z: 2.6, r: 2.2 }; pond(g, -3.2, 2.6, 2.2);
-    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 2.4, z: 5.4, r: 3.0 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.8, z: -6.1, r: 1.9 }];
+    ctx.fryer = buildFryer(g, ctx);
+    ups.push((t, dt) => ctx.fryer.tick(t, dt));
+    ctx.avoid = [{ x: -5.1, z: -4.7, r: 4.0 }, { x: -3.0, z: -2.3, r: 1.1 }, { x: 3.8, z: -3.0, r: 2.2 }, { x: 2.4, z: 5.4, r: 3.0 }, { x: 0.6, z: 0.8, r: 0.6 }, { x: -3.2, z: -7.6, r: 1.6 }, { x: 5.3, z: 0.9, r: 1.2 }, { x: 0.8, z: -6.1, r: 1.9 }, { x: FRYER_POS.x, z: FRYER_POS.z, r: 1.55 }];
     return (t, dt) => {
       ups.forEach(u => u(t, dt));
       const now = holidayNow();

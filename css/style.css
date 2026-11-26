@@ -474,3 +474,21 @@ body.at-lawn #lawn-hud{display:block}
 .needs-card .nd-row b{text-align:right;font-weight:600;color:var(--ink)}
 .needs-card .nd-note{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:rgba(140,154,214,.14);border:1px solid rgba(140,154,214,.4);font-size:13px;color:#d9defa}
 .needs-card .nd-last,.needs-card .nd-foot{margin:8px 0 0;font-size:12px}
+
+/* Don't Try This at Home turkey fryer (js/fryer.js) */
+#fryer-hud{position:fixed;left:16px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:6;width:min(360px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px 14px;display:none;backdrop-filter:blur(10px);box-shadow:0 10px 28px rgba(0,0,0,.35)}
+body.at-fryer #fryer-hud{display:block}
+#fryer-hud h3{color:#e8c15a;font-size:18px;margin:0 0 4px;font-family:Georgia,serif}
+#fryer-hud .fryer-lead,#fryer-hud .fryer-hint,#fryer-hud .fryer-status{margin:0 0 8px;color:var(--muted);font-size:12.5px;line-height:1.45}
+#fryer-hud .fryer-status{color:var(--ink);margin:8px 0 6px;font-style:italic}
+#fryer-hud .fryer-hint{margin:8px 0 0;font-style:italic}
+#fryer-hud .fryer-hint a{color:var(--gold2)}
+#fryer-hud .fryer-btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+#fryer-hud .fryer-btns .pill{padding:6px 10px;font-size:13px}
+#fryer-hud .fryer-btns .pill.warn{background:#8c1f26;border-color:#c8323a;color:#f4efe6}
+#fryer-hud .fryer-land{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 2px;color:var(--ink);font-size:13px}
+#fryer-hud .fryer-land label{display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:var(--gold2)}
+@media (max-width:640px){
+  #fryer-hud{left:10px;right:10px;width:auto;bottom:calc(64px + env(safe-area-inset-bottom));padding:10px 12px}
+  #fryer-hud .fryer-lead{display:none}
+}
