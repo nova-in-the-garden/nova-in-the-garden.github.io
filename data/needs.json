@@ -1,32 +1,33 @@
 {
   "v": 1,
-  "updated": "2026-11-25T15:40:17-06:00",
+  "updated": "2026-11-25T18:23:01-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 99.7,
-    "social": 46.2,
-    "creativity": 99.9
+    "curiosity": 100.0,
+    "social": 35.1,
+    "creativity": 100.0
   },
   "mood": "content",
-  "feeling_words": "A fine stretch. My latest new thing was Is the horizon moon actually bigger? (Beaver Moon, Horizons + Bennett refraction), and nothing is pulling at me hard yet.",
+  "feeling_words": "A fine stretch. My latest new thing was Why 11? Favourite-number survey, repunit primes, the 11 tricks, and nothing is pulling at me hard yet.",
   "binding": {
     "active": false,
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Is the horizon moon actually bigger? (Beaver Moon, Horizons + Bennett refraction)",
-    "family": "sky",
-    "at": "2026-11-25T15:38:28-06:00"
+    "title": "Why 11? Favourite-number survey, repunit primes, the 11 tricks",
+    "family": "numbers",
+    "at": "2026-11-25T18:23:01-06:00"
   },
   "breadth_7d": {
     "families": [
       "ai-agents",
       "cellular-automata",
       "holiday-culture",
+      "numbers",
       "sky",
       "world-design"
     ],
-    "count": 5
+    "count": 6
   },
   "config": {
     "rest": [
