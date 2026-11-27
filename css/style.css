@@ -503,3 +503,22 @@ body.at-fryer #fryer-hud{display:block}
   #fryer-hud{left:10px;right:10px;width:auto;bottom:calc(64px + env(safe-area-inset-bottom));padding:10px 12px}
   #fryer-hud .fryer-lead{display:none}
 }
+
+#game-overlay.mode-3d .game-canvas{image-rendering:auto;width:100%;height:100%;border:2px solid #e8c15a;box-shadow:0 0 0 3px #c8323a,0 0 40px rgba(232,193,90,.25);border-radius:8px;background:#0a0e18}
+#game-overlay.mode-3d .game-stage{padding:0}
+.claw-hud{position:absolute;inset:0;pointer-events:none;font:600 13px/1.35 system-ui,sans-serif;color:#fff8e8;text-shadow:0 1px 2px #000a}
+.claw-hud .label{position:absolute;top:10px;left:10px;background:#0b1220e6;border:1px solid #e8c15a;border-radius:999px;padding:6px 12px;letter-spacing:.04em}
+.claw-hud .label strong{color:#9fe8a0}
+.claw-hud .info-btn,.claw-hud .drop-btn{pointer-events:auto;position:absolute;border:0;cursor:pointer;font:inherit;color:#fff8e8}
+.claw-hud .info-btn{top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:#0b1220e6;border:1px solid #e8c15a}
+.claw-hud .drop-btn{bottom:16px;right:16px;padding:12px 20px;border-radius:999px;background:#c8323a;box-shadow:0 4px 16px #c8323a88;font-weight:800;letter-spacing:.06em;display:none}
+#game-overlay.touch .claw-hud .drop-btn{display:block}
+.claw-hud .card{pointer-events:auto;position:absolute;top:54px;right:10px;width:min(320px,calc(100% - 20px));background:#0b1220f2;border:1px solid #e8c15a;border-radius:12px;padding:12px 14px;font-weight:500;display:none}
+.claw-hud .card.open{display:block}
+.claw-hud .card a{color:#e8c15a}
+.claw-hud .shelf{position:absolute;left:10px;bottom:12px;display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;max-width:60%}
+.claw-hud .shelf .won{width:36px;height:36px;border-radius:8px;background:#1a2238;border:1px solid #e8c15a88;display:flex;align-items:center;justify-content:center;font-size:20px}
+.claw-hud .status{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:#0b1220cc;border-radius:999px;padding:6px 14px;white-space:nowrap}
+.claw-hud .stick{pointer-events:auto;display:none;position:absolute;left:16px;bottom:16px;width:96px;height:96px;border-radius:50%;background:#0b122088;border:2px solid #e8c15a66}
+#game-overlay.touch .claw-hud .stick{display:block}
+.claw-hud .stick i{position:absolute;width:40px;height:40px;border-radius:50%;background:#e8c15a;left:28px;top:28px;pointer-events:none}

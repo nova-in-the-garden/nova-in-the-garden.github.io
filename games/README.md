@@ -44,3 +44,15 @@ Add to `data/arcade.json`:
 ```
 
 Then run `python3 build_data.py`. It checks ids, wings, bay numbers, that the module exists, and that it exports `create`. Remove any `coming_soon` teaser that used the same bay.
+
+## 3D / analog games (Honest Claw)
+
+A game may also implement:
+
+- `fill: true` (or `mode: '3d'` on the arcade.json entry): the canvas fills the stage at the current quality-tier DPR, without pixelated integer scaling.
+- `resize(w, h)`: called when the canvas backing store changes.
+- `hold(action, down)`: keyboard and the on-screen pad call this on press and release, so a claw can move while a key is held. Lorenz Crossing ignores this and still uses `press()`.
+- `pointer(type, {x,y,w,h}, event)`: if present, the stage forwards pointer down/move/up/cancel in canvas CSS pixels instead of turning a swipe into `press('left')` etc.
+
+Keep camera taps-versus-drags in the 3D Garden alone; the overlay pauses the world while a game is open.
+

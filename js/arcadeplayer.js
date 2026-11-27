@@ -63,8 +63,19 @@ export function createArcadePlayer({ onOpen, onClose, onScore } = {}) {
 
   function fit() {
     if (!game) return;
-    const W = canvas.width, H = canvas.height;
     const r = stage.getBoundingClientRect();
+    // 3D / fill games use the whole stage and a device-pixel canvas (capped by the Garden's quality tier).
+    if (game.fill || def?.mode === '3d') {
+      el.classList.add('mode-3d');
+      const cap = window.nova?.gfx?.T?.dpr || 2;
+      const dpr = Math.min(window.devicePixelRatio || 1, cap);
+      const w = Math.max(1, Math.floor(r.width * dpr)), h = Math.max(1, Math.floor(r.height * dpr));
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; game.resize?.(w, h); }
+      canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
+      return;
+    }
+    el.classList.remove('mode-3d');
+    const W = canvas.width, H = canvas.height;
     let s = Math.min(r.width / W, r.height / H);
     if (s >= 2) s = Math.floor(s); // whole-number scaling keeps pixels perfectly square
     canvas.style.width = Math.floor(W * s) + 'px'; canvas.style.height = Math.floor(H * s) + 'px';
@@ -72,7 +83,7 @@ export function createArcadePlayer({ onOpen, onClose, onScore } = {}) {
   async function openGame(g) {
     if (open) closeGame(true);
     def = g; open = true; const my = ++gen;
-    el.hidden = false; document.body.classList.add('in-game'); title.textContent = g.title; loading.hidden = false; canvas.style.visibility = 'hidden';
+    el.hidden = false; el.classList.toggle('mode-3d', g.mode === '3d'); document.body.classList.add('in-game'); title.textContent = g.title; loading.hidden = false; canvas.style.visibility = 'hidden';
     help.innerHTML = esc(touch ? (g.controls_touch || 'Swipe or use the pad · tap to hop') : (g.controls || 'Arrow keys / WASD · P pause · M sound · Esc close'));
     onOpen?.(g);
     try {
@@ -102,25 +113,54 @@ export function createArcadePlayer({ onOpen, onClose, onScore } = {}) {
     if (game.key?.(e.key)) { e.preventDefault(); return; } // e.g. typing initials
     if (e.code === 'KeyP') { togglePause(); e.preventDefault(); return; }
     if (e.code === 'KeyM') { btnSound.click(); e.preventDefault(); return; }
-    const a = KEYS[e.code]; if (a) { e.preventDefault(); if (!e.repeat) game.press(a); }
+    const a = KEYS[e.code]; if (a) { e.preventDefault(); if (!e.repeat) { game.press(a); game.hold?.(a, true); } }
   }, true);
-  addEventListener('keyup', e => { if (open) e.stopImmediatePropagation(); }, true);
-  // swipe or tap on the game screen
+  addEventListener('keyup', e => {
+    if (!open) return;
+    e.stopImmediatePropagation();
+    if (!game) return;
+    const a = KEYS[e.code]; if (a) game.hold?.(a, false);
+  }, true);
+  // swipe / tap, or a game-owned pointer (drag-to-aim) when game.pointer exists
   let sw = null;
-  stage.addEventListener('pointerdown', e => { if (!game) return; sw = { x: e.clientX, y: e.clientY, id: e.pointerId }; e.preventDefault(); });
+  const local = e => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height };
+  };
+  stage.addEventListener('pointerdown', e => {
+    if (!game) return; e.preventDefault();
+    if (game.pointer) { game.pointer('down', local(e), e); return; }
+    sw = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!game || !game.pointer) return;
+    game.pointer('move', local(e), e);
+  });
   stage.addEventListener('pointerup', e => {
-    if (!game || !sw || sw.id !== e.pointerId) return;
+    if (!game) return;
+    if (game.pointer) { game.pointer('up', local(e), e); return; }
+    if (!sw || sw.id !== e.pointerId) return;
     const dx = e.clientX - sw.x, dy = e.clientY - sw.y; sw = null;
     if (Math.hypot(dx, dy) < 18) { if (game.paused) togglePause(); else game.press('tap'); return; }
     game.press(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
   });
-  stage.addEventListener('pointercancel', () => { sw = null; });
+  stage.addEventListener('pointercancel', e => {
+    if (game?.pointer) game.pointer('cancel', local(e), e);
+    sw = null;
+  });
   // d-pad: fire on press (no waiting for release), hold to repeat slowly
   el.querySelectorAll('.dpad button').forEach(b => {
     let rep = 0;
     const fire = () => { if (game && !game.paused) game.press(b.dataset.dir); else if (game?.paused) togglePause(); };
-    b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('on'); fire(); clearInterval(rep); rep = setInterval(fire, 240); try { b.setPointerCapture?.(e.pointerId); } catch { } });
-    const up = () => { b.classList.remove('on'); clearInterval(rep); };
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault(); b.classList.add('on'); fire();
+      game?.hold?.(b.dataset.dir, true);
+      clearInterval(rep);
+      // games that listen to hold() drive continuous motion themselves; others still get a slow repeat
+      if (!game?.hold) rep = setInterval(fire, 240);
+      try { b.setPointerCapture?.(e.pointerId); } catch { }
+    });
+    const up = () => { b.classList.remove('on'); clearInterval(rep); game?.hold?.(b.dataset.dir, false); };
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
     b.addEventListener('contextmenu', e => e.preventDefault());
   });

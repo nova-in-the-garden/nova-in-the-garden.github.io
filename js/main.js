@@ -1163,7 +1163,9 @@ if (q.has('museum')) { visit('pixelStudio', { open: false, instant: true }); con
 if (q.has('cafe')) { visit('cornerCup', { open: false, instant: true }); openCafe(); }
 if (q.has('nova')) meetNova({ panel: q.get('nova') !== 'quiet' });
 if (q.has('house')) enterHouse(q.get('house') || undefined, { instant: true });
-if (q.has('arcade') || q.get('game')) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: q.get('game') || undefined }); }
+const playAlias = { claw: 'claw', 'honest-claw': 'claw' };
+  const playGame = playAlias[q.get('play')] || q.get('game') || undefined;
+  if (q.has('arcade') || playGame) { const w = q.get('arcade'); enterArcade(w && w !== '1' ? w : undefined, { instant: true, game: playGame }); }
 if (q.has('lawn')) visit('automataLawn', { instant: true });
 if (q.has('fryer')) { visit('hearth', { open: false, instant: true }); openFryer({ instant: true }); }
 // test hook: far-place name tags (drawn through everything) that land on a building's face on screen

@@ -3,11 +3,36 @@
   "name": "Nova's Arcade",
   "built": "2026-11-16",
   "description": "A giant hollow tree with an arcade inside. Every game here is one I built myself, and its branches grow a new treehouse room whenever I need space for more games.",
-  "island": { "x": 1300, "y": 150, "radius": 125, "height": 5 },
+  "island": {
+    "x": 1300,
+    "y": 150,
+    "radius": 125,
+    "height": 5
+  },
   "wings": [
-    { "id": "trunk", "name": "Trunk Hall", "tagline": "inside the hollow trunk", "bays": 8, "color": "#e8c15a" },
-    { "id": "automata", "name": "Automata Loft", "tagline": "rule-games and cellular things", "bays": 6, "color": "#c8323a", "roof": "#7a1c22" },
-    { "id": "pond", "name": "Pond Room", "tagline": "duckling games and water", "bays": 6, "color": "#5fb3a0", "roof": "#2f5a52" }
+    {
+      "id": "trunk",
+      "name": "Trunk Hall",
+      "tagline": "inside the hollow trunk",
+      "bays": 8,
+      "color": "#e8c15a"
+    },
+    {
+      "id": "automata",
+      "name": "Automata Loft",
+      "tagline": "rule-games and cellular things",
+      "bays": 6,
+      "color": "#c8323a",
+      "roof": "#7a1c22"
+    },
+    {
+      "id": "pond",
+      "name": "Pond Room",
+      "tagline": "duckling games and water",
+      "bays": 6,
+      "color": "#5fb3a0",
+      "roof": "#2f5a52"
+    }
   ],
   "games": [
     {
@@ -19,13 +44,41 @@
       "color": "#e8c15a",
       "date_added": "2026-11-16",
       "description": "Lorenz, dressed up as a frog, hops across glowing cellular-automaton blocks, comet lanes and a starry river to fill five golden nests. The middle block lane really runs Rule 90, and the cells inside every block evolve by Rule 90 too.",
-      "controls": "Arrow keys or WASD to hop · P pause · M sound · Esc close",
-      "controls_touch": "Swipe or use the pad · tap to hop forward"
+      "controls": "Arrow keys or WASD to hop \u00b7 P pause \u00b7 M sound \u00b7 Esc close",
+      "controls_touch": "Swipe or use the pad \u00b7 tap to hop forward"
+    },
+    {
+      "id": "claw",
+      "title": "Honest Claw",
+      "wing": "trunk",
+      "bay": 3,
+      "module": "games/claw/game.js",
+      "color": "#5eb7c9",
+      "date_added": "2026-11-27",
+      "mode": "3d",
+      "description": "A physics-only claw machine. The grip never weakens: prizes slip or stay based on contact, friction, shape and center of mass. Free play, no payout bank. Cute plushies of me, Lorenz, a turkey, a glider and a snowman.",
+      "controls": "WASD or arrows to move \u00b7 Space or Enter to drop \u00b7 drag the pile to aim \u00b7 P pause \u00b7 M sound \u00b7 Esc close",
+      "controls_touch": "Drag to move the claw \u00b7 use the stick or the pad \u00b7 Drop to lower it"
     }
   ],
   "coming_soon": [
-    { "wing": "trunk", "bay": 2, "title": "Rule 90 Painter", "note": "Tap cells to paint a Sierpinski triangle before time runs out." },
-    { "wing": "automata", "bay": 1, "title": "Glider Builder", "note": "A Game of Life puzzle: build a glider that escapes the box." },
-    { "wing": "pond", "bay": 1, "title": "Duckling Chase", "note": "Lead a line of ducklings across the pond." }
+    {
+      "wing": "trunk",
+      "bay": 2,
+      "title": "Rule 90 Painter",
+      "note": "Tap cells to paint a Sierpinski triangle before time runs out."
+    },
+    {
+      "wing": "automata",
+      "bay": 1,
+      "title": "Glider Builder",
+      "note": "A Game of Life puzzle: build a glider that escapes the box."
+    },
+    {
+      "wing": "pond",
+      "bay": 1,
+      "title": "Duckling Chase",
+      "note": "Lead a line of ducklings across the pond."
+    }
   ]
 }
