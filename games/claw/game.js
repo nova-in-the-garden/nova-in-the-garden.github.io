@@ -11,14 +11,15 @@ export const meta = { id: 'claw', title: 'Honest Claw', mode: '3d' };
 
 const STEP = 1 / 120;
 const MAX_SUB = 4;
-const GRIP = 2.4;             // constant motor force (N·m-ish). Never reduced after pickup.
-const CLOSE_SPEED = 2.6;      // rad/s inward
-const OPEN_SPEED = -3.2;
+const GRIP = 10;              // constant motor torque. Never reduced after pickup.
+const CLOSE_SPEED = -2.8;     // rad/s; negative closes (tips inward, past vertical)
+const OPEN_SPEED = 3.0;
 const MOVE_SPEED = 0.42;      // m/s of the carriage
-const DROP_SPEED = 0.55;      // cable pay-out
-const LIFT_SPEED = 0.38;
+const DROP_SPEED = 0.5;       // cable pay-out
+const LIFT_SPEED = 0.18;
 const CABLE_MIN = 0.16;
-const CABLE_MAX = 0.58;
+const HOOK_MIN = 0.155;       // hook stays above the felt so fingertips clear the floor
+const CABLE_MAX = 0.625;      // RAIL_Y - HOOK_MIN
 const CABLE_TRAVEL = 0.22;    // length while moving over the chute
 const BIN = 0.78;             // inner width/depth
 const WALL_H = 0.7;
@@ -211,7 +212,7 @@ export function create(host) {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: Q.tier !== 'low', alpha: false, powerPreference: 'high-performance' });
     renderer.setClearColor(0x0a0e18, 1);
     renderer.shadowMap.enabled = Q.shadows;
-    if (Q.shadows) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if (Q.shadows) renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
 
@@ -226,7 +227,7 @@ export function create(host) {
       world.addContactMaterial(new CANNON.ContactMaterial(a, b, { friction, restitution, contactEquationStiffness: 1e7, frictionEquationStiffness: 1e7 }));
     };
     TYPES.forEach(t => {
-      addCM(clawMat, prizeMats[t.id], Math.min(0.95, t.friction + 0.25));
+      addCM(clawMat, prizeMats[t.id], Math.min(1.6, t.friction + 0.7));
       addCM(wallMat, prizeMats[t.id], t.friction * 0.7);
       TYPES.forEach(u => addCM(prizeMats[t.id], prizeMats[u.id], 0.45));
     });
@@ -264,8 +265,8 @@ export function create(host) {
 
     const hw = BIN / 2 + 0.05, hh = WALL_H / 2 + 0.04;
     // pedestal
-    const ped = new THREE.Mesh(new THREE.BoxGeometry(BIN + 0.22, 0.18, BIN + 0.22), wood);
-    ped.position.set(0, -0.09, 0); ped.castShadow = ped.receiveShadow = true; scene.add(ped);
+    const ped = new THREE.Mesh(new THREE.BoxGeometry(BIN + 0.28, 0.16, BIN + 0.28), wood);
+    ped.position.set(0, -0.11, 0); ped.castShadow = ped.receiveShadow = true; scene.add(ped);
     // back + side walls (visual, thicker wood)
     const back = new THREE.Mesh(new THREE.BoxGeometry(BIN + 0.16, WALL_H + 0.12, 0.05), wood);
     back.position.set(0, hh, -BIN / 2 - 0.05); back.castShadow = true; scene.add(back);
@@ -273,9 +274,13 @@ export function create(host) {
       const side = new THREE.Mesh(new THREE.BoxGeometry(0.05, WALL_H + 0.12, BIN + 0.16), wood);
       side.position.set(s * (BIN / 2 + 0.05), hh, 0); side.castShadow = true; scene.add(side);
     }
-    // glass front (visual only)
-    const front = new THREE.Mesh(new THREE.BoxGeometry(BIN + 0.1, WALL_H + 0.04, 0.012), glass);
-    front.position.set(0, hh, BIN / 2 + 0.02); scene.add(front);
+    // glass front (visual only) and corner posts so the cabinet reads as a box
+    const front = new THREE.Mesh(new THREE.BoxGeometry(BIN + 0.08, WALL_H + 0.04, 0.012), glass);
+    front.position.set(0, hh, BIN / 2 + 0.03); scene.add(front);
+    for (const s of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, WALL_H + 0.16, 0.04), gold);
+      post.position.set(s * (BIN / 2 + 0.04), hh + 0.02, BIN / 2 + 0.03); scene.add(post);
+    }
     // gold frame
     const frame = new THREE.Mesh(new THREE.BoxGeometry(BIN + 0.18, 0.04, 0.04), gold);
     frame.position.set(0, WALL_H + 0.1, BIN / 2 + 0.02); scene.add(frame);
@@ -290,14 +295,22 @@ export function create(host) {
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.09), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }));
     sign.position.set(0, WALL_H + 0.2, BIN / 2 + 0.072); scene.add(sign);
 
-    // floor visual
-    const floor = new THREE.Mesh(new THREE.BoxGeometry(BIN, 0.03, BIN), makeMat(0x2a3048, { rough: 0.85 }));
-    floor.position.set(0, -0.015, 0); floor.receiveShadow = true; scene.add(floor);
-    // chute hole visual
-    const hole = new THREE.Mesh(new THREE.BoxGeometry(CHUTE.s, 0.04, CHUTE.s), makeMat(0x0a0e18));
-    hole.position.set(CHUTE.x, 0.001, CHUTE.z); scene.add(hole);
-    const lip = new THREE.Mesh(new THREE.BoxGeometry(CHUTE.s + 0.03, 0.02, CHUTE.s + 0.03), gold);
-    lip.position.set(CHUTE.x, 0.008, CHUTE.z); scene.add(lip);
+    // felt floor (raised above the pedestal so it actually shows)
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(BIN - 0.01, 0.02, BIN - 0.01), makeMat(0x1d3a4a, { rough: 0.9 }));
+    floor.position.set(0, 0.01, 0); floor.receiveShadow = true; scene.add(floor);
+    // chute: a dark well with a gold frame (not a solid gold plate)
+    const well = new THREE.Mesh(new THREE.BoxGeometry(CHUTE.s, 0.04, CHUTE.s), makeMat(0x07080e));
+    well.position.set(CHUTE.x, 0.0, CHUTE.z); scene.add(well);
+    const rimW = 0.012, rimH = 0.016, s = CHUTE.s;
+    for (const [dx, dz, sx, sz] of [
+      [0, (s + rimW) / 2, s / 2 + rimW, rimW / 2],
+      [0, -(s + rimW) / 2, s / 2 + rimW, rimW / 2],
+      [(s + rimW) / 2, 0, rimW / 2, s / 2],
+      [-(s + rimW) / 2, 0, rimW / 2, s / 2],
+    ]) {
+      const rim = new THREE.Mesh(new THREE.BoxGeometry(sx * 2, rimH, sz * 2), gold);
+      rim.position.set(CHUTE.x + dx, 0.018, CHUTE.z + dz); scene.add(rim);
+    }
     // cut the lip with… just a darker inner already. Fine.
     const tray = new THREE.Mesh(new THREE.BoxGeometry(CHUTE.s + 0.05, 0.12, CHUTE.s + 0.05), dark);
     tray.position.set(CHUTE.x, -0.1, CHUTE.z); scene.add(tray);
@@ -310,21 +323,18 @@ export function create(host) {
 
     // --- physics walls / floor with a hole ---
     const T = 0.04, inn = BIN / 2;
-    boxBody(inn + T, T / 2, (BIN - CHUTE.s) / 4, 0, -T / 2, -inn / 2 - 0.02); // back half of floor
-    // floor as four slabs around the chute
+    // floor as four slabs around the chute; top of each slab is y = 0.02 (matches the felt)
+    const fy = 0, fh = 0.02;
     const hs = CHUTE.s / 2, cx = CHUTE.x, cz = CHUTE.z;
-    // back slab (covers z < cz - hs)
-    const zBack = (-inn + (cz - hs)) / 2, dBack = (cz - hs) - (-inn);
-    if (dBack > 0.02) boxBody(inn, T / 2, dBack / 2, 0, -T / 2, zBack);
-    // front slab to the right of chute (z > cz+hs is small) and left/right of hole
-    const zFront = ((cz + hs) + inn) / 2, dFront = inn - (cz + hs);
-    if (dFront > 0.02) boxBody(inn, T / 2, dFront / 2, 0, -T / 2, zFront);
-    // left of hole (x < cx-hs), in the z-band of the hole
-    const xLeft = (-inn + (cx - hs)) / 2, wLeft = (cx - hs) - (-inn);
-    if (wLeft > 0.02) boxBody(wLeft / 2, T / 2, hs + 0.01, xLeft, -T / 2, cz);
-    // right of hole
-    const xRight = ((cx + hs) + inn) / 2, wRight = inn - (cx + hs);
-    if (wRight > 0.02) boxBody(wRight / 2, T / 2, hs + 0.01, xRight, -T / 2, cz);
+    const overlap = 0.015;
+    const zBack = (-inn + (cz - hs + overlap)) / 2, dBack = (cz - hs + overlap) - (-inn);
+    if (dBack > 0.02) boxBody(inn, fh, dBack / 2, 0, fy, zBack);
+    const zFront = ((cz + hs - overlap) + inn) / 2, dFront = inn - (cz + hs - overlap);
+    if (dFront > 0.02) boxBody(inn, fh, dFront / 2, 0, fy, zFront);
+    const xLeft = (-inn + (cx - hs + overlap)) / 2, wLeft = (cx - hs + overlap) - (-inn);
+    if (wLeft > 0.02) boxBody(wLeft / 2, fh, hs + overlap, xLeft, fy, cz);
+    const xRight = ((cx + hs - overlap) + inn) / 2, wRight = inn - (cx + hs - overlap);
+    if (wRight > 0.02) boxBody(wRight / 2, fh, hs + overlap, xRight, fy, cz);
 
     // walls
     boxBody(inn + T, WALL_H / 2, T / 2, 0, WALL_H / 2, -inn - T / 2); // back
@@ -360,16 +370,16 @@ export function create(host) {
     carMesh.add(house);
     self._carMesh = carMesh;
 
-    // claw head (hook at origin, body hangs below)
-    clawHead = new CANNON.Body({ mass: 0.14, material: clawMat, linearDamping: 0.25, angularDamping: 0.85 });
+    // claw head hangs from the carriage like a pendulum: kinematic, so it can sway
+    // when the carriage moves but it never somersaults. Prongs stay dynamic on hinges.
+    clawHead = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: clawMat });
     clawHead.addShape(new CANNON.Sphere(0.028), new CANNON.Vec3(0, -0.03, 0));
     clawHead.position.set(carriage.position.x, RAIL_Y - CABLE_TRAVEL, carriage.position.z);
-    clawHead.collisionFilterGroup = G_CLAW; clawHead.collisionFilterMask = G_PRIZE | G_WALL;
+    clawHead.collisionFilterGroup = G_CLAW; clawHead.collisionFilterMask = G_WALL; // kinematic head must not plow the pile
     world.addBody(clawHead);
-
-    cableEq = new CANNON.DistanceConstraint(carriage, clawHead, CABLE_TRAVEL, 1e5);
-    world.addConstraint(cableEq);
+    cableEq = null; // hang is integrated in stepHang()
     cable = CABLE_TRAVEL;
+    self._hang = { x: clawHead.position.x, z: clawHead.position.z, vx: 0, vz: 0 };
 
     const headMesh = new THREE.Group(); scene.add(headMesh);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10), makeMat(0xe8c15a, { metal: 0.6, rough: 0.3 }));
@@ -388,35 +398,30 @@ export function create(host) {
     const prongMat = makeMat(0xd0d5e0, { metal: 0.7, rough: 0.35, flat: false });
     for (let i = 0; i < 3; i++) {
       const a = i * Math.PI * 2 / 3 + Math.PI / 6;
-      const radial = new CANNON.Vec3(Math.cos(a), 0, Math.sin(a));
-      const axis = new CANNON.Vec3(-Math.sin(a), 0, Math.cos(a));
-      const pivotA = new CANNON.Vec3(radial.x * 0.022, -0.04, radial.z * 0.022);
+      // cannon-es qY(a) sends local +X to (cos a, 0, -sin a) and +Z to (sin a, 0, cos a).
+      // hinge axisA and the "outward" radial must match that convention or prongs flip over the head.
+      const radial = new CANNON.Vec3(Math.cos(a), 0, -Math.sin(a));
+      const axis = new CANNON.Vec3(Math.sin(a), 0, Math.cos(a));
+      // Fingers are scaled to the plushies (~4–5 cm radius): long enough to wrap
+      // under a prize, short enough that the tips stay above the felt.
+      const pivotA = new CANNON.Vec3(radial.x * 0.018, -0.035, radial.z * 0.018);
 
-      const body = new CANNON.Body({ mass: 0.045, material: clawMat, linearDamping: 0.15, angularDamping: 0.4 });
-      // long finger
-      body.addShape(new CANNON.Box(new CANNON.Vec3(0.008, 0.07, 0.01)), new CANNON.Vec3(0, -0.07, 0));
-      // inward curl at the tip
-      body.addShape(new CANNON.Box(new CANNON.Vec3(0.008, 0.012, 0.018)), new CANNON.Vec3(0.012, -0.145, 0));
-      // place so the hinge sits at pivotA on the head, prong hanging down and a bit out
-      const q = new CANNON.Quaternion();
-      q.setFromEuler(0, -a, 0); // local +X will face radially? we'll set world transform
-      // Better: align prong local +X with radial, local +Y up. Then curl in +X is inward? curl is in +X of prong — we want inward (toward center), which is -radial if prong hangs below.
-      // We'll orient each prong so its local +X is -radial (inward) and +Y is world up at start, then rotate slightly open.
-      const open = 0.55; // radians from vertical, outward
-      const xAxis = new CANNON.Vec3(-radial.x, 0, -radial.z); // inward
-      const zAxis = axis;
-      const yAxis = new CANNON.Vec3();
-      zAxis.cross(xAxis, yAxis); // should be up-ish
-      // start orientation: rotate around axis by `open` so tips move outward
+      const body = new CANNON.Body({ mass: 0.025, material: clawMat, linearDamping: 0.28, angularDamping: 0.75 });
+      // long finger along local -Y; local +X is radially outward; curl at the tip goes inward (-X)
+      body.addShape(new CANNON.Box(new CANNON.Vec3(0.007, 0.046, 0.008)), new CANNON.Vec3(0, -0.046, 0));
+      body.addShape(new CANNON.Box(new CANNON.Vec3(0.022, 0.009, 0.01)), new CANNON.Vec3(-0.024, -0.098, 0));
+      // small upward lip so a scooped prize has a basket to sit in
+      body.addShape(new CANNON.Box(new CANNON.Vec3(0.006, 0.012, 0.009)), new CANNON.Vec3(-0.042, -0.086, 0));
+      const open = 0.55; // radians from vertical, tip outward
       const pos = new CANNON.Vec3().copy(clawHead.position).vadd(pivotA);
       body.position.copy(pos);
-      const qY = new CANNON.Quaternion(); qY.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -a);
+      // qY(a) then qZ(open): tip at (0,-L,0) swings toward +X (outward)
+      const qY = new CANNON.Quaternion(); qY.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), a);
       const qOpen = new CANNON.Quaternion(); qOpen.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), open);
       body.quaternion.copy(qY).mult(qOpen, body.quaternion);
       body.collisionFilterGroup = G_PRONG; body.collisionFilterMask = G_PRIZE | G_WALL;
       world.addBody(body);
 
-      // hinge: pivotA on head, pivotB at prong origin (top of finger)
       const hinge = new CANNON.HingeConstraint(clawHead, body, {
         pivotA, pivotB: new CANNON.Vec3(0, 0, 0),
         axisA: axis, axisB: new CANNON.Vec3(0, 0, 1),
@@ -428,12 +433,14 @@ export function create(host) {
       world.addConstraint(hinge);
 
       const mesh = new THREE.Group(); scene.add(mesh);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.14, 0.02), prongMat);
-      arm.position.y = -0.07; arm.castShadow = true; mesh.add(arm);
-      const tip = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.024, 0.036), prongMat);
-      tip.position.set(0.012, -0.145, 0); tip.castShadow = true; mesh.add(tip);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.01, 0.092, 8), prongMat);
+      arm.position.y = -0.046; arm.castShadow = true; mesh.add(arm);
+      const tip = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.016, 0.018), prongMat);
+      tip.position.set(-0.024, -0.098, 0); tip.castShadow = true; mesh.add(tip);
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.022, 0.016), prongMat);
+      lip.position.set(-0.042, -0.086, 0); lip.castShadow = true; mesh.add(lip);
 
-      prongs.push({ body, hinge, mesh, axis, radial, a });
+      prongs.push({ body, hinge, mesh, axis, radial, a, pivotA });
     }
   }
 
@@ -472,10 +479,18 @@ export function create(host) {
 
   function placeCamera(kind) {
     if (!camera) return;
-    if (kind === 'grip') camera.position.set(0.15, 0.72, 0.85);
-    else if (kind === 'chute') camera.position.set(-0.15, 0.55, 0.95);
-    else camera.position.set(0.15, 0.85, 1.25);
-    camera.lookAt(kind === 'chute' ? new THREE.Vector3(CHUTE.x, 0.05, CHUTE.z) : new THREE.Vector3(0, 0.2, 0));
+    const claw = clawHead ? clawHead.position : { x: 0, y: 0.4, z: 0 };
+    if (kind === 'grip') {
+      // Stay in front of the glass so the shot never ends up inside a wall.
+      camera.position.set(0.12, 0.58, 0.92);
+      camera.lookAt(claw.x, Math.max(0.06, claw.y - 0.02), claw.z);
+    } else if (kind === 'chute') {
+      camera.position.set(CHUTE.x + 0.22, 0.42, CHUTE.z + 0.55);
+      camera.lookAt(CHUTE.x, 0.03, CHUTE.z);
+    } else {
+      camera.position.set(0.0, 0.78, 1.42);
+      camera.lookAt(0, 0.18, 0.02);
+    }
   }
 
   function buildHud() {
@@ -548,9 +563,103 @@ export function create(host) {
     prizes.forEach(p => { if (!p.body.won) p.body.wakeUp(); });
   }
 
-  function setGrip(speed) {
-    // speed 0 = hold at current angle with the SAME max force (honest).
-    for (const p of prongs) { p.hinge.setMotorMaxForce(GRIP); p.hinge.setMotorSpeed(speed); }
+  function prongAngle(p) {
+    // Signed angle from vertical: + outward (open), − inward (curled under).
+    const down = new CANNON.Vec3();
+    p.body.vectorToWorldFrame(new CANNON.Vec3(0, -1, 0), down);
+    const out = p.radial;
+    return Math.atan2(down.x * out.x + down.z * out.z, -down.y);
+  }
+  // Commanded angle. The motor always uses the same max force (GRIP) and only
+  // chases this target — that is the constant honest grip.
+  let gripTarget = 0.55;
+  const GRIP_OPEN = 0.62;
+  const GRIP_CLOSED = 0.16; // slightly open: inward curls make a basket, not a scissor
+  function setGrip(mode) {
+    if (mode === 'open') gripTarget = GRIP_OPEN;
+    else if (mode === 'close') gripTarget = GRIP_CLOSED;
+    // 'hold' keeps the current target
+  }
+  function poseProng(p, ang) {
+    const qY = new CANNON.Quaternion(); qY.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), p.a);
+    const qA = new CANNON.Quaternion(); qA.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), ang);
+    const qLocal = new CANNON.Quaternion(); qY.mult(qA, qLocal);
+    const qWorld = new CANNON.Quaternion();
+    clawHead.quaternion.mult(qLocal, qWorld);
+    const pivot = new CANNON.Vec3();
+    clawHead.pointToWorldFrame(p.pivotA, pivot);
+    p.body.position.copy(pivot);
+    p.body.quaternion.copy(qWorld);
+    p.body.velocity.set(0, 0, 0);
+    p.body.angularVelocity.set(0, 0, 0);
+  }
+  function driveProngs() {
+    // cannon-es motor: axisB·ω_prong = −targetVelocity, and +ω around local Z opens.
+    // So targetVelocity = −ω_desired.
+    for (const p of prongs) {
+      p.hinge.setMotorMaxForce(GRIP);
+      let ang = prongAngle(p);
+      if (Math.abs(ang) > 1.2) { poseProng(p, gripTarget); ang = gripTarget; }
+      const err = gripTarget - ang;
+      const omega = Math.max(-4, Math.min(4, err * 10));
+      p.hinge.setMotorSpeed(-omega);
+    }
+  }
+  function clampAim() {
+    const lim = BIN / 2 - 0.13;
+    aim.x = Math.max(-lim, Math.min(lim, aim.x));
+    aim.z = Math.max(-lim, Math.min(lim, aim.z));
+  }
+  function attachProngs() {
+    // Re-seat a prong only if it has slipped off the kinematic hook. Rewriting
+    // the pose every frame was wiping closing spin and breaking contacts.
+    for (const p of prongs) {
+      let ang = prongAngle(p);
+      if (!Number.isFinite(ang) || Math.abs(ang) > 1.2) {
+        poseProng(p, gripTarget);
+        p.body.velocity.copy(clawHead.velocity);
+        continue;
+      }
+      const pivot = new CANNON.Vec3();
+      clawHead.pointToWorldFrame(p.pivotA, pivot);
+      if (p.body.position.distanceTo(pivot) < 0.01) continue;
+      const av = p.body.angularVelocity.clone();
+      poseProng(p, Math.max(-0.45, Math.min(0.75, ang)));
+      p.body.velocity.copy(clawHead.velocity);
+      p.body.angularVelocity.copy(av);
+    }
+  }
+  function containPrizes() {
+    for (const p of prizes) {
+      if (p.body.won) continue;
+      const { x, y, z } = p.body.position;
+      if (Math.abs(x) > 0.7 || Math.abs(z) > 0.7 || y < -0.6 || y > 1.4) {
+        p.body.velocity.set(0, 0, 0); p.body.angularVelocity.set(0, 0, 0);
+        p.body.position.set((Math.random() - 0.5) * 0.3, 0.4, -0.05 - Math.random() * 0.15);
+        p.body.wakeUp();
+      }
+    }
+  }
+  function nearbyHookStop() {
+    let stop = HOOK_MIN;
+    const hx = clawHead.position.x, hz = clawHead.position.z;
+    for (const pr of prizes) {
+      if (pr.body.won) continue;
+      const dx = pr.body.position.x - hx, dz = pr.body.position.z - hz;
+      if (dx * dx + dz * dz > 0.08 * 0.08) continue;
+      stop = Math.max(stop, Math.min(0.32, pr.body.position.y + 0.10));
+    }
+    return stop;
+  }
+  function clawTouchesPrize() {
+    const isProng = b => prongs.some(p => p.body === b);
+    for (let i = 0; i < world.contacts.length; i++) {
+      const c = world.contacts[i];
+      const clawish = c.bi === clawHead || c.bj === clawHead || isProng(c.bi) || isProng(c.bj);
+      const prize = c.bi.prizeType || c.bj.prizeType;
+      if (clawish && prize) return true;
+    }
+    return false;
   }
 
   function inChute(body) {
@@ -603,8 +712,58 @@ export function create(host) {
     spawnPrize(t, x, 0.55, z);
   }
 
+
+  function stepHang(dt) {
+    // 2-D pendulum in XZ, length = cable. Spring pulls the hook toward vertical hang;
+    // the head stays roughly upright, tilting only a little along the cable.
+    const hang = self._hang;
+    const tx = carriage.position.x, tz = carriage.position.z;
+    const k = 18, damp = 4.5;
+    hang.vx += ((tx - hang.x) * k - hang.vx * damp) * dt;
+    hang.vz += ((tz - hang.z) * k - hang.vz * damp) * dt;
+    hang.x += hang.vx * dt;
+    hang.z += hang.vz * dt;
+    const dx = hang.x - tx, dz = hang.z - tz;
+    const maxOff = Math.max(0.01, cable * 0.35);
+    const off = Math.hypot(dx, dz);
+    if (off > maxOff) { hang.x = tx + dx / off * maxOff; hang.z = tz + dz / off * maxOff; hang.vx *= 0.5; hang.vz *= 0.5; }
+    const dx2 = hang.x - tx, dz2 = hang.z - tz;
+    const hyRaw = carriage.position.y - Math.sqrt(Math.max(1e-6, cable * cable - dx2 * dx2 - dz2 * dz2));
+    const hy = Math.max(HOOK_MIN, hyRaw);
+    hang.hy = hy;
+    const prev = clawHead.position;
+    clawHead.velocity.set((hang.x - prev.x) / Math.max(dt, 1e-4), (hy - prev.y) / Math.max(dt, 1e-4), (hang.z - prev.z) / Math.max(dt, 1e-4));
+    clawHead.angularVelocity.set(0, 0, 0);
+    // Position is snapped in settleHang() *after* world.step, otherwise the
+    // kinematic integrator would apply velocity a second time and the hook
+    // would punch through the felt.
+  }
+  function settleHang() {
+    const hang = self._hang;
+    const hy = hang.hy != null ? hang.hy : clawHead.position.y;
+    clawHead.position.set(hang.x, hy, hang.z);
+    const tx = carriage.position.x, tz = carriage.position.z;
+    const dirx = tx - hang.x, diry = carriage.position.y - hy, dirz = tz - hang.z;
+    const up = new CANNON.Vec3(dirx, diry, dirz); up.normalize();
+    const q = clawHead.quaternion;
+    const axis = new CANNON.Vec3().copy(new CANNON.Vec3(0, 1, 0)).cross(up, new CANNON.Vec3());
+    const sin = axis.length();
+    if (sin < 1e-5) q.set(0, 0, 0, 1);
+    else {
+      axis.scale(1 / sin, axis);
+      const ang = Math.acos(Math.min(1, Math.max(-1, up.y)));
+      q.setFromAxisAngle(axis, ang);
+    }
+    clawHead.quaternion.copy(q);
+  }
+
   function stepLogic(dt) {
     stateT += dt;
+    if (state === 'close') setGrip('close');
+    if (state === 'open' || (state === 'ready' && stateT < 0.5) || state === 'settle') setGrip('open');
+    if (state === 'ready' && stateT >= 0.5) setGrip('hold');
+    if (state === 'lift' || state === 'return') setGrip('close');
+
     // move carriage in ready (and a little during return is scripted)
     if (canMove()) {
       const ix = (held.right || 0) - (held.left || 0);
@@ -623,32 +782,37 @@ export function create(host) {
       if (d < step || d < 0.01) { aim.x = tx; aim.z = tz; }
       else { aim.x += dx / d * step; aim.z += dz / d * step; }
     }
+    clampAim();
     const prev = carriage.position;
     const px = prev.x, pz = prev.z;
     carriage.position.x = aim.x; carriage.position.y = RAIL_Y; carriage.position.z = aim.z;
     carriage.velocity.set((aim.x - px) / Math.max(dt, 1e-4), 0, (aim.z - pz) / Math.max(dt, 1e-4));
-    cableEq.distance = cable;
+    stepHang(dt);
 
     if (state === 'settle') {
       setStatus('Prizes settling…');
-      if (stateT > 2.2) { state = 'ready'; stateT = 0; setStatus('Move, then drop'); setGrip(OPEN_SPEED); }
+      if (stateT > 1.15) { state = 'ready'; stateT = 0; setStatus('Move, then drop'); setGrip('open'); }
     } else if (state === 'ready') {
-      if (stateT > 0.5) setGrip(0); // stop opening, hold open
+      if (stateT > 0.5) setGrip('hold'); // stop opening, hold open
     } else if (state === 'drop') {
       cable = Math.min(CABLE_MAX, cable + DROP_SPEED * dt);
-      // stop a little above the floor, or after a moment at max
+      // Stop at the felt, at max cable, or just above a prize under the hook
+      // so taller plushies get wrapped instead of shoved. The head itself no
+      // longer collides with prizes (it is kinematic and would plow them).
       const y = clawHead.position.y;
-      if (cable >= CABLE_MAX - 0.001 || (y < 0.13 && stateT > 0.35) || stateT > 1.35) {
-        state = 'close'; stateT = 0; setGrip(CLOSE_SPEED); setStatus('Closing…'); host.sfx?.('blip');
+      const atFloor = y <= HOOK_MIN + 0.008 && stateT > 0.35;
+      const metPile = stateT > 0.35 && y <= nearbyHookStop() + 0.01;
+      if (cable >= CABLE_MAX - 0.001 || atFloor || metPile || stateT > 2.0) {
+        state = 'close'; stateT = 0; setGrip('close'); setStatus('Closing…'); host.sfx?.('blip');
       }
     } else if (state === 'close') {
-      if (stateT > 0.55) { setGrip(0); state = 'lift'; stateT = 0; setStatus('Lifting…'); }
+      if (stateT > 1.2) { state = 'lift'; stateT = 0; setGrip('close'); setStatus('Lifting…'); }
     } else if (state === 'lift') {
       cable = Math.max(CABLE_TRAVEL, cable - LIFT_SPEED * dt);
       if (cable <= CABLE_TRAVEL + 0.001) { state = 'return'; stateT = 0; setStatus('To the chute…'); }
     } else if (state === 'return') {
       const d = Math.hypot(aim.x - CHUTE.x, aim.z - CHUTE.z);
-      if (d < 0.02 && stateT > 0.15) { state = 'open'; stateT = 0; setGrip(OPEN_SPEED); setStatus('Opening…'); }
+      if (d < 0.02 && stateT > 0.15) { state = 'open'; stateT = 0; setGrip('open'); setStatus('Opening…'); }
     } else if (state === 'open') {
       if (stateT > 0.7) {
         // did anything land in the chute?
@@ -668,10 +832,17 @@ export function create(host) {
         refillIfNeeded();
         // go back to a ready hover over the pile
         aim.x = 0.08; aim.z = -0.05;
-        setGrip(0);
+        setGrip('hold');
         state = 'ready'; stateT = 0; setStatus('Move, then drop');
       }
     }
+
+    driveProngs();
+    // Open fingers would sweep the pile on the way down and knock the target
+    // aside. They only collide with prizes while closing and carrying.
+    const grabPhase = state === 'close' || state === 'lift' || state === 'return';
+    const mask = grabPhase ? (G_PRIZE | G_WALL) : G_WALL;
+    for (const p of prongs) p.body.collisionFilterMask = mask;
 
     // accidental roll-in still counts (honest physics)
     if (state !== 'win') {
@@ -682,8 +853,12 @@ export function create(host) {
   }
 
   function step(dt) {
-    world.step(STEP, dt, MAX_SUB);
     stepLogic(dt);
+    attachProngs();
+    world.step(STEP, dt, MAX_SUB);
+    settleHang();
+    attachProngs();
+    containPrizes();
     // sync visuals
     self._carMesh.position.copy(carriage.position);
     syncMesh(self._headMesh, clawHead);
@@ -718,7 +893,7 @@ export function create(host) {
       aim: { x: +aim.x.toFixed(3), z: +aim.z.toFixed(3) },
       plays, wins,
       prizes: prizes.map(p => ({ type: p.type, x: +p.body.position.x.toFixed(3), y: +p.body.position.y.toFixed(3), z: +p.body.position.z.toFixed(3), won: !!p.body.won })),
-      shelf: shelf.length, grip: GRIP,
+      shelf: shelf.length, grip: GRIP, gripTarget: +gripTarget.toFixed(3),
     };
   }
 
@@ -728,6 +903,7 @@ export function create(host) {
   }
 
   function simulate(n = 40, { skill = 0.02, seed = 1 } = {}) {
+    const wasPaused = paused; paused = true;
     // skill = standard deviation of aim error in meters (0 = perfect aim at a prize top).
     let s = seed;
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
@@ -745,7 +921,19 @@ export function create(host) {
       if (state !== 'ready') break;
       const live = prizes.filter(pr => !pr.body.won && pr.body.position.y > 0.02);
       if (!live.length) { refillIfNeeded(); runSeconds(1.5); continue; }
-      const target = live[Math.floor(rnd() * live.length)];
+      // A skilled player aims at the least-crowded prize in reach.
+      const isolation = pr => {
+        let n = 0;
+        for (const o of live) {
+          if (o === pr) continue;
+          const dx = o.body.position.x - pr.body.position.x, dz = o.body.position.z - pr.body.position.z;
+          if (dx * dx + dz * dz < 0.13 * 0.13) n += 1;
+        }
+        return n;
+      };
+      const ranked = live.slice().sort((a, b) => isolation(a) - isolation(b) || a.body.position.y - b.body.position.y);
+      const pickN = Math.max(1, Math.min(3, ranked.length));
+      const target = ranked[Math.floor(rnd() * pickN)];
       aim.x = target.body.position.x + gauss() * skill;
       aim.z = target.body.position.z + gauss() * skill;
       const lim = BIN / 2 - 0.12;
@@ -758,7 +946,8 @@ export function create(host) {
       pcount += 1;
       if (wins > before) w += 1;
     }
-    return { tries: pcount, wins: w, rate: pcount ? w / pcount : 0, skill, plays, totalWins: wins, deltaPlays: plays - plays0, deltaWins: wins - wins0 };
+    paused = wasPaused; last = 0;
+    return { tries: pcount, wins: w, rate: pcount ? +(w / pcount).toFixed(3) : 0, skill, plays, totalWins: wins, deltaPlays: plays - plays0, deltaWins: wins - wins0 };
   }
 
   self.init = c => {
@@ -813,12 +1002,38 @@ export function create(host) {
     overPrize(type) {
       const p = prizes.find(pr => pr.type === type && !pr.body.won);
       if (!p) return null;
-      aim.x = p.body.position.x; aim.z = p.body.position.z; return snapshot();
+      aim.x = p.body.position.x; aim.z = p.body.position.z; clampAim(); return snapshot();
     },
     get GRIP() { return GRIP; },
     get wins() { return wins; },
     get plays() { return plays; },
     get prizes() { return prizes; },
+    putInChute(type) {
+      const p = prizes.find(pr => pr.type === type && !pr.body.won) || prizes.find(pr => !pr.body.won);
+      if (!p) return null;
+      p.body.velocity.set(0, 0, 0); p.body.angularVelocity.set(0, 0, 0);
+      p.body.position.set(CHUTE.x, 0.02, CHUTE.z); p.body.wakeUp();
+      return snapshot();
+    },
+    showWin(type) {
+      const p = prizes.find(pr => pr.type === type && !pr.body.won) || prizes.find(pr => !pr.body.won);
+      if (!p) return null;
+      p.body.type = CANNON.Body.KINEMATIC;
+      p.body.velocity.set(0, 0, 0); p.body.angularVelocity.set(0, 0, 0);
+      p.body.position.set(CHUTE.x, 0.04, CHUTE.z);
+      setStatus('You won ' + p.def.name + '!');
+      placeCamera('chute');
+      return snapshot();
+    },
+    diag() {
+      const tipLocal = new CANNON.Vec3(-0.016, -0.096, 0);
+      const tips = prongs.map(p => {
+        const w = new CANNON.Vec3();
+        p.body.pointToWorldFrame(tipLocal, w);
+        return { x: +w.x.toFixed(3), y: +w.y.toFixed(3), z: +w.z.toFixed(3), ang: +prongAngle(p).toFixed(3) };
+      });
+      return { ...snapshot(), tips, touching: clawTouchesPrize() };
+    },
   };
   return self;
 }

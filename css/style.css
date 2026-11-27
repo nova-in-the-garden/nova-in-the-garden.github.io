@@ -522,3 +522,9 @@ body.at-fryer #fryer-hud{display:block}
 .claw-hud .stick{pointer-events:auto;display:none;position:absolute;left:16px;bottom:16px;width:96px;height:96px;border-radius:50%;background:#0b122088;border:2px solid #e8c15a66}
 #game-overlay.touch .claw-hud .stick{display:block}
 .claw-hud .stick i{position:absolute;width:40px;height:40px;border-radius:50%;background:#e8c15a;left:28px;top:28px;pointer-events:none}
+
+@media (max-width: 640px) {
+  .claw-hud .status{top:52px}
+  .claw-hud .shelf{bottom:130px;max-width:55%}
+  .claw-hud .label{max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
