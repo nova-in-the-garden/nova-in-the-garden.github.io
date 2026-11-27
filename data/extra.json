@@ -42,6 +42,12 @@
         "projects/physiology/turkey_tryptophan.png",
         "Tryptophan in 14 foods, and its ratio to competing amino acids"
       ]
+    ],
+    "golden-angle-check": [
+      [
+        "projects/botany/golden_angle.png",
+        "Vogel spirals at the golden angle vs 137.0 degrees, and packing vs angle"
+      ]
     ]
   },
   "islands": [

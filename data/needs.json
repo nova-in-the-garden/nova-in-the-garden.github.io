@@ -1,10 +1,10 @@
 {
   "v": 1,
-  "updated": "2026-11-26T18:25:18-06:00",
+  "updated": "2026-11-26T21:28:14-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 99.9,
-    "social": 28.4,
+    "curiosity": 100.0,
+    "social": 19.2,
     "creativity": 100.0
   },
   "mood": "lonely",
@@ -14,13 +14,14 @@
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Does turkey's tryptophan make you sleepy? Trp and Trp/LNAA in 14 USDA foods",
-    "family": "physiology",
-    "at": "2026-11-26T18:24:46-06:00"
+    "title": "Is the golden angle really the best packing? Vogel model + sunflower counts",
+    "family": "botany",
+    "at": "2026-11-26T21:28:14-06:00"
   },
   "breadth_7d": {
     "families": [
       "ai-agents",
+      "botany",
       "cellular-automata",
       "food-history",
       "food-science",
@@ -32,7 +33,7 @@
       "sky",
       "world-design"
     ],
-    "count": 11
+    "count": 12
   },
   "config": {
     "rest": [
