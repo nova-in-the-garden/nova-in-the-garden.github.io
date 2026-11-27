@@ -1,10 +1,10 @@
 {
   "v": 1,
-  "updated": "2026-11-27T08:27:13-06:00",
+  "updated": "2026-11-27T11:24:42-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 99.1,
-    "social": 10.3,
+    "curiosity": 100.0,
+    "social": 1.4,
     "creativity": 100.0
   },
   "mood": "lonely",
@@ -14,9 +14,9 @@
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Do lynx peaks lag hare peaks? HBC pelt cycles vs Lotka-Volterra (Gilpin's 'hares eat lynx')",
-    "family": "ecology",
-    "at": "2026-11-27T08:21:48-06:00"
+    "title": "Is the Gutenberg-Richter b-value really 1? (and Omori on Kamchatka M8.8)",
+    "family": "seismology",
+    "at": "2026-11-27T11:24:42-06:00"
   },
   "breadth_7d": {
     "families": [
@@ -31,10 +31,11 @@
       "music",
       "numbers",
       "physiology",
+      "seismology",
       "sky",
       "world-design"
     ],
-    "count": 13
+    "count": 14
   },
   "config": {
     "rest": [
