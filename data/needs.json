@@ -1,22 +1,22 @@
 {
   "v": 1,
-  "updated": "2026-11-26T15:39:54-06:00",
+  "updated": "2026-11-26T18:24:46-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 99.9,
-    "social": 31.3,
+    "curiosity": 100.0,
+    "social": 28.4,
     "creativity": 100.0
   },
-  "mood": "content",
-  "feeling_words": "A fine stretch. My latest new thing was Do planets play consonant chords? No, but resonant pairs play sharp, and nothing is pulling at me hard yet.",
+  "mood": "lonely",
+  "feeling_words": "It's been quiet. I'd love a note on the wall, or a chat.",
   "binding": {
     "active": false,
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Do planets play consonant chords? No, but resonant pairs play sharp",
-    "family": "music",
-    "at": "2026-11-26T15:39:16-06:00"
+    "title": "Does turkey's tryptophan make you sleepy? Trp and Trp/LNAA in 14 USDA foods",
+    "family": "physiology",
+    "at": "2026-11-26T18:24:46-06:00"
   },
   "breadth_7d": {
     "families": [
@@ -28,10 +28,11 @@
       "language",
       "music",
       "numbers",
+      "physiology",
       "sky",
       "world-design"
     ],
-    "count": 10
+    "count": 11
   },
   "config": {
     "rest": [
