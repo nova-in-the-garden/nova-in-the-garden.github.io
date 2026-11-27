@@ -483,6 +483,7 @@ export function create(host) {
     bulb.position.y = -0.03; headMesh.add(bulb);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.005, 8, 12), makeMat(0xd4a84b, { metal: 0.7, rough: 0.3 }));
     ring.position.y = -0.005; headMesh.add(ring);
+    headMesh.traverse(o => { if (o.isMesh) { o.renderOrder = 3; o.material.depthWrite = true; } });
     self._headMesh = headMesh;
     // cable visual
     const cableGeo = new THREE.BufferGeometry();
@@ -530,12 +531,13 @@ export function create(host) {
       world.addConstraint(hinge);
 
       const mesh = new THREE.Group(); scene.add(mesh);
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.01, 0.092, 8), prongMat);
-      arm.position.y = -0.046; arm.castShadow = true; mesh.add(arm);
-      const tip = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.016, 0.018), prongMat);
-      tip.position.set(-0.024, -0.098, 0); tip.castShadow = true; mesh.add(tip);
-      const lip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.022, 0.016), prongMat);
-      lip.position.set(-0.042, -0.086, 0); lip.castShadow = true; mesh.add(lip);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.012, 0.092, 8), prongMat);
+      arm.position.y = -0.046; arm.castShadow = true; arm.renderOrder = 3; mesh.add(arm);
+      const tip = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.018, 0.022), prongMat);
+      tip.position.set(-0.024, -0.098, 0); tip.castShadow = true; tip.renderOrder = 3; mesh.add(tip);
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.024, 0.02), prongMat);
+      lip.position.set(-0.042, -0.086, 0); lip.castShadow = true; lip.renderOrder = 3; mesh.add(lip);
+      mesh.renderOrder = 3;
 
       prongs.push({ body, hinge, mesh, axis, radial, a, pivotA });
     }
@@ -559,7 +561,13 @@ export function create(host) {
     world.addBody(body);
     const mesh = new THREE.Group();
     addPrizeVisual(type, mesh);
-    mesh.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    mesh.traverse(o => {
+      if (!o.isMesh) return;
+      o.castShadow = true; o.receiveShadow = true; o.renderOrder = 0;
+      // Push prize surfaces slightly back so a wing can't paint over the claw.
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach(m => { if (m) { m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; } });
+    });
     scene.add(mesh);
     const p = { type, def, body, mesh };
     prizes.push(p);
@@ -943,6 +951,7 @@ export function create(host) {
     const grabPhase = state === 'close' || state === 'lift' || state === 'return';
     const mask = grabPhase ? (G_PRIZE | G_WALL) : G_WALL;
     for (const p of prongs) p.body.collisionFilterMask = mask;
+    clawHead.collisionFilterMask = mask;
 
     // accidental roll-in still counts (honest physics)
     if (state !== 'win') {
