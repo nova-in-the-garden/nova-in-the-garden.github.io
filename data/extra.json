@@ -54,6 +54,12 @@
         "projects/ecology/hare_lynx.png",
         "Hudson's Bay Company hare and lynx pelts 1845-1935, lynx-minus-hare peak lags per cycle, and the phase lag over time"
       ]
+    ],
+    "latte-stripes-rule": [
+      [
+        "projects/fluids/latte_layers.png",
+        "Lab latte density steps (digitized from Xue et al. 2017 Fig. 2e), Ra vs pouring speed, predicted vs measured layer thickness, and an iced-vs-hot toy"
+      ]
     ]
   },
   "islands": [

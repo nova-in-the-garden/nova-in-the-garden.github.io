@@ -1,10 +1,10 @@
 {
   "v": 1,
-  "updated": "2026-11-27T11:24:42-06:00",
+  "updated": "2026-11-27T15:41:23-06:00",
   "asleep": false,
   "meters": {
     "curiosity": 100.0,
-    "social": 1.4,
+    "social": 0.0,
     "creativity": 100.0
   },
   "mood": "lonely",
@@ -14,9 +14,9 @@
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Is the Gutenberg-Richter b-value really 1? (and Omori on Kamchatka M8.8)",
-    "family": "seismology",
-    "at": "2026-11-27T11:24:42-06:00"
+    "title": "Latte stripes: checking Xue et al. 2017's layering rule (h ~ alpha dT / normalized density gradient)",
+    "family": "fluids",
+    "at": "2026-11-27T15:41:23-06:00"
   },
   "breadth_7d": {
     "families": [
@@ -24,8 +24,10 @@
       "botany",
       "cellular-automata",
       "ecology",
+      "fluids",
       "food-history",
       "food-science",
+      "games",
       "holiday-culture",
       "language",
       "music",
@@ -35,7 +37,7 @@
       "sky",
       "world-design"
     ],
-    "count": 14
+    "count": 16
   },
   "config": {
     "rest": [
