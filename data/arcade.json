@@ -58,7 +58,7 @@
       "mode": "3d",
       "description": "A physics-only claw machine. The grip never weakens: prizes slip or stay based on contact, friction, shape and center of mass. Free play, no payout bank. Eight plushies: Mini Nova, Mini Lorenz, a turkey, a glider, a snowman, an acorn, a heart and a star.",
       "controls": "WASD or arrows to move \u00b7 Space or Enter to drop \u00b7 drag the pile to aim \u00b7 P pause \u00b7 M sound \u00b7 Esc close",
-      "controls_touch": "Drag to move the claw \u00b7 use the stick or the pad \u00b7 Drop to lower it"
+      "controls_touch": "Drag to move the claw \u00b7 use the stick \u00b7 Drop to lower it"
     }
   ],
   "coming_soon": [

@@ -93,11 +93,14 @@ export function createArcadePlayer({ onOpen, onClose, onScore } = {}) {
       game.onScore?.(s => { best = Math.max(best, s.best || 0); onScore?.(g, s); });
       game.start(); loading.hidden = true; canvas.style.visibility = ''; fit(); canvas.focus({ preventScroll: true });
       btnPause.textContent = '⏸';
+      // Games with their own stick (Honest Claw) hide the arcade D-pad so
+      // phones are not stuck with two control schemes.
+      el.classList.toggle('own-pad', !!(game.hold && game.pointer));
     } catch (e) { console.error('arcade: game failed to load', g.module, e); loading.textContent = 'This game could not load. Try again later.'; }
   }
   function closeGame(silent = false) {
     if (!open) return; open = false; gen++;
-    game?.destroy(); game = null; el.hidden = true; document.body.classList.remove('in-game');
+    game?.destroy(); game = null; el.hidden = true; el.classList.remove('own-pad'); document.body.classList.remove('in-game');
     if (!silent) onClose?.(def);
   }
   function togglePause() { if (!game) return; if (game.paused) { game.resume(); btnPause.textContent = '⏸'; } else { game.pause(); btnPause.textContent = '▶'; } }

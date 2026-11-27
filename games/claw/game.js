@@ -653,7 +653,7 @@ export function create(host) {
     const last = shelf.slice(-8);
     shelfEl.innerHTML = last.length
       ? last.map(e => `<span class="won" title="${e.name}">${e.emoji || '🎁'}</span>`).join('')
-      : `<span class="won" title="Your prize shelf is empty" style="opacity:.5">—</span>`;
+      : '';
   }
 
   function setStatus(s) { if (statusEl) statusEl.textContent = s; }
