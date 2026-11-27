@@ -16,7 +16,7 @@ const CLOSE_SPEED = -2.8;     // rad/s; negative closes (tips inward, past verti
 const OPEN_SPEED = 3.0;
 const MOVE_SPEED = 0.42;      // m/s of the carriage
 const DROP_SPEED = 0.5;       // cable pay-out
-const LIFT_SPEED = 0.18;
+const LIFT_SPEED = 0.14;
 const CABLE_MIN = 0.16;
 const HOOK_MIN = 0.155;       // hook stays above the felt so fingertips clear the floor
 const CABLE_MAX = 0.625;      // RAIL_Y - HOOK_MIN
@@ -324,7 +324,7 @@ export function create(host) {
       world.addContactMaterial(new CANNON.ContactMaterial(a, b, { friction, restitution, contactEquationStiffness: 1e7, frictionEquationStiffness: 1e7 }));
     };
     TYPES.forEach(t => {
-      addCM(clawMat, prizeMats[t.id], Math.min(1.6, t.friction + 0.7));
+      addCM(clawMat, prizeMats[t.id], Math.min(1.6, t.friction + 1.0));
       addCM(wallMat, prizeMats[t.id], t.friction * 0.7);
       TYPES.forEach(u => addCM(prizeMats[t.id], prizeMats[u.id], 0.45));
     });
@@ -681,7 +681,7 @@ export function create(host) {
   // chases this target — that is the constant honest grip.
   let gripTarget = 0.55;
   const GRIP_OPEN = 0.62;
-  const GRIP_CLOSED = 0.16; // slightly open: inward curls make a basket, not a scissor
+  const GRIP_CLOSED = 0.10; // slightly open: inward curls make a basket, not a scissor
   function setGrip(mode) {
     if (mode === 'open') gripTarget = GRIP_OPEN;
     else if (mode === 'close') gripTarget = GRIP_CLOSED;
@@ -951,7 +951,11 @@ export function create(host) {
     const grabPhase = state === 'close' || state === 'lift' || state === 'return';
     const mask = grabPhase ? (G_PRIZE | G_WALL) : G_WALL;
     for (const p of prongs) p.body.collisionFilterMask = mask;
-    clawHead.collisionFilterMask = mask;
+    // The kinematic bulb must not turn solid while it still overlaps a tall prize
+    // at the bottom of the drop — that shove used to fire plushies out of the basket.
+    // Once the hook has risen, the bulb becomes a solid roof so held prizes sit under it.
+    const headSafe = clawHead.position.y > HOOK_MIN + 0.12;
+    clawHead.collisionFilterMask = (grabPhase && headSafe) ? (G_PRIZE | G_WALL) : G_WALL;
 
     // accidental roll-in still counts (honest physics)
     if (state !== 'win') {
@@ -1134,7 +1138,10 @@ export function create(host) {
       if (!p) return null;
       p.body.type = CANNON.Body.KINEMATIC;
       p.body.velocity.set(0, 0, 0); p.body.angularVelocity.set(0, 0, 0);
-      p.body.position.set(CHUTE.x, 0.04, CHUTE.z);
+      p.body.position.set(CHUTE.x, 0.055, CHUTE.z);
+      // Sit upright, face the chute camera (which looks in from +x/+z).
+      const yaw = Math.atan2(0.22, 0.55);
+      p.body.quaternion.setFromEuler(0, yaw, 0);
       setStatus('You won ' + p.def.name + '!');
       placeCamera('chute');
       return snapshot();
