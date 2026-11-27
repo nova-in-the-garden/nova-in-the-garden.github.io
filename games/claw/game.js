@@ -57,87 +57,184 @@ function makeMat(color, { rough = 0.7, metal = 0.1, flat = true, emissive = 0, e
 }
 
 // ---------------------------------------------------------------- prize meshes + shapes
+function stripeTex() {
+  const c = document.createElement('canvas'); c.width = 8; c.height = 16;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c8323a'; g.fillRect(0, 0, 8, 16);
+  g.fillStyle = '#e8c15a'; g.fillRect(0, 6, 8, 5);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 1);
+  return tex;
+}
+function addEyes(group, y, z, spread, size, { amber = false } = {}) {
+  const iris = amber
+    ? makeMat(0xe08a1e, { rough: 0.25, emissive: 0xb85e10, em: 0.85, flat: false })
+    : makeMat(0x0b0b10, { rough: 0.15, flat: false });
+  const pupil = makeMat(0x120804, { rough: 0.2, flat: false });
+  const hi = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const s of [-1, 1]) {
+    const e = new THREE.Group(); e.position.set(s * spread, y, z); group.add(e);
+    e.add(new THREE.Mesh(new THREE.SphereGeometry(size, 8, 6), iris));
+    if (amber) {
+      const pb = new THREE.Mesh(new THREE.SphereGeometry(size * 0.48, 6, 5), pupil);
+      pb.position.z = size * 0.55; e.add(pb);
+    }
+    const h = new THREE.Mesh(new THREE.SphereGeometry(size * 0.22, 5, 4), hi);
+    h.position.set(size * 0.28, size * 0.28, size * 0.82); e.add(h);
+  }
+}
+function addScarf(group, y, z, r, tube) {
+  const mat = new THREE.MeshStandardMaterial({
+    map: stripeTex(), roughness: 0.9, metalness: 0, flatShading: true, side: THREE.DoubleSide,
+  });
+  const wrap = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 8, 16), mat);
+  wrap.position.set(0, y, z); wrap.rotation.x = Math.PI / 2; wrap.scale.z = 0.72; group.add(wrap);
+  const end = new THREE.Mesh(new THREE.BoxGeometry(tube * 1.6, tube * 5.5, tube * 1.2), mat);
+  end.position.set(r * 0.55, y - tube * 2.4, z + r * 0.35); group.add(end);
+}
+
 function addPrizeVisual(type, group) {
-  const R = (a, b) => a + (b - a) * Math.random();
+  // Visual-only details. Physics shapes stay in prizeShapes() so grab feel is unchanged.
   if (type === 'fox') {
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), makeMat(0xe07a32));
+    // Mini Nova: midnight-blue fur, amber eyes, gold forehead + freckles, striped scarf, glowing tail tip.
+    const fur = makeMat(0x1b2452, { rough: 0.85, emissive: 0x0a1238, em: 0.45 });
+    const cream = makeMat(0xe9d2a6, { rough: 0.8, emissive: 0x3a2a10, em: 0.25 });
+    const gold = makeMat(0xe8c15a, { rough: 0.45, emissive: 0x7a4a08, em: 0.55 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), fur);
     body.scale.set(1, 0.85, 1.25); group.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), makeMat(0xe07a32));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), fur);
     head.position.set(0, 0.028, 0.04); group.add(head);
-    const chest = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), makeMat(0xfff3e0));
+    const chest = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), cream);
     chest.position.set(0, -0.004, 0.03); chest.scale.set(1, 0.8, 0.7); group.add(chest);
+    const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), makeMat(0x2a3670, { rough: 0.8 }));
+    muzzle.position.set(0, 0.02, 0.068); muzzle.scale.set(1.1, 0.7, 0.8); group.add(muzzle);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.005, 6, 5), makeMat(0x07070c, { rough: 0.3 }));
+    nose.position.set(0, 0.02, 0.08); group.add(nose);
     for (const s of [-1, 1]) {
-      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.028, 6), makeMat(0xe07a32));
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.028, 6), fur);
       ear.position.set(s * 0.018, 0.052, 0.032); group.add(ear);
+      const inner = new THREE.Mesh(new THREE.ConeGeometry(0.007, 0.016, 6), cream);
+      inner.position.set(s * 0.018, 0.048, 0.036); group.add(inner);
     }
-    const tail = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), makeMat(0xe07a32));
+    // Rule-90-ish gold triangle on the forehead
+    const mark = new THREE.Mesh(new THREE.ConeGeometry(0.01, 0.016, 3), gold);
+    mark.position.set(0, 0.042, 0.06); mark.rotation.x = -0.9; group.add(mark);
+    for (const [x, y, z] of [[-0.012, 0.028, 0.066], [0.012, 0.028, 0.066], [0.0, 0.022, 0.07], [-0.008, 0.034, 0.064], [0.008, 0.034, 0.064]]) {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.0024, 5, 4), gold);
+      f.position.set(x, y, z); group.add(f);
+    }
+    addEyes(group, 0.034, 0.066, 0.012, 0.006, { amber: true });
+    addScarf(group, 0.012, 0.04, 0.022, 0.006);
+    const tail = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), fur);
     tail.position.set(0, 0.01, -0.06); tail.scale.set(0.7, 0.7, 1.6); group.add(tail);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 6), makeMat(0xfff0c4, { rough: 0.5, emissive: 0xffc04a, em: 1.4, flat: false }));
+    tip.position.set(0, 0.01, -0.082); group.add(tip);
   } else if (type === 'lorenz') {
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 8), makeMat(0xf2d14a));
+    // Mini Lorenz: yellow duck, peach bill, orange feet, red-and-gold scarf.
+    const down = makeMat(0xffea6e, { rough: 0.8, emissive: 0x6a5200, em: 0.35 });
+    const light = makeMat(0xfff4a0, { rough: 0.8, emissive: 0x6a5200, em: 0.25 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 8), down);
     body.scale.set(1, 0.95, 1.15); group.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), makeMat(0xf7dc5c));
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), light);
+    belly.position.set(0, -0.006, 0.02); group.add(belly);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), makeMat(0xfff4a0, { rough: 0.8, emissive: 0x6a5200, em: 0.3 }));
     head.position.set(0, 0.03, 0.032); group.add(head);
-    const beak = new THREE.Mesh(new THREE.ConeGeometry(0.01, 0.024, 6), makeMat(0xf08a2a, { rough: 0.5 }));
-    beak.rotation.x = Math.PI / 2; beak.position.set(0, 0.026, 0.056); group.add(beak);
+    const bill = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), makeMat(0xf6a88a, { rough: 0.55 }));
+    bill.scale.set(1.0, 0.55, 1.15); bill.position.set(0, 0.024, 0.058); group.add(bill);
+    addEyes(group, 0.04, 0.054, 0.012, 0.0055);
+    addScarf(group, 0.014, 0.03, 0.024, 0.007);
     for (const s of [-1, 1]) {
-      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.006, 0.02), makeMat(0xf08a2a));
-      foot.position.set(s * 0.018, -0.04, 0.01); group.add(foot);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.006, 0.022), makeMat(0xf39233, { rough: 0.6 }));
+      foot.position.set(s * 0.018, -0.04, 0.012); group.add(foot);
     }
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.022, 6), light);
+    tail.rotation.x = -1.1; tail.position.set(0, 0.012, -0.05); group.add(tail);
   } else if (type === 'turkey') {
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), makeMat(0x7a4a22));
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), makeMat(0x7a4a22, { rough: 0.8 }));
     body.scale.set(1.05, 0.9, 1.15); group.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), makeMat(0x3a2a18));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), makeMat(0x3a2a18, { rough: 0.7 }));
     head.position.set(0, 0.04, 0.04); group.add(head);
-    const wattle = new THREE.Mesh(new THREE.SphereGeometry(0.01, 6, 5), makeMat(0xc8323a));
+    const wattle = new THREE.Mesh(new THREE.SphereGeometry(0.01, 6, 5), makeMat(0xc8323a, { rough: 0.6 }));
     wattle.position.set(0, 0.024, 0.055); wattle.scale.set(0.7, 1.3, 0.7); group.add(wattle);
+    const snood = new THREE.Mesh(new THREE.SphereGeometry(0.005, 5, 4), makeMat(0xc8323a));
+    snood.position.set(0, 0.05, 0.054); group.add(snood);
+    addEyes(group, 0.046, 0.054, 0.008, 0.004);
+    const beak = new THREE.Mesh(new THREE.ConeGeometry(0.006, 0.016, 5), makeMat(0xf08a2a, { rough: 0.5 }));
+    beak.rotation.x = Math.PI / 2; beak.position.set(0, 0.036, 0.06); group.add(beak);
+    // tail fan
+    const cols = [0xb8651e, 0xc45c22, 0xd4a017, 0x7a3a12, 0xa33b1a];
+    for (let i = 0; i < 7; i++) {
+      const a = (i - 3) * 0.28;
+      const feather = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.07, 0.004), makeMat(cols[i % cols.length], { rough: 0.7 }));
+      feather.position.set(Math.sin(a) * 0.03, 0.03 + Math.cos(a) * 0.01, -0.055);
+      feather.rotation.set(-0.9, 0, a); group.add(feather);
+    }
   } else if (type === 'glider') {
     const mat = makeMat(0x7adf7a, { rough: 0.55 });
+    const edge = makeMat(0x3e8f4a, { rough: 0.5 });
     const wing = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.04), mat);
     group.add(wing);
     const nose = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.012, 0.09), mat);
     nose.position.z = 0.01; group.add(nose);
+    const cabin = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), makeMat(0x1a3a4a, { rough: 0.4, trans: true, opac: 0.85, flat: false }));
+    cabin.position.set(0, 0.01, 0.02); group.add(cabin);
+    const tailfin = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.028, 0.018), edge);
+    tailfin.position.set(0, 0.016, -0.028); group.add(tailfin);
   } else if (type === 'snowman') {
-    const a = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 8), makeMat(0xf4f7ff, { rough: 0.85 }));
+    const snow = makeMat(0xf4f7ff, { rough: 0.85 });
+    const a = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 8), snow);
     a.position.y = -0.01; group.add(a);
-    const b = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), makeMat(0xf4f7ff, { rough: 0.85 }));
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), snow);
     b.position.y = 0.046; group.add(b);
-    const c = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), makeMat(0xf4f7ff, { rough: 0.85 }));
+    const c = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), snow);
     c.position.y = 0.09; group.add(c);
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.006, 0.02, 6), makeMat(0xf08a2a));
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.006, 0.02, 6), makeMat(0xf08a2a, { rough: 0.55 }));
     nose.rotation.x = Math.PI / 2; nose.position.set(0, 0.088, 0.028); group.add(nose);
-    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.006, 6, 10), makeMat(0xc8323a));
-    scarf.position.y = 0.068; scarf.rotation.x = Math.PI / 2; group.add(scarf);
+    addEyes(group, 0.094, 0.018, 0.008, 0.004);
+    addScarf(group, 0.068, 0, 0.02, 0.006);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.006, 12), makeMat(0x1a1520, { rough: 0.7 }));
+    brim.position.y = 0.108; group.add(brim);
+    const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.018, 0.024, 10), makeMat(0x1a1520, { rough: 0.7 }));
+    hat.position.y = 0.122; group.add(hat);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.003, 6, 12), makeMat(0xe8c15a, { rough: 0.5, metal: 0.3 }));
+    band.position.y = 0.112; band.rotation.x = Math.PI / 2; group.add(band);
   } else if (type === 'acorn') {
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), makeMat(0x5a3a16));
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), makeMat(0x5a3a16, { rough: 0.85 }));
     cap.position.y = 0.01; group.add(cap);
-    const nut = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), makeMat(0xb8742a));
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.004, 6, 12), makeMat(0x4a2e10, { rough: 0.8 }));
+    rim.position.y = 0.01; rim.rotation.x = Math.PI / 2; group.add(rim);
+    const nut = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), makeMat(0xb8742a, { rough: 0.7 }));
     nut.scale.set(1, 1.15, 1); nut.position.y = -0.01; group.add(nut);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.004, 0.016, 6), makeMat(0x3a2a14, { rough: 0.8 }));
+    stem.position.y = 0.03; stem.rotation.z = 0.35; group.add(stem);
   } else if (type === 'heart') {
-    const mat = makeMat(0xe85a7a, { rough: 0.65 });
+    const mat = makeMat(0xd41c3e, { rough: 0.55, emissive: 0x5a0810, em: 0.25 });
     for (const s of [-1, 1]) {
-      const p = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), mat);
-      p.position.set(s * 0.018, 0.012, 0); group.add(p);
+      const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), mat);
+      lobe.position.set(s * 0.018, 0.012, 0); group.add(lobe);
     }
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.034, 0.05, 8), mat);
     tip.rotation.x = Math.PI; tip.position.y = -0.022; group.add(tip);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 5), makeMat(0xffc0c8, { rough: 0.3, trans: true, opac: 0.7, flat: false }));
+    shine.position.set(-0.016, 0.022, 0.018); group.add(shine);
   } else if (type === 'star') {
-    const mat = makeMat(0xffd76a, { rough: 0.5, metal: 0.2, emissive: 0xffb830, em: 0.25 });
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), mat);
+    // Chubby 5-point star lying in XZ so it still reads as a star when the
+    // flat physics pancake rests on the felt.
+    const mat = makeMat(0xffd76a, { rough: 0.4, metal: 0.25, emissive: 0xffb830, em: 0.4 });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), mat);
     group.add(core);
+    const dir = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     for (let i = 0; i < 5; i++) {
-      const a = i * Math.PI * 2 / 5 + Math.PI / 2;
-      const arm = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.04, 5), mat);
-      arm.position.set(Math.cos(a) * 0.02, Math.sin(a) * 0.02, 0);
-      arm.rotation.z = a - Math.PI / 2; group.add(arm);
+      const a = i * Math.PI * 2 / 5 + Math.PI / 10;
+      const arm = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.05, 5), mat);
+      dir.set(Math.cos(a), 0, Math.sin(a));
+      arm.position.copy(dir).multiplyScalar(0.024);
+      arm.quaternion.setFromUnitVectors(up, dir);
+      group.add(arm);
     }
   }
-}
-
-// turkey tail was left incomplete in the fox branch — build turkey properly here if the typo path ran
-function finishTurkey(group) {
-  if (group.children.length > 4) return;
-  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.075, 0.09, 9, 1, false, 0, Math.PI), makeMat(0xb8651e));
-  tail.rotation.x = Math.PI / 2; tail.position.set(0, 0.02, -0.05); group.add(tail);
 }
 
 function prizeShapes(type) {
@@ -452,13 +549,16 @@ export function create(host) {
     });
     for (const { sh, o } of prizeShapes(type)) body.addShape(sh, o);
     body.position.set(x, y, z);
-    body.quaternion.setFromEuler(Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5);
+    if (type === 'star' || type === 'glider' || type === 'heart') {
+      body.quaternion.setFromEuler(0, Math.random() * Math.PI, 0);
+    } else {
+      body.quaternion.setFromEuler(Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5);
+    }
     body.collisionFilterGroup = G_PRIZE; body.collisionFilterMask = G_PRIZE | G_WALL | G_CLAW | G_PRONG | G_SENSOR;
     body.prizeType = type; body.won = false;
     world.addBody(body);
     const mesh = new THREE.Group();
     addPrizeVisual(type, mesh);
-    if (type === 'turkey') finishTurkey(mesh);
     mesh.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     scene.add(mesh);
     const p = { type, def, body, mesh };
@@ -467,12 +567,11 @@ export function create(host) {
   }
 
   function fillBin() {
-    // a snug but not packed pile, slightly jittered
+    // one of each type — 8 prizes, 8 types — a snug but not packed pile
     const spots = [
-      [0.12, 0.18, 0.02, 'fox'], [-0.08, 0.2, -0.12, 'lorenz'], [0.18, 0.22, -0.16, 'turkey'],
-      [-0.16, 0.16, 0.08, 'glider'], [0.02, 0.24, -0.2, 'snowman'], [0.2, 0.16, 0.14, 'acorn'],
-      [-0.02, 0.18, 0.16, 'heart'], [0.1, 0.2, 0.2, 'star'],
-      [-0.2, 0.18, -0.06, 'fox'], [0.0, 0.28, 0.0, 'lorenz'],
+      [0.10, 0.18, -0.02, 'fox'], [-0.10, 0.18, -0.14, 'lorenz'], [0.16, 0.20, -0.16, 'turkey'],
+      [-0.16, 0.16, 0.06, 'glider'], [0.02, 0.22, -0.18, 'snowman'], [0.16, 0.16, 0.10, 'acorn'],
+      [-0.04, 0.18, 0.12, 'heart'], [0.08, 0.18, 0.16, 'star'],
     ];
     for (const [x, y, z, t] of spots) spawnPrize(t, x, y, z);
   }
@@ -704,9 +803,10 @@ export function create(host) {
   }
 
   function refillIfNeeded() {
-    const live = prizes.filter(p => !p.body.won && p.body.position.y > -0.05).length;
-    if (live >= 8) return;
-    const t = TYPES[Math.floor(Math.random() * TYPES.length)].id;
+    const live = prizes.filter(p => !p.body.won && p.body.position.y > -0.05);
+    if (live.length >= 8) return;
+    const missing = TYPES.filter(d => !live.some(p => p.type === d.id));
+    const t = (missing[0] || TYPES[Math.floor(Math.random() * TYPES.length)]).id;
     // drop in the back half so it doesn't fall in the chute
     const x = (Math.random() - 0.5) * 0.4, z = -0.05 - Math.random() * 0.2;
     spawnPrize(t, x, 0.55, z);
@@ -996,6 +1096,11 @@ export function create(host) {
   self.debug = {
     get state() { return state; },
     snap: snapshot,
+    lookAt(x, y, z) {
+      if (!camera) return;
+      camera.position.set(x + 0.10, y + 0.08, z + 0.16);
+      camera.lookAt(x, y + 0.02, z);
+    },
     placeCamera,
     drop, runSeconds, simulate,
     moveTo(x, z) { aim.x = x; aim.z = z; },
