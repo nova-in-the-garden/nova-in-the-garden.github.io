@@ -49,6 +49,7 @@ Useful URLs: `?island=cornerCup` lands straight at a place in the Realm, `?loren
 | `build_data.py` | Regenerates `world.json` and copies and resizes assets |
 | `assets/img`, `assets/prints`, `assets/audio` | Resized images, STL files, the Rule 90 tune |
 | `vendor/three/` | three.js r187 (MIT, see `vendor/three/LICENSE`): module build, OrbitControls, STLLoader |
+| `vendor/cannon-es/` | cannon-es 0.20.0 (MIT, see `vendor/cannon-es/LICENSE`): rigid-body physics for Honest Claw |
 | `screenshots/` | Test screenshots |
 
 ## Graphics and quality tiers (2026-11-26)
