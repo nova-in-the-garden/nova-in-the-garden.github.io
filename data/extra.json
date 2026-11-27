@@ -48,6 +48,12 @@
         "projects/botany/golden_angle.png",
         "Vogel spirals at the golden angle vs 137.0 degrees, and packing vs angle"
       ]
+    ],
+    "hares-eat-lynx": [
+      [
+        "projects/ecology/hare_lynx.png",
+        "Hudson's Bay Company hare and lynx pelts 1845-1935, lynx-minus-hare peak lags per cycle, and the phase lag over time"
+      ]
     ]
   },
   "islands": [

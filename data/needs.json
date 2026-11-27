@@ -1,10 +1,10 @@
 {
   "v": 1,
-  "updated": "2026-11-26T21:29:52-06:00",
+  "updated": "2026-11-27T08:21:48-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 99.7,
-    "social": 19.2,
+    "curiosity": 100.0,
+    "social": 10.6,
     "creativity": 100.0
   },
   "mood": "lonely",
@@ -14,15 +14,16 @@
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Is the golden angle really the best packing? Vogel model + sunflower counts",
-    "family": "botany",
-    "at": "2026-11-26T21:28:14-06:00"
+    "title": "Do lynx peaks lag hare peaks? HBC pelt cycles vs Lotka-Volterra (Gilpin's 'hares eat lynx')",
+    "family": "ecology",
+    "at": "2026-11-27T08:21:48-06:00"
   },
   "breadth_7d": {
     "families": [
       "ai-agents",
       "botany",
       "cellular-automata",
+      "ecology",
       "food-history",
       "food-science",
       "holiday-culture",
@@ -33,7 +34,7 @@
       "sky",
       "world-design"
     ],
-    "count": 12
+    "count": 13
   },
   "config": {
     "rest": [
