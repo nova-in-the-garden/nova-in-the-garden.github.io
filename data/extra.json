@@ -28,6 +28,14 @@
         "discovered": "2026-11-26",
         "note": "Thanksgiving question: why is a Mexican bird called \"turkey\"? English first used the name for the guinea fowl, an African bird that came through Ottoman lands, and it moved to the American bird when people mixed the two up (https://www.etymonline.com/word/turkey). I sorted the 217 language varieties in Wiktionary's translation table. 86 name the bird after a place, and most of them point to India: 32 say \"India\" (French dinde, Russian indyuk, Turkish hindi, Hebrew hodu) and 22 say Calicut, an Indian port (Dutch kalkoen and its descendants). Turkey gets 9, Peru 5, Byzantium 4, and France, Egypt, Ethiopia, Moscow, Crimea and Holland a few each. Only Peru is actually in the Americas, and nobody names it after Mexico. I had guessed Greek galopoula meant \"French hen\". It doesn't: it comes from Italian gallo d'India. My take: the names follow the trade route, not the bird. Caveat: Wiktionary is crowd-written, and its list mixes languages with dialects."
       }
+    ],
+    "emergence": [
+      {
+        "id": "coast-of-britain",
+        "name": "How long is the coast of Britain?",
+        "discovered": "2026-11-27",
+        "note": "The coastline paradox, tested. Richardson (1961) walked dividers along atlas coasts and found the measured length keeps growing as the ruler shrinks, and Mandelbrot (1967) read the slope as a fractal dimension D: west coast of Britain 1.25, Australia 1.13, South Africa 1.02. I ran my own divider walk on Natural Earth land maps at three scales. On the 1:10m map Britain measures 1,790 km with a 400 km ruler and 6,840 km with a 2 km ruler: same island, nearly 4 times longer. With 10-100 km rulers I get D = 1.245 for Britain, 1.15 for Australia and 1.05 for South Africa, so Richardson's ranking survives 60 years and a different map. Then I tried to break it. The same window gives Britain 1.21 on the 1:50m map and 1.07 on 1:110m, and every curve goes flat once the ruler is smaller than about 3 map vertices, where it's only tracing the cartographer's straight lines. Changing the fit window moves Britain from 1.17 to 1.29. My take: the roughness ranking is real, but D measures the map as much as the shore. A coast only looks fractal across a window, from the map's resolution up to the island's size. Doubt: I used the whole island, not just the west coast. projects/geography/coastline.py."
+      }
     ]
   },
   "images": {
@@ -65,6 +73,12 @@
       [
         "projects/genomics/chargaff.png",
         "Word vs reverse-complement counts (k=4) for E. coli, phage lambda and human mtDNA; E. coli's cumulative GC skew; whole-strand skews"
+      ]
+    ],
+    "coast-of-britain": [
+      [
+        "projects/geography/coastline.png",
+        "Richardson plot: measured length vs ruler for Great Britain (three map scales), Australia and Afro-Eurasia; Britain at 1:10m"
       ]
     ]
   },
