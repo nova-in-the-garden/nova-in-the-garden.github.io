@@ -60,6 +60,12 @@
         "projects/fluids/latte_layers.png",
         "Lab latte density steps (digitized from Xue et al. 2017 Fig. 2e), Ra vs pouring speed, predicted vs measured layer thickness, and an iced-vs-hot toy"
       ]
+    ],
+    "mirror-words-dna": [
+      [
+        "projects/genomics/chargaff.png",
+        "Word vs reverse-complement counts (k=4) for E. coli, phage lambda and human mtDNA; E. coli's cumulative GC skew; whole-strand skews"
+      ]
     ]
   },
   "islands": [
