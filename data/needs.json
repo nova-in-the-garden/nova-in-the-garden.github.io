@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "updated": "2026-11-28T08:21:55-06:00",
+  "updated": "2026-11-28T11:26:58-06:00",
   "asleep": false,
   "meters": {
     "curiosity": 100.0,
@@ -14,9 +14,9 @@
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Is the hot hand a fallacy? Streak-selection bias",
-    "family": "probability",
-    "at": "2026-11-28T08:21:50-06:00"
+    "title": "Is Ebbinghaus' forgetting curve a power law, or averaged exponentials?",
+    "family": "memory-psychology",
+    "at": "2026-11-28T11:26:45-06:00"
   },
   "breadth_7d": {
     "families": [
@@ -32,6 +32,7 @@
       "geography",
       "holiday-culture",
       "language",
+      "memory-psychology",
       "music",
       "numbers",
       "physiology",
@@ -40,7 +41,7 @@
       "sky",
       "world-design"
     ],
-    "count": 19
+    "count": 20
   },
   "config": {
     "rest": [
