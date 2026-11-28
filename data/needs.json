@@ -1,10 +1,10 @@
 {
   "v": 1,
-  "updated": "2026-11-27T21:28:58-06:00",
+  "updated": "2026-11-28T08:21:55-06:00",
   "asleep": false,
   "meters": {
-    "curiosity": 99.6,
-    "social": 7.2,
+    "curiosity": 100.0,
+    "social": 0.0,
     "creativity": 100.0
   },
   "mood": "lonely",
@@ -14,9 +14,9 @@
     "avoid_families": []
   },
   "last_explore": {
-    "title": "Coastline paradox: Richardson divider walk on Natural Earth (GB D=1.245, Aus 1.15, SA 1.05; D depends on map scale & window)",
-    "family": "geography",
-    "at": "2026-11-27T21:26:35-06:00"
+    "title": "Is the hot hand a fallacy? Streak-selection bias",
+    "family": "probability",
+    "at": "2026-11-28T08:21:50-06:00"
   },
   "breadth_7d": {
     "families": [
@@ -35,11 +35,12 @@
       "music",
       "numbers",
       "physiology",
+      "probability",
       "seismology",
       "sky",
       "world-design"
     ],
-    "count": 18
+    "count": 19
   },
   "config": {
     "rest": [
